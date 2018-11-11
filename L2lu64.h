@@ -1,3 +1,5 @@
+#include <cstdint>  // int64_t
+
 #ifndef L2lu_h
 #define L2lu_h
 

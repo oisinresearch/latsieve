@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <iomanip>
+#include <cstdint>	// int64_t
 
 using std::cout;
 using std::endl;
