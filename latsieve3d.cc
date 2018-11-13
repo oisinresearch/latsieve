@@ -100,13 +100,21 @@ int main(int argc, char** argv)
 
 	// set up constants and call sieve
 	int* s = new int[degf * nump]();
-	int* num_smodp = new int[nump];
+	int* stemp = new int[degf];
+	int* num_smodp = new int[nump]();
 	int* fp = new int[degf]();
-	for (int i = 0; i < nump; i++) {
+	int* sievep = new int[nump]();
+	int k = 0;
+	for (int i = 15; i < nump; i++) {
 		int p = primes[i];
 		for (int j = 0; j <= degf; j++) fp[j] = mod(mpz_get_ui(fpoly[j]), p);
 		int degfp = degf; while (fp[degfp] == 0 || degfp == 0) degfp--;
-		num_smodp[i] = polrootsmod(fp, degfp, &s[i * degf], p);
+		int nums = polrootsmod(fp, degfp, stemp, p);
+		if (nums) {
+			for (int j = 0; j < nums; j++) s[k*degf + j] = stemp[j];
+			num_smodp[k] = nums;
+			sievep[k++] = p;
+		}
 	}
 	int B = 100;
 	int Mlen = 200*200*100*10;
@@ -114,7 +122,7 @@ int main(int argc, char** argv)
 	int q = 12373;
 	int* fq = new int[degf]();
 	for (int i = 0; i <= degf; i++) fq[i] = mod(mpz_get_ui(fpoly[i]), q);
-	latsieve3d(fq, degf, q, primes, nump, s, num_smodp, M, Mlen, B);
+	latsieve3d(fq, degf, q, sievep, k, s, num_smodp, M, Mlen, B);
 
 	delete[] fq;
 	delete[] M;
@@ -196,22 +204,18 @@ void latsieve3d(int* f, int degf, int q, int* allp, int nump, int* s, int* num_s
 			int p = allp[i];
 			float logp = logf(p);
 			for (int k = 0; k < num_smodp[i]; k++) {
-				int n = p*q;
-				int t = q*( (r[l]*modpinvq[i]) % p ) + p*( (s[i*degf+k]*modqinvp[i]) % q ); // CRT
+				int64_t n = p*q;
+				int64_t t = q*( (r[l]*modpinvq[i]) % p ) + p*( (s[i*degf+k]*modqinvp[i]) % q ); // CRT
 				if (t >= n) t -= n;
-				L2[0] = n; L2[1] = t;  L2[2] = 0;
-				L2[3] = 0; L2[4] = 1l; L2[5] = t;
-				L2[6] = 0; L2[7] = 0;  L2[8] = 1l;
+				L2[0] = n; L2[1] = t; L2[2] = 0;
+				L2[3] = 0; L2[4] = 1; L2[5] = t;
+				L2[6] = 0; L2[7] = 0; L2[8] = 1;
 				int64L2(L2,3);	// LLL reduce L, time log(n)^2
-				mat3x3prod(L, L2, L3);	// L3 =  L*L2
+				mat3x3prod(qLinv, L2, L3);	// L3 =  qLinv*L2
 				int u1 = L3[0]/q; int u2 = L3[3]/q; int u3 = L3[6]/q;
 				int v1 = L3[1]/q; int v2 = L3[4]/q; int v3 = L3[7]/q;
 				int w1 = L3[2]/q; int w2 = L3[5]/q; int w3 = L3[8]/q;
 
-				u1 = -9; u2 =  -9; u3 = 11;
-				v1 = 10; v2 = -12; v3 = -7;
-				w1 = 25; w2 =  25; w3 = 25;
-				
 				// compute normal (cross product)
 				int nx = u2*v3 - u3*v2;
 				int ny = u3*v1 - u1*v3;
@@ -235,10 +239,17 @@ void latsieve3d(int* f, int degf, int q, int* allp, int nump, int* s, int* num_s
 					y += a*u2 + b*v2;
 					z += a*u3 + b*v3;
 					int s1 = x; int s2 = y; int s3 = z;
-					if (x >= -B && x <= B && y >= -B && y <= B && z >= 0 && z <= B) {
-						// move 'forward' in plane
-						bool inplane = true;
-						while (inplane) {
+					// move 'forward' in plane
+					bool inplane = true;
+					while (inplane) {
+						// pin vector to start of row
+						int u1B = u1 < 0 ? B : -B; int u2B = u2 < 0 ? B : -B; int u3B = u3 < 0 ? B : 0;
+						j1 = (x - u1B) / u1;
+						j2 = (y - u2B) / u2;
+						j3 = (z - u3B) / u3;
+						jmin = minnonneg(j1, j2, j3);
+						x -= jmin*u1; y -= jmin*u2; z -= jmin*u3;
+						if (x >= -B && x <= B && y >= -B && y <= B && z >= 0 && z <= B) {
 							int u1B = u1 < 0 ? -B : B; int u2B = u2 < 0 ? -B : B; int u3B = u3 < 0 ? 0 : B;
 							j1 = (u1B - x) / u1;
 							j2 = (u2B - y) / u2;
@@ -251,39 +262,38 @@ void latsieve3d(int* f, int degf, int q, int* allp, int nump, int* s, int* num_s
 							}
 							// move by '1-transition' vector
 							x += v1; y += v2; z += v3;
-							u1B = -u1B; u2B = -u2B; u3B = u3 < 0 ? B : 0;
-							j1 = (x - u1B) / u1;
-							j2 = (y - u2B) / u2;
-							j3 = (z - u3B) / u3;
-							jmin = minnonneg(j1, j2, j3);
-							x -= jmin*u1; y -= jmin*u2; z -= jmin*u3;
-							if (abs(x) > B || abs(y) > B || z < 0 || z > B)
-								inplane = false;							
 						}
-						x = s1 - u1; y = s2 - u2; z = s3 - u3;
-						// move 'backward' in plane
-						inplane = true;
-						while (inplane) {
-							int u1B = u1 < 0 ? B : -B; int u2B = u2 < 0 ? B : -B; int u3B = u3 < 0 ? B : 0;
-							j1 = (x - u1B) / u1;
-							j2 = (y - u2B) / u2;
-							j3 = (z - u3B) / u3;
-							jmin = minnonneg(j1, j2, j3);
-							for (int j = 0; j <= jmin; j++) {
-								int id = (x + B) + ((y + B) << B2bits) + (z << BB4bits);
-								M[m++] = (keyval){ id, logp };
-								x -= u1; y -= u2; z -= u3;
-							}
-							// move by '1-transition' vector
-							x -= v1; y -= v2; z -= v3;
-							u1B = -u1B; u2B = -u2B; u3B = u3 < 0 ? 0 : B;
+						else {
+							inplane = false;	
+						}
+					}
+					x = s1 - v1; y = s2 - v2; z = s3 - v3;
+					// move 'backward' in plane
+					inplane = true;
+					while (inplane) {
+						// pin vector to start of row
+						int u1B = u1 < 0 ? B : -B; int u2B = u2 < 0 ? B : -B; int u3B = u3 < 0 ? B : 0;
+						j1 = (x - u1B) / u1;
+						j2 = (y - u2B) / u2;
+						j3 = (z - u3B) / u3;
+						jmin = minnonneg(j1, j2, j3);
+						x -= jmin*u1; y -= jmin*u2; z -= jmin*u3;
+						if (x >= -B && x <= B && y >= -B && y <= B && z >= 0 && z <= B) {
+							int u1B = u1 < 0 ? -B : B; int u2B = u2 < 0 ? -B : B; int u3B = u3 < 0 ? 0 : B;
 							j1 = (u1B - x) / u1;
 							j2 = (u2B - y) / u2;
 							j3 = (u3B - z) / u3;
 							jmin = minnonneg(j1, j2, j3);
-							x += jmin*u1; y += jmin*u2; z += jmin*u3;
-							if (abs(x) > B || abs(y) > B || z < 0 || z > B)
-								inplane = false;							
+							for (int j = 0; j <= jmin; j++) {
+								int id = (x + B) + ((y + B) << B2bits) + (z << BB4bits);
+								M[m++] = (keyval){ id, logp };
+								x += u1; y += u2; z += u3;
+							}
+							// move by '1-transition' vector
+							x -= v1; y -= v2; z -= v3;
+						}
+						else {
+							inplane = false;
 						}
 					}
 					// advance to next plane
