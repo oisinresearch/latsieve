@@ -22,9 +22,9 @@ struct keyval {
 	float logp;
 };
 
-void latsieve3d(int* f, int degf, int q, int* allp, int nump, int* s, int* num_smodp, keyval* M, int Mlen, int B);
-int modinv(int x, int m);
-void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, int B, int* a, int* b);
+int latsieve3d(int* f, int degf, int64_t q, int* allp, int nump, int* s, int* num_smodp, keyval* M, int Mlen, int B);
+inline int modinv(int x, int m);
+inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, int B, int* a, int* b);
 inline bool planeintersectsbox(int nx, int ny, int nz, int x, int y, int z, int B);
 inline int minnonneg(int u, int v, int w);
 inline int minabs(int u, int v, int w);
@@ -85,29 +85,30 @@ int main(int argc, char** argv)
 	if (verbose) cout << endl << "Complete." << endl;
 
 	if (verbose) cout << endl << "Starting sieve of Eratosthenes for small primes..." << endl << flush;
-	int max = 2048;
+	int max = 65536;
 	char* sieve = new char[max+1]();
-	int* primes = new int[309]; 	// 2039 is the 309th prime, largest below 2048
+	int* primes = new int[6542]; 	// 2039 is the 309th prime, largest below 2048
 	for (int i = 2; i <= sqrt(max); i++)
 		if(!sieve[i])
 			for (int j = i*i; j <= max; j += i)
 				if(!sieve[j]) sieve[j] = 1;
 	int nump = 0;
-	for (int i = 2; i <= 2047; i++)
+	for (int i = 2; i <= 65535; i++)
 		if (!sieve[i])
 			primes[nump++] = i;
 	if (verbose) cout << "Complete." << endl;
 
 	// set up constants and call sieve
+	mpz_t r; mpz_init(r);
 	int* s = new int[degf * nump]();
 	int* stemp = new int[degf];
 	int* num_smodp = new int[nump]();
-	int* fp = new int[degf]();
+	int* fp = new int[degf+1]();
 	int* sievep = new int[nump]();
 	int k = 0;
 	for (int i = 15; i < nump; i++) {
 		int p = primes[i];
-		for (int j = 0; j <= degf; j++) fp[j] = mod(mpz_get_ui(fpoly[j]), p);
+		for (int j = 0; j <= degf; j++) fp[j] = mpz_mod_ui(r, fpoly[j], p);
 		int degfp = degf; while (fp[degfp] == 0 || degfp == 0) degfp--;
 		int nums = polrootsmod(fp, degfp, stemp, p);
 		if (nums) {
@@ -116,19 +117,23 @@ int main(int argc, char** argv)
 			sievep[k++] = p;
 		}
 	}
-	int B = 100;
-	int Mlen = 200*200*100*10;
+	int B = 256;
+	int Mlen = 512*512*256*10;
 	keyval* M = new keyval[Mlen];
-	int q = 12373;
-	int* fq = new int[degf]();
-	for (int i = 0; i <= degf; i++) fq[i] = mod(mpz_get_ui(fpoly[i]), q);
-	latsieve3d(fq, degf, q, sievep, k, s, num_smodp, M, Mlen, B);
+	int q = 65537;
+	int* fq = new int[degf+1]();
+	for (int i = 0; i <= degf; i++) fq[i] = mpz_mod_ui(r, fpoly[i], q);
+	cout << "Starting sieve for special-q " << q << "..." << endl << flush;
+	int m = latsieve3d(fq, degf, q, sievep, k, s, num_smodp, M, Mlen, B);
+	cout << "Finished!" << endl << flush;
+	cout << "Number of lattice points is " << m << "." << endl << flush;
 
 	delete[] fq;
 	delete[] M;
 	delete[] fp;
 	delete[] num_smodp;
 	delete[] s;
+	mpz_clear(r);
 	delete[] primes;
 	delete[] sieve;
 	for (int i = 0; i < 20; i++) {
@@ -150,14 +155,14 @@ inline void mat3x3prod(int64_t* L1, int64_t* L2, int64_t* L3)
 		for (int j = 0; j < 3; j++) {
 			L3[i*3 + j] = 0;
 			for (int k = 0; k < 3; k++) {
-				L3[i*3 + j] += L1[k*3 + i] * L2[j*3 + k];
+				L3[i*3 + j] += L1[i*3 + k] * L2[k*3 + j];
 			}
 		}
 	}
 }
 
 
-void latsieve3d(int* f, int degf, int q, int* allp, int nump, int* s, int* num_smodp, keyval* M, int Mlen, int B)
+int latsieve3d(int* f, int degf, int64_t q, int* allp, int nump, int* s, int* num_smodp, keyval* M, int Mlen, int B)
 {
 	int64_t L[9];
 	int64_t L2[9];
@@ -177,10 +182,15 @@ void latsieve3d(int* f, int degf, int q, int* allp, int nump, int* s, int* num_s
 		modqinvp[i] = modinv(p, q);
 	}
 
-	for (int l = 0; l < numl; l++) {
-		L[0] = q; L[1] = r[l]; L[2] = 0;
-		L[3] = 0; L[4] = 1l;   L[5] = r[l];
-		L[6] = 0; L[7] = 0;    L[8] = 1l;
+	// clear M
+	for (int j = 0; j < Mlen; j++) M[j] = (keyval){ 0, 0 };
+	cout << "Memory cleared." << endl << flush;
+	int m = 0;
+
+	for (int l = 0; l <= 0 /* < numl*/; l++) {
+		L[0] = q; L[1] = -r[l]; L[2] = 0;
+		L[3] = 0; L[4] = 1;     L[5] = -r[l];
+		L[6] = 0; L[7] = 0;     L[8] = 1;
 
 		int64L2(L, 3);	// LLL reduce L, time log(q)^2
 
@@ -197,15 +207,18 @@ void latsieve3d(int* f, int degf, int q, int* allp, int nump, int* s, int* num_s
 		qLinv[8] = L[0]*L[4]-L[1]*L[3];
 
 		// clear M
-		for (int j = 0; j < Mlen; j++) M[j] = (keyval){ 0, 0 };
-		int i = 0; int m = 0;
+		//for (int j = 0; j < Mlen; j++) M[j] = (keyval){ 0, 0 };
+		int i = 0; //int m = 0;
 		while (i < nump) {
 			if (num_smodp[i] == 0) continue;	// skip p if no roots mod p
-			int p = allp[i];
+			int64_t p = allp[i];
+			cout << p << "," << flush;
 			float logp = logf(p);
+			int64_t rl = mod(-r[l], q);
 			for (int k = 0; k < num_smodp[i]; k++) {
 				int64_t n = p*q;
-				int64_t t = q*( (r[l]*modpinvq[i]) % p ) + p*( (s[i*degf+k]*modqinvp[i]) % q ); // CRT
+				int64_t sk = mod(-s[i*degf+k],p);
+				int64_t t = q*( (sk * modpinvq[i]) % p ) + p*( (rl * modqinvp[i]) % q ); // CRT
 				if (t >= n) t -= n;
 				L2[0] = n; L2[1] = t; L2[2] = 0;
 				L2[3] = 0; L2[4] = 1; L2[5] = t;
@@ -222,15 +235,11 @@ void latsieve3d(int* f, int degf, int q, int* allp, int nump, int* s, int* num_s
 				int nz = u1*v2 - u2*v1;
 
 				// enumerate lattice vectors (x,y,z) in box [-B,B]x[-B,B]x[0,B]
-				int w1B = w1 < 0 ? B : -B; int w2B = w2 < 0 ? B : -B; int w3B = w3 < 0 ? B : 0;
-				int j1 = w1B / w1;
-				int j2 = w2B / w2;
-				int j3 = w3B / w3;
-				int jmin = min(j1, j2, j3);
-				int x = jmin*w1; int y = jmin*w2; int z = jmin*w3;
-				while (!planeintersectsbox(nx, ny, nz, x, y, z, B) && (x < B && y < B && z < B)) {
-					x += w1; y += w2; z += w3;
+				int x = w1; int y = w2; int z = w3;
+				while (!planeintersectsbox(nx, ny, nz, x, y, z, B)) {
+					x -= w1; y -= w2; z -= w3;
 				}
+				int j1, j2, j3, jmin;
 				while (planeintersectsbox(nx, ny, nz, x, y, z, B)) {
 					int ws1 = x; int ws2 = y; int ws3 = z;
 					int a = 0; int b = 0;
@@ -244,16 +253,16 @@ void latsieve3d(int* f, int degf, int q, int* allp, int nump, int* s, int* num_s
 					while (inplane) {
 						// pin vector to start of row
 						int u1B = u1 < 0 ? B : -B; int u2B = u2 < 0 ? B : -B; int u3B = u3 < 0 ? B : 0;
-						j1 = (x - u1B) / u1;
-						j2 = (y - u2B) / u2;
-						j3 = (z - u3B) / u3;
+						j1 = u1 == 0 ? -1 : (x - u1B) / u1;
+						j2 = u2 == 0 ? -1 : (y - u2B) / u2;
+						j3 = u3 == 0 ? -1 : (z - u3B) / u3;
 						jmin = minnonneg(j1, j2, j3);
 						x -= jmin*u1; y -= jmin*u2; z -= jmin*u3;
 						if (x >= -B && x <= B && y >= -B && y <= B && z >= 0 && z <= B) {
 							int u1B = u1 < 0 ? -B : B; int u2B = u2 < 0 ? -B : B; int u3B = u3 < 0 ? 0 : B;
-							j1 = (u1B - x) / u1;
-							j2 = (u2B - y) / u2;
-							j3 = (u3B - z) / u3;
+							j1 = u1 == 0 ? -1 : (u1B - x) / u1;
+							j2 = u2 == 0 ? -1 : (u2B - y) / u2;
+							j3 = u3 == 0 ? -1 : (u3B - z) / u3;
 							jmin = minnonneg(j1, j2, j3);
 							for (int j = 0; j <= jmin; j++) {
 								int id = (x + B) + ((y + B) << B2bits) + (z << BB4bits);
@@ -273,16 +282,16 @@ void latsieve3d(int* f, int degf, int q, int* allp, int nump, int* s, int* num_s
 					while (inplane) {
 						// pin vector to start of row
 						int u1B = u1 < 0 ? B : -B; int u2B = u2 < 0 ? B : -B; int u3B = u3 < 0 ? B : 0;
-						j1 = (x - u1B) / u1;
-						j2 = (y - u2B) / u2;
-						j3 = (z - u3B) / u3;
+						j1 = u1 == 0 ? -1 : (x - u1B) / u1;
+						j2 = u2 == 0 ? -1 : (y - u2B) / u2;
+						j3 = u3 == 0 ? -1 : (z - u3B) / u3;
 						jmin = minnonneg(j1, j2, j3);
 						x -= jmin*u1; y -= jmin*u2; z -= jmin*u3;
 						if (x >= -B && x <= B && y >= -B && y <= B && z >= 0 && z <= B) {
 							int u1B = u1 < 0 ? -B : B; int u2B = u2 < 0 ? -B : B; int u3B = u3 < 0 ? 0 : B;
-							j1 = (u1B - x) / u1;
-							j2 = (u2B - y) / u2;
-							j3 = (u3B - z) / u3;
+							j1 = u1 == 0 ? -1 : (u1B - x) / u1;
+							j2 = u2 == 0 ? -1 : (u2B - y) / u2;
+							j3 = u3 == 0 ? -1 : (u3B - z) / u3;
 							jmin = minnonneg(j1, j2, j3);
 							for (int j = 0; j <= jmin; j++) {
 								int id = (x + B) + ((y + B) << B2bits) + (z << BB4bits);
@@ -300,16 +309,20 @@ void latsieve3d(int* f, int degf, int q, int* allp, int nump, int* s, int* num_s
 					x = ws1 + w1; y = ws2 + w2; z = ws3 + w3;
 				}
 			}
+			// advance to next p
+			i++;
 		}
 	}
 	// clear memory
 	delete[] modqinvp;
 	delete[] modpinvq;
 	delete[] r;
+
+	return m;
 }
 
 
-void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, int B, int* a, int* b)
+inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, int B, int* a, int* b)
 {
 	int n1 = u3 * (u3 < 0 ? -B-x :  B-x) - u1 * (u1 < 0 ?   -z :  B-z);
 	int n2 = u1 * (u1 < 0 ? -B-y :  B-y) - u2 * (u2 < 0 ? -B-x :  B-x);
@@ -320,13 +333,13 @@ void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, 
 	int d1 = u3*v1 - u1*v3;
 	int d2 = u1*v2 - u2*v1;
 	int d3 = u2*v3 - u3*v2;
-	int b1 = d1 < 0 ? n1/d1 : m1/d1;
-	int b2 = d2 < 0 ? n2/d2 : m2/d2;
-	int b3 = d3 < 0 ? n3/d3 : m3/d3;
+	int b1 = d1 == 0 ? -1 : d1 < 0 ? n1/d1 : m1/d1;
+	int b2 = d2 == 0 ? -1 : d2 < 0 ? n2/d2 : m2/d2;
+	int b3 = d3 == 0 ? -1 : d3 < 0 ? n3/d3 : m3/d3;
 	*b = minnonneg(b1, b2, b3);
-	int a1 = u1 < 0 ? ( -B - x - v1 * (*b) ) / u1 : ( B - x - v1 * (*b) ) / u1;
-	int a2 = u2 < 0 ? ( -B - y - v2 * (*b) ) / u2 : ( B - y - v2 * (*b) ) / u2;
-	int a3 = u3 < 0 ? (  0 - z - v3 * (*b) ) / u3 : ( B - z - v3 * (*b) ) / u3;
+	int a1 = u1 == 0 ? -1 : u1 < 0 ? ( -B - x - v1 * (*b) ) / u1 : ( B - x - v1 * (*b) ) / u1;
+	int a2 = u2 == 0 ? -1 : u2 < 0 ? ( -B - y - v2 * (*b) ) / u2 : ( B - y - v2 * (*b) ) / u2;
+	int a3 = u3 == 0 ? -1 : u3 < 0 ? (  0 - z - v3 * (*b) ) / u3 : ( B - z - v3 * (*b) ) / u3;
 	*a = minnonneg(a1, a2, a3);
 }
 
