@@ -6,6 +6,7 @@
 #include "intpoly.h"
 #include <math.h>	// sqrt
 #include <fstream>	// file
+#include <ctime>	// clock_t
 
 using std::cout;
 using std::endl;
@@ -85,27 +86,30 @@ int main(int argc, char** argv)
 	if (verbose) cout << endl << "Complete." << endl;
 
 	if (verbose) cout << endl << "Starting sieve of Eratosthenes for small primes..." << endl << flush;
-	int max = 65536;
+	int max = 10000000;// 65536;
 	char* sieve = new char[max+1]();
-	int* primes = new int[6542]; 	// 2039 is the 309th prime, largest below 2048
+	int* primes = new int[809228];	//new int[6542]; 	// 2039 is the 309th prime, largest below 2048
 	for (int i = 2; i <= sqrt(max); i++)
 		if(!sieve[i])
 			for (int j = i*i; j <= max; j += i)
 				if(!sieve[j]) sieve[j] = 1;
 	int nump = 0;
-	for (int i = 2; i <= 65535; i++)
+	for (int i = 2; i <= max-1; i++)
 		if (!sieve[i])
 			primes[nump++] = i;
 	if (verbose) cout << "Complete." << endl;
 
-	// set up constants and call sieve
+	// set up constants
 	mpz_t r; mpz_init(r);
 	int* s = new int[degf * nump]();
 	int* stemp = new int[degf];
 	int* num_smodp = new int[nump]();
 	int* fp = new int[degf+1]();
 	int* sievep = new int[nump]();
+	// compute factor base
+	if (verbose) cout << endl << "Computing factor base..." << endl << flush;
 	int k = 0;
+	//# p ragma omp parallel for
 	for (int i = 15; i < nump; i++) {
 		int p = primes[i];
 		for (int j = 0; j <= degf; j++) fp[j] = mpz_mod_ui(r, fpoly[j], p);
@@ -116,16 +120,21 @@ int main(int argc, char** argv)
 			num_smodp[k] = nums;
 			sievep[k++] = p;
 		}
+		if (i % 1000 == 0) cout << i << "," << flush;
 	}
-	int B = 256;
-	int Mlen = 512*512*256*10;
+	if (verbose) cout << endl << "Complete. There are " << k << " factor base primes." << endl;
+	
+	int B = 512;
+	int Mlen = 1024*1024*512*2;// 512*512*256*10;
 	keyval* M = new keyval[Mlen];
-	int q = 65537;
+	int q = 12345701;// 65537;
 	int* fq = new int[degf+1]();
 	for (int i = 0; i <= degf; i++) fq[i] = mpz_mod_ui(r, fpoly[i], q);
 	cout << "Starting sieve for special-q " << q << "..." << endl << flush;
+	std::clock_t start = clock();
 	int m = latsieve3d(fq, degf, q, sievep, k, s, num_smodp, M, Mlen, B);
-	cout << "Finished!" << endl << flush;
+	double timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+	cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
 	cout << "Number of lattice points is " << m << "." << endl << flush;
 
 	delete[] fq;
@@ -212,7 +221,7 @@ int latsieve3d(int* f, int degf, int64_t q, int* allp, int nump, int* s, int* nu
 		while (i < nump) {
 			if (num_smodp[i] == 0) continue;	// skip p if no roots mod p
 			int64_t p = allp[i];
-			cout << p << "," << flush;
+			//cout << p << "," << flush;
 			float logp = logf(p);
 			int64_t rl = mod(-r[l], q);
 			for (int k = 0; k < num_smodp[i]; k++) {
@@ -236,7 +245,7 @@ int latsieve3d(int* f, int degf, int64_t q, int* allp, int nump, int* s, int* nu
 
 				// enumerate lattice vectors (x,y,z) in box [-B,B]x[-B,B]x[0,B]
 				int x = w1; int y = w2; int z = w3;
-				while (!planeintersectsbox(nx, ny, nz, x, y, z, B)) {
+				while (planeintersectsbox(nx, ny, nz, x-w1, y-w2, z-w3, B)) {
 					x -= w1; y -= w2; z -= w3;
 				}
 				int j1, j2, j3, jmin;

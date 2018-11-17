@@ -14,8 +14,8 @@ using std::flush;
 
 float n = 0.51f;
 float delta = 0.99f;
-float nn = (n+0.5f)/2.0f;
-float dd = (delta+1.0f)/2.0f;
+float nn = (n+0.5f) / 2.0f;
+float dd = (delta+1.0f) / 2.0f;
 
 void printbasis(int64_t* b, int d, int pr, int w)
 {
@@ -27,18 +27,22 @@ void printbasis(int64_t* b, int d, int pr, int w)
 	}
 }
 
-void int64L2(int64_t* b, int d)
+void int64L2(int64_t* borig, int d)
 {
 	int d2 = d*d;
-	int64_t* G = new int64_t[d2](); // subtle bug unless G initialized to zero
+	__int128* b = new __int128[d2];
+	__int128* G = new __int128[d2](); // subtle bug unless G initialized to zero
 	float* rr = new float[d2];
 	float* uu = new float[d2];
+
+	// copy into b
+	for (int i = 0; i < d2; i++) b[i] = borig[i];
 
 	// compute Gram matrix exactly
 	for (int j = 0; j < d; j++) {
 		for (int i = 0; i <= j; i++) {
 			for (int l = 0; l < d; l++)
-				G[j*d+i] += b[l*d+j]*b[l*d+i];
+				G[j*d+i] += b[l*d+j] * b[l*d+i];
 			G[i*d+j] = G[j*d+i];
 		}
 	}
@@ -53,8 +57,8 @@ void int64L2(int64_t* b, int d)
 		for (int i = 0; i <= k; i++) {
 			rr[i*d+k] = G[i*d+k];
 			for (int j = 0; j < i; j++)
-				rr[i*d+k] -= rr[j*d+k]*uu[j*d+i];
-			uu[i*d+k] = rr[i*d+k]/rr[i*d+i];
+				rr[i*d+k] -= rr[j*d+k] * uu[j*d+i];
+			uu[i*d+k] = rr[i*d+k] / rr[i*d+i];
 		}
 
 		// compute max |uu[k*d+j]| for j < k
@@ -64,31 +68,31 @@ void int64L2(int64_t* b, int d)
 				max = fabs(uu[j*d+k]);
 		if (max > nn) {
 			for (int j = k-1; j >= 0; j--) {
-				int64_t X = floorf(uu[j*d+k] + 0.5f);
+				__int128 X = floorf(uu[j*d+k] + 0.5f);
 				for (int i = 0; i < d; i++)
-					b[i*d+k] -= X*b[i*d+j];
+					b[i*d+k] -= X * b[i*d+j];
 				// update G
 				for (int m = 0; m < d; m++) {
 					for (int i = 0; i <= m; i++) {
 						G[m*d+i] = 0;
 						for (int l = 0; l < d; l++)
-							G[m*d+i] += b[l*d+i]*b[l*d+m];
+							G[m*d+i] += b[l*d+i] * b[l*d+m];
 						G[i*d+m] = G[m*d+i];
 					}
 				}
 				// update uu
 				for (int i = 0; i < j; i++)
-					uu[i*d+k] -= X*uu[i*d+j];
+					uu[i*d+k] -= X * uu[i*d+j];
 			}
 			continue;
 		}
 		
-		if (dd*rr[(k-1)*d+k-1] < rr[k*d+k] + uu[(k-1)*d+k]*uu[(k-1)*d+k]*rr[(k-1)*d+k-1]) {
+		if (dd * rr[(k-1)*d+k-1] < rr[k*d+k] + uu[(k-1)*d+k]*uu[(k-1)*d+k] * rr[(k-1)*d+k-1]) {
 			k++;
 		}
 		else {
 			for (int i = 0; i < d; i++) {
-				int64_t t = b[i*d+k-1];
+				__int128 t = b[i*d+k-1];
 				b[i*d+k-1] = b[i*d+k];
 				b[i*d+k] = t;
 			}
@@ -97,7 +101,7 @@ void int64L2(int64_t* b, int d)
 				for (int i = 0; i <= j; i++) {
 					G[j*d+i] = 0;
 					for (int l = 0; l < d; l++)
-						G[j*d+i] += b[l*d+i]*b[l*d+j];
+						G[j*d+i] += b[l*d+i] * b[l*d+j];
 					G[i*d+j] = G[j*d+i];
 				}
 			}
@@ -105,15 +109,15 @@ void int64L2(int64_t* b, int d)
 			for (int i = 0; i <= k-1; i++) {
 				rr[i*d+k-1] = G[i*d+k-1];
 				for (int j = 0; j < i; j++)
-					rr[i*d+k-1] -= rr[j*d+k-1]*uu[j*d+i];
-				uu[i*d+k-1] = rr[i*d+k-1]/rr[i*d+i];
+					rr[i*d+k-1] -= rr[j*d+k-1] * uu[j*d+i];
+				uu[i*d+k-1] = rr[i*d+k-1] / rr[i*d+i];
 			}
 			// update rr[k*d+i] & uu[k*d+i]
 			for (int i = 0; i <= k; i++) {
 				rr[i*d+k] = G[i*d+k];
 				for (int j = 0; j < i; j++)
-					rr[i*d+k] -= rr[j*d+k]*uu[j*d+i];
-				uu[i*d+k] = rr[i*d+k]/rr[i*d+i];
+					rr[i*d+k] -= rr[j*d+k] * uu[j*d+i];
+				uu[i*d+k] = rr[i*d+k] / rr[i*d+i];
 			}
 			
 			k--;
@@ -121,7 +125,10 @@ void int64L2(int64_t* b, int d)
 		}
 		// finished
 	}
-	
+
+	// write output
+	for (int i = 0; i < d2; i++) borig[i] = b[i];
+
 	// deallocate
 	delete[] uu;
 	delete[] rr;
