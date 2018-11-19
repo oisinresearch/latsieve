@@ -183,7 +183,7 @@ int polrootsmod(int* f, int degf, int* roots, int p)
 	int64_t* r = new int64_t[degf*2+2]();
 	int64_t* r2 = new int64_t[degf*2+2]();
 	r[0] = 1;
-	int mask = 1;
+	int64_t mask = 1;
 	while (mask << 1 <= p) mask <<= 1;
 	while (mask) {
 		// clear r2
