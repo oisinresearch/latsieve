@@ -8,6 +8,7 @@
 #include <fstream>	// file
 #include <ctime>	// clock_t
 #include <cstring>	// memset
+#include <omp.h>
 
 using std::cout;
 using std::endl;
@@ -86,7 +87,7 @@ int main(int argc, char** argv)
 		mpz_set_str(gpoly[degg++], line.c_str(), 10);
 		mpz_get_str(linebuffer, 10, gpoly[degg-1]);
 		if (verbose) cout << line << endl << flush;
-		read = getline(file, line); 
+		read = static_cast<bool>(getline(file, line));
 	}
 	//int degg = gpoly.size();
 	file.close();
@@ -108,50 +109,85 @@ int main(int argc, char** argv)
 	if (verbose) cout << "Complete." << endl;
 
 	// set up constants
+	std::clock_t start; double timetaken = 0;
+	int K = 0;
+	#pragma omp parallel
+	{
+		int id = omp_get_thread_num();
+		if (id == 0) K = omp_get_num_threads();
+	}
 	mpz_t r; mpz_init(r);
 	int* s = new int[degf * nump]();
-	int* stemp = new int[degf];
+	int* sieves = new int[degf * nump]();
 	int* num_smodp = new int[nump]();
-	int* fp = new int[degf+1]();
 	int* sievep = new int[nump]();
+	int* sievenum_smodp = new int[nump]();
+	int itenpc0 = nump / 10;
+	int itotal = 15;
 	// compute factor base
-	if (verbose) cout << endl << "Computing factor base..." << endl << flush;
-	int k = 0;
-	//# p ragma omp parallel for
-	for (int i = 15; i < nump; i++) {
-		int p = primes[i];
-		for (int j = 0; j <= degf; j++) fp[j] = mpz_mod_ui(r, fpoly[j], p);
-		int degfp = degf; while (fp[degfp] == 0 || degfp == 0) degfp--;
-		int nums = polrootsmod(fp, degfp, stemp, p);
-		if (nums) {
-			for (int j = 0; j < nums; j++) s[k*degf + j] = stemp[j];
-			num_smodp[k] = nums;
-			sievep[k++] = p;
+	if (verbose) cout << endl << "Constructing factor base with " << K << " threads." << endl << flush;
+	//if (verbose) cout << endl << "[0%]   constructing factor base..." << endl << flush;
+	start = clock();
+	#pragma omp parallel
+	{ 
+		int id = omp_get_thread_num();
+		int* stemp = new int[degf];
+		int* fp = new int[degf+1]();
+
+	#pragma omp for
+		for (int i = 15; i < nump; i++) {
+			int p = primes[i];
+			for (int j = 0; j <= degf; j++) fp[j] = mpz_mod_ui(r, fpoly[j], p);
+			int degfp = degf; while (fp[degfp] == 0 || degfp == 0) degfp--;
+			int nums = polrootsmod(fp, degfp, stemp, p);
+			num_smodp[i] = nums;
+			for (int j = 0; j < nums; j++) s[i*degf + j] = stemp[j];
+
+	#pragma omp atomic
+			itotal++;
+			if (itotal % itenpc0 == 0) {
+	#pragma omp critical
+				cout << "[" << 100 * itotal / nump + 1 << "%]\tConstructing factor base..." << endl << flush;
+			}				 
 		}
-		if (i % 1000 == 0) cout << i << "," << flush;
+
+		delete[] fp;
+		delete[] stemp;
 	}
-	if (verbose) cout << endl << "Complete. There are " << k << " factor base primes." << endl;
+	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC / K;
+	start = clock();
+	int k = 0;
+	for (int i = 15; i < nump; i++) {
+		int nums = num_smodp[i];
+		if (nums > 0) {
+			sievep[k] = primes[i];
+			for (int j = 0; j < nums; j++) sieves[k*degf + j] = s[i*degf + j];
+			sievenum_smodp[k++] = nums;
+		}
+	}
+	timetaken += ( clock() - start ) / (double) CLOCKS_PER_SEC;
+	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl << flush;
+	if (verbose) cout << "There are " << k << " factor base primes." << endl << flush;
 	
-	std::clock_t start; double timetaken = 0;
 	int B = 512;
 	int Mlen = 1024*1024*512*2;// 512*512*256*10;
 	keyval* M = new keyval[Mlen];	// lattice { id, p } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
 	float* H = new float[Mlen];	// histogram
 	// clear M
-	cout << "Clearing memory..." << endl << flush;
-	start = clock();
+	//cout << "Clearing memory..." << endl << flush;
+	//start = clock();
 	//for (int j = 0; j < Mlen; j++) M[j] = (keyval){ 0, 0 };
-	memset(M, 0, Mlen * sizeof(keyval));
-	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	cout << "Memory cleared. Time taken: " << timetaken << "s" << endl << flush;
+	//memset(M, 0, Mlen * sizeof(keyval));
+	//timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+	//cout << "Memory cleared. Time taken: " << timetaken << "s" << endl << flush;
 	int q = 12345701;// 65537;
 	if (argc == 3) q = atoi(argv[2]);
 	int* fq = new int[degf+1]();
 	for (int i = 0; i <= degf; i++) fq[i] = mpz_mod_ui(r, fpoly[i], q);
 	cout << "Starting sieve for special-q " << q << "..." << endl << flush;
 	start = clock();
-	int m = latsieve3d(fq, degf, q, 0, sievep, k, s, num_smodp, M, Mlen, B);
+	int m = latsieve3d(fq, degf, q, 0, sievep, k, sieves, sievenum_smodp, M, Mlen, B);
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
 	cout << "Number of lattice points is " << m << "." << endl << flush;
@@ -182,10 +218,9 @@ int main(int argc, char** argv)
 	delete[] H;
 	//delete[] L;
 	delete[] M;
+	delete[] sievenum_smodp;
 	delete[] sievep;
-	delete[] fp;
 	delete[] num_smodp;
-	delete[] stemp;
 	delete[] s;
 	mpz_clear(r);
 	delete[] primes;
