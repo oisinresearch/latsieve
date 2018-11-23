@@ -73,19 +73,19 @@ int main(int argc, char** argv)
 		line = line.substr(line.find_first_of(" ")+1);
 		//mpz_set_str(c, line.c_str(), 10);
 		mpz_set_str(fpoly[++degf], line.c_str(), 10);
-		mpz_get_str(linebuffer, 10, fpoly[degf-1]);
+		//mpz_get_str(linebuffer, 10, fpoly[degf-1]);
 		if (verbose) cout << line << endl << flush;
 	}
 	//int degf = fpoly.size();
 	// read other poly
-	int degg = 0;
+	int degg = -1;
 	bool read = true;
 	if (verbose) cout << endl << "linear polynomial g(x): (ascending coefficients)" << endl;
 	while (read && line.substr(0,1) == "Y" ) {
 		line = line.substr(line.find_first_of(" ")+1);
 		//mpz_set_str(c, line.c_str(), 10);
-		mpz_set_str(gpoly[degg++], line.c_str(), 10);
-		mpz_get_str(linebuffer, 10, gpoly[degg-1]);
+		mpz_set_str(gpoly[++degg], line.c_str(), 10);
+		//mpz_get_str(linebuffer, 10, gpoly[degg-1]);
 		if (verbose) cout << line << endl << flush;
 		read = static_cast<bool>(getline(file, line));
 	}
@@ -95,9 +95,9 @@ int main(int argc, char** argv)
 	if (verbose) cout << endl << "Complete." << endl;
 
 	if (verbose) cout << endl << "Starting sieve of Eratosthenes for small primes..." << endl << flush;
-	int max = 10000000;// 65536;
+	int max = 1<<25; // 10000000;// 65536;
 	char* sieve = new char[max+1]();
-	int* primes = new int[809228];	//new int[6542]; 	// 2039 is the 309th prime, largest below 2048
+	int* primes = new int[2063689]; //new int[809228];	//new int[6542]; 	// 2039 is the 309th prime, largest below 2048
 	for (int i = 2; i <= sqrt(max); i++)
 		if(!sieve[i])
 			for (int j = i*i; j <= max; j += i)
@@ -117,11 +117,16 @@ int main(int argc, char** argv)
 		if (id == 0) K = omp_get_num_threads();
 	}
 	mpz_t r; mpz_init(r);
-	int* s = new int[degf * nump]();
-	int* sieves = new int[degf * nump]();
-	int* num_smodp = new int[nump]();
-	int* sievep = new int[nump]();
-	int* sievenum_smodp = new int[nump]();
+	int* s0 = new int[degf * nump]();
+	int* sieves0 = new int[degf * nump]();
+	int* num_s0modp = new int[nump]();
+	int* sievep0 = new int[nump]();
+	int* sievenum_s0modp = new int[nump]();
+	int* s1 = new int[degg * nump]();
+	int* sieves1 = new int[degg * nump]();
+	int* num_s1modp = new int[nump]();
+	int* sievep1 = new int[nump]();
+	int* sievenum_s1modp = new int[nump]();
 	int itenpc0 = nump / 10;
 	int itotal = 15;
 	// compute factor base
@@ -129,19 +134,27 @@ int main(int argc, char** argv)
 	//if (verbose) cout << endl << "[0%]   constructing factor base..." << endl << flush;
 	start = clock();
 	#pragma omp parallel
-	{ 
+	{
+		mpz_t rt; mpz_init(rt); 
 		int id = omp_get_thread_num();
-		int* stemp = new int[degf];
+		int* stemp0 = new int[degf];
 		int* fp = new int[degf+1]();
+		int* stemp1 = new int[degg];
+		int* gp = new int[degg+1]();
 
 	#pragma omp for
 		for (int i = 15; i < nump; i++) {
 			int p = primes[i];
-			for (int j = 0; j <= degf; j++) fp[j] = mpz_mod_ui(r, fpoly[j], p);
+			for (int j = 0; j <= degf; j++) fp[j] = mpz_mod_ui(rt, fpoly[j], p);
 			int degfp = degf; while (fp[degfp] == 0 || degfp == 0) degfp--;
-			int nums = polrootsmod(fp, degfp, stemp, p);
-			num_smodp[i] = nums;
-			for (int j = 0; j < nums; j++) s[i*degf + j] = stemp[j];
+			int nums0 = polrootsmod(fp, degfp, stemp0, p);
+			num_s0modp[i] = nums0;
+			for (int j = 0; j < nums0; j++) s0[i*degf + j] = stemp0[j];
+			for (int j = 0; j <= degg; j++) gp[j] = mpz_mod_ui(rt, gpoly[j], p);
+			int deggp = degg; while (gp[deggp] == 0 || deggp == 0) deggp--;
+			int nums1 = polrootsmod(gp, deggp, stemp1, p);
+			num_s1modp[i] = nums1;
+			for (int j = 0; j < nums1; j++) s1[i*degg + j] = stemp1[j];
 
 	#pragma omp atomic
 			itotal++;
@@ -151,29 +164,40 @@ int main(int argc, char** argv)
 			}				 
 		}
 
+		delete[] gp;
+		delete[] stemp1;
 		delete[] fp;
-		delete[] stemp;
+		delete[] stemp0;
+		mpz_clear(rt);
 	}
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC / K;
 	start = clock();
-	int k = 0;
+	int k0 = 0; int k1 = 0;
 	for (int i = 15; i < nump; i++) {
-		int nums = num_smodp[i];
-		if (nums > 0) {
-			sievep[k] = primes[i];
-			for (int j = 0; j < nums; j++) sieves[k*degf + j] = s[i*degf + j];
-			sievenum_smodp[k++] = nums;
+		int nums0 = num_s0modp[i];
+		if (nums0 > 0) {
+			sievep0[k0] = primes[i];
+			for (int j = 0; j < nums0; j++) sieves0[k0*degf + j] = s0[i*degf + j];
+			sievenum_s0modp[k0++] = nums0;
+		}
+		int nums1 = num_s1modp[i];
+		if (nums1 > 0) {
+			sievep1[k1] = primes[i];
+			for (int j = 0; j < nums1; j++) sieves1[k1*degg + j] = s1[i*degg + j];
+			sievenum_s1modp[k1++] = nums1;
 		}
 	}
 	timetaken += ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl << flush;
-	if (verbose) cout << "There are " << k << " factor base primes." << endl << flush;
+	if (verbose) cout << "There are " << k0 << " factor base primes on side 0." << endl << flush;
+	if (verbose) cout << "There are " << k1 << " factor base primes on side 1." << endl << flush;
 	
-	int B = 512;
-	int Mlen = 1024*1024*512*2;// 512*512*256*10;
+	int B = 256;//512;
+	int Mlen = 512*512*256*2;//1024*1024*512*2;
 	keyval* M = new keyval[Mlen];	// lattice { id, p } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
 	float* H = new float[Mlen];	// histogram
+	vector<int> rel;
 	// clear M
 	//cout << "Clearing memory..." << endl << flush;
 	//start = clock();
@@ -182,46 +206,88 @@ int main(int argc, char** argv)
 	//timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	//cout << "Memory cleared. Time taken: " << timetaken << "s" << endl << flush;
 	int q = 12345701;// 65537;
-	if (argc == 3) q = atoi(argv[2]);
+	if (argc >= 3) q = atoi(argv[2]);
 	int* fq = new int[degf+1]();
 	for (int i = 0; i <= degf; i++) fq[i] = mpz_mod_ui(r, fpoly[i], q);
-	cout << "Starting sieve for special-q " << q << "..." << endl << flush;
+	// sieve side 0
+	cout << "Starting sieve on side 0 for special-q " << q << "..." << endl << flush;
 	start = clock();
-	int m = latsieve3d(fq, degf, q, 0, sievep, k, sieves, sievenum_smodp, M, Mlen, B);
+	int m = latsieve3d(fq, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
-	cout << "Number of lattice points is " << m << "." << endl << flush;
+	cout << "Size of lattice point list is " << m << "." << endl << flush;
 	cout << "Constructing histogram..." << endl << flush;
 	start = clock();
 	//std::stable_sort(M, M + m, &lattice_sorter);
 	histogram(M, H, m);
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
-	
 	float th = 100.0f;
-	int R = 0;
+	if (argc >= 4) th = atof(argv[3]);
+	int R0 = 0;
 	int B2 = 2*B; int BB = B*B;
 	int B2bits = 1; while (1 << B2bits < B2) B2bits++;
 	int BB4bits = 1; while (1 << BB4bits < BB*4) BB4bits++;
 	for (int i = 0; i < m; i++) {
 		if (H[i] > th) {
-			int x = (i % 1024) - 512;
-			int y = ((i >> B2bits) % 1024) - 512;
-			int z = i >> BB4bits;
-			cout << x << "," << y << "," << z << endl;
-			R++;
+			rel.push_back(i);
+			R0++;
 		}
 	}
-	cout << R << " potential relations." << endl;
+	cout << R0 << " candidates on side 0." << endl << flush;
+	// sieve side 1
+	cout << "Starting sieve on side 1..." << endl << flush;
+	start = clock();
+	m = latsieve3d(fq, degf, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
+	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+	cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
+	cout << "Size of lattice point list is " << m << "." << endl << flush;
+	cout << "Constructing histogram..." << endl << flush;
+	start = clock();
+	//std::stable_sort(M, M + m, &lattice_sorter);
+	histogram(M, H, m);
+	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+	cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
+	th = 100.0f;
+	if (argc >= 4) th = atof(argv[3]);
+	int R1 = 0;
+	for (int i = 0; i < m; i++) {
+		if (H[i] > th) {
+			rel.push_back(i);
+			R1++;
+		}
+	}
+	cout << R1 << " candidates on side 1." << endl << flush;
+	// sort hits
+	sort(rel.begin(), rel.end());
+	// print list of potential relations
+	int R = 0;
+	for (int i = 0; i < rel.size()-1; i++)
+	{
+		if (rel[i] == rel[i+1] && rel[i] != 0) {
+			int x = (rel[i] % B2) - B;
+			int y = ((rel[i] >> B2bits) % B2) - B;
+			int z = rel[i] >> BB4bits;
+			if (x != 0 || y != 0 || z != 0) {
+				cout << x << "," << y << "," << z << endl;
+				R++;
+			}
+		}
+	}
+	cout << R << " potential relations found." << endl << flush;
 	
 	delete[] fq;
 	delete[] H;
 	//delete[] L;
 	delete[] M;
-	delete[] sievenum_smodp;
-	delete[] sievep;
-	delete[] num_smodp;
-	delete[] s;
+	delete[] sievenum_s1modp;
+	delete[] sievep1;
+	delete[] num_s1modp;
+	delete[] s1;
+	delete[] sievenum_s0modp;
+	delete[] sievep0;
+	delete[] num_s0modp;
+	delete[] s0;
 	mpz_clear(r);
 	delete[] primes;
 	delete[] sieve;
@@ -311,6 +377,7 @@ int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, 
 	int* modqinvp = new int[nump];
 	for (int i = 0; i < nump; i++) {
 		int p = allp[i];
+		if (p == q) continue;
 		modpinvq[i] = modinv(q, p);
 		modqinvp[i] = modinv(p, q);
 	}
@@ -335,9 +402,9 @@ int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, 
 
 	int i = 0; int m = 0;
 	while (i < nump) {
-		if (num_smodp[i] == 0) continue;	// skip p if no roots mod p
 		int64_t p = allp[i];
-		//cout << p << "," << flush;
+		if (p == q) { i++; continue; }
+		//cout << p << "," << m << endl << flush;
 		float logp = logf(p);
 		int64_t rl = mod(-r[l], q);
 		for (int k = 0; k < num_smodp[i]; k++) {

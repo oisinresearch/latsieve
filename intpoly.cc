@@ -222,7 +222,7 @@ int polrootsmod(int* f, int degf, int* roots, int p)
 	// compute g = gcd(r, f) (mod p)
 	int64_t* f1 = new int64_t[degf+1];
 	int64_t* f2 = new int64_t[degf+1];
-	for (int i = 0; i <= degf; i++) { f1[i] = f[i]; f2[i] = r[i]; }
+	for (int i = 0; i <= degf; i++) { f1[i] = r[i]; f2[i] = f[i]; }
 	int degf1 = poldegree(f1, degf);	// get actual degree of f1
 	int degf2 = poldegree(f2, degf);	// get actual degree of f2
 	while (degf1 > 0) {
