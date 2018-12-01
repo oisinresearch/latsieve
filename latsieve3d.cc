@@ -47,7 +47,7 @@ inline int maxabs(int u, int v, int w);
 inline int min(int u, int v, int w);
 inline int max(int u, int v, int w);
 void GetlcmScalar(int B, mpz_t S, int* primes, int nump);
-void PollardPm1(mpz_t N, mpz_t S, mpz_t factor);
+bool PollardPm1(mpz_t N, mpz_t S, mpz_t factor);
 
 
 int main(int argc, char** argv)
@@ -391,7 +391,7 @@ int main(int argc, char** argv)
 							}		
 						}
 						else {
-							str += mpz_get_str(NULL, 16, N0) + "?";
+							str += mpz_get_str(NULL, 16, N0); str += "?";
 						}
 					}
 					else {	// cofactor prime but is it < lpb ?
@@ -459,7 +459,7 @@ int main(int argc, char** argv)
 								}		
 							}
 							else {
-								str += mpz_get_str(NULL, 16, N1) + "?";
+								str += mpz_get_str(NULL, 16, N1); str += "?";
 							}
 						}
 						else {	// cofactor prime but is it < lpb ?
@@ -915,7 +915,7 @@ void GetlcmScalar(int B, mpz_t S, int* primes, int nump)
     mpz_t* tree = new mpz_t[nump];
     
     // Construct product tree
-    n = 0;
+    int n = 0;
     mpz_t pe; mpz_init(pe); mpz_t pe1; mpz_init(pe1);
 	int p = 2;
 	while (p < B) {
@@ -928,29 +928,49 @@ void GetlcmScalar(int B, mpz_t S, int* primes, int nump)
 		n++;
 		p = primes[n];
     }
-    delete[] sieve; mpz_clear(pe); mpz_clear(pe1);
+    mpz_clear(pe); mpz_clear(pe1);
     
     // Coalesce product tree
     uint64_t treepos = n - 1;
     while (treepos > 0) {
-        for (i = 0; i <= treepos; i += 2) {
+        for (int i = 0; i <= treepos; i += 2) {
             if(i < treepos)
 				mpz_lcm(tree[i/2], tree[i],tree[i + 1]);
             else
 				mpz_set(tree[i/2], tree[i]);
         }
-        for (i = (treepos >> 1); i < treepos - 1; i++) mpz_set_ui(tree[i + 1], 1);
+        for (int i = (treepos >> 1); i < treepos - 1; i++) mpz_set_ui(tree[i + 1], 1);
         treepos = treepos >> 1;
     }
     // tree[0] is the lcm of all primes with powers bounded by B
     mpz_set(S, tree[0]);
         
-    for (i = 0; i < n; i++) mpz_clear(tree[i]);
+    for (int i = 0; i < n; i++) mpz_clear(tree[i]);
     delete[] tree;
 }
 
 
-void PollardPm1(mpz_t N, mpz_t S, mpz_t factor)
+bool PollardPm1(mpz_t N, mpz_t S, mpz_t factor)
 {
-
+    int L = mpz_sizeinbase(S, 2); // exact for base = power of 2
+	mpz_t g; mpz_init_set_ui(g, 2);
+      
+    // Scalar multiplication using square and multiply
+    for (int i = 2; i <= L; i++) {
+        // square
+		mpz_mul(g, g, g);
+		mpz_mod(g, g, N);
+        if (mpz_tstbit(S, L - i) == 1) {
+            // multiply
+			mpz_mul_2exp(g, g, 1);
+			if (mpz_cmpabs(g, N) >= 0) mpz_sub(g, g, N);
+        }
+    }
+	// subtract 1
+	mpz_sub_ui(g, g, 1);
+	// compute gcd
+	mpz_gcd(factor, N, g);
+	return (mpz_cmpabs_ui(factor, 1) > 0 && mpz_cmpabs(factor, N) < 0);
 }
+
+
