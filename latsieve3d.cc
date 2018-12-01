@@ -9,6 +9,8 @@
 #include <ctime>	// clock_t
 #include <cstring>	// memset
 #include <omp.h>
+#include "mpz_poly.h"
+#include <sstream>	// stringstream
 
 using std::cout;
 using std::endl;
@@ -20,6 +22,9 @@ using std::fixed;
 using std::scientific;
 using std::setprecision;
 using std::sort;
+using std::to_string;
+using std::hex;
+using std::stringstream;
 
 struct keyval {
 	int id;
@@ -31,7 +36,7 @@ void histogram(keyval*M, float* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
 void csort(keyval* M, keyval* L, int* H, int len);
 inline int floordiv(int a, int b);
-inline int modinv(int x, int m);
+inline int64_t modinv(int64_t x, int64_t m);
 inline int nonzerolcm(int u1, int u2, int u3);
 inline int gcd(int a, int b);
 inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, int B, int* a, int* b);
@@ -41,6 +46,8 @@ inline int minabs(int u, int v, int w);
 inline int maxabs(int u, int v, int w);
 inline int min(int u, int v, int w);
 inline int max(int u, int v, int w);
+void GetlcmScalar(int B, mpz_t S, int* primes, int nump);
+void PollardPm1(mpz_t N, mpz_t S, mpz_t factor);
 
 
 int main(int argc, char** argv)
@@ -68,7 +75,7 @@ int main(int argc, char** argv)
 	getline(file, line);	// first line contains number n to factor
 	// read nonlinear poly
 	int degf = -1;
-	if (verbose) cout << endl << "nonlinear polynomial f(x): (ascending coefficients)" << endl;
+	if (verbose) cout << endl << "Side 0 polynomial f0 (ascending coefficients)" << endl;
 	while (getline(file, line) && line.substr(0,1) == "c" ) {
 		line = line.substr(line.find_first_of(" ")+1);
 		//mpz_set_str(c, line.c_str(), 10);
@@ -80,7 +87,7 @@ int main(int argc, char** argv)
 	// read other poly
 	int degg = -1;
 	bool read = true;
-	if (verbose) cout << endl << "linear polynomial g(x): (ascending coefficients)" << endl;
+	if (verbose) cout << endl << "Side 1 polynomial f1: (ascending coefficients)" << endl;
 	while (read && line.substr(0,1) == "Y" ) {
 		line = line.substr(line.find_first_of(" ")+1);
 		//mpz_set_str(c, line.c_str(), 10);
@@ -92,12 +99,12 @@ int main(int argc, char** argv)
 	//int degg = gpoly.size();
 	file.close();
 	//mpz_clear(c);
-	if (verbose) cout << endl << "Complete." << endl;
+	if (verbose) cout << endl << "Complete.  Degree f0 = " << degf << ", degree f1 = " << degg << "." << endl;
 
 	if (verbose) cout << endl << "Starting sieve of Eratosthenes for small primes..." << endl << flush;
 	int max = 1<<25; // 10000000;// 65536;
 	char* sieve = new char[max+1]();
-	int* primes = new int[2063689]; //new int[809228];	//new int[6542]; 	// 2039 is the 309th prime, largest below 2048
+	int* primes = new int[2063689]; // int[1077871]; // int[155611]; //new int[809228];	//new int[6542]; 	// 2039 is the 309th prime, largest below 2048
 	for (int i = 2; i <= sqrt(max); i++)
 		if(!sieve[i])
 			for (int j = i*i; j <= max; j += i)
@@ -116,7 +123,7 @@ int main(int argc, char** argv)
 		int id = omp_get_thread_num();
 		if (id == 0) K = omp_get_num_threads();
 	}
-	mpz_t r; mpz_init(r);
+	mpz_t r0; mpz_init(r0);
 	int* s0 = new int[degf * nump]();
 	int* sieves0 = new int[degf * nump]();
 	int* num_s0modp = new int[nump]();
@@ -128,7 +135,7 @@ int main(int argc, char** argv)
 	int* sievep1 = new int[nump]();
 	int* sievenum_s1modp = new int[nump]();
 	int itenpc0 = nump / 10;
-	int itotal = 15;
+	int itotal = 0;
 	// compute factor base
 	if (verbose) cout << endl << "Constructing factor base with " << K << " threads." << endl << flush;
 	//if (verbose) cout << endl << "[0%]   constructing factor base..." << endl << flush;
@@ -143,7 +150,7 @@ int main(int argc, char** argv)
 		int* gp = new int[degg+1]();
 
 	#pragma omp for
-		for (int i = 15; i < nump; i++) {
+		for (int i = 0; i < nump; i++) {
 			int p = primes[i];
 			for (int j = 0; j <= degf; j++) fp[j] = mpz_mod_ui(rt, fpoly[j], p);
 			int degfp = degf; while (fp[degfp] == 0 || degfp == 0) degfp--;
@@ -173,7 +180,7 @@ int main(int argc, char** argv)
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC / K;
 	start = clock();
 	int k0 = 0; int k1 = 0;
-	for (int i = 15; i < nump; i++) {
+	for (int i = 0; i < nump; i++) {
 		int nums0 = num_s0modp[i];
 		if (nums0 > 0) {
 			sievep0[k0] = primes[i];
@@ -192,9 +199,9 @@ int main(int argc, char** argv)
 	if (verbose) cout << "There are " << k0 << " factor base primes on side 0." << endl << flush;
 	if (verbose) cout << "There are " << k1 << " factor base primes on side 1." << endl << flush;
 	
-	int B = 256;//512;
-	int Mlen = 512*512*256*2;//1024*1024*512*2;
-	keyval* M = new keyval[Mlen];	// lattice { id, p } pairs
+	int B = 256;    // 512;
+	int Mlen = 512*512*256*2;   //1024*1024*512*2;
+	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
 	float* H = new float[Mlen];	// histogram
 	vector<int> rel;
@@ -208,7 +215,7 @@ int main(int argc, char** argv)
 	int q = 12345701;// 65537;
 	if (argc >= 3) q = atoi(argv[2]);
 	int* fq = new int[degf+1]();
-	for (int i = 0; i <= degf; i++) fq[i] = mpz_mod_ui(r, fpoly[i], q);
+	for (int i = 0; i <= degf; i++) fq[i] = mpz_mod_ui(r0, fpoly[i], q);
 	// sieve side 0
 	cout << "Starting sieve on side 0 for special-q " << q << "..." << endl << flush;
 	start = clock();
@@ -269,13 +276,209 @@ int main(int argc, char** argv)
 			int y = ((rel[i] >> B2bits) % B2) - B;
 			int z = rel[i] >> BB4bits;
 			if (x != 0 || y != 0 || z != 0) {
-				cout << x << "," << y << "," << z << endl;
+				//cout << x << "," << y << "," << z << endl;
 				R++;
 			}
 		}
 	}
 	cout << R << " potential relations found." << endl << flush;
-	
+   
+    // compute special-q lattice L 
+	int64_t L[9];
+	int* r = new int[degf]();
+	int numl = polrootsmod(fq, degf, r, q);
+    int l = 0;
+	L[0] = q; L[1] = -r[l]; L[2] = 0;
+	L[3] = 0; L[4] = 1;     L[5] = -r[l];
+	L[6] = 0; L[7] = 0;     L[8] = 1;
+	int64L2(L, 3);	// LLL reduce L, time log(q)^2
+    
+    mpz_poly f0; mpz_poly f1; mpz_poly A;
+    mpz_poly_init(f0, degf); mpz_poly_init(f1, degg); mpz_poly_init(A, 3);
+    mpz_poly_set_mpz(f0, fpoly, degf);
+	mpz_poly_set_mpz(f1, gpoly, degg);
+    mpz_t N0; mpz_t N1;
+    mpz_init(N0); mpz_init(N1);
+	stringstream stream;
+    // compute and factor resultants as much as possible, leave large gcd computation till later.
+	mpz_t lpb; mpz_init(lpb);
+	mpz_t factor; mpz_init(factor); mpz_t p1; mpz_t p2; mpz_init(p1); mpz_init(p2);
+	mpz_t S; mpz_init(S); GetlcmScalar(5000, S, primes, 669);	// for Pollard p-1
+	mpz_ui_pow_ui(lpb, 2, 35);
+	int qside = 0;
+	for (int i = 0; i < rel.size()-1; i++)
+	{
+		if (rel[i] == rel[i+1] && rel[i] != 0) {
+			int x = (rel[i] % B2) - B;
+			int y = ((rel[i] >> B2bits) % B2) - B;
+			int z = rel[i] >> BB4bits;
+			if (x != 0 || y != 0 || z != 0) {
+                // compute [a,b,c]
+                int a = L[0]*x+L[1]*y+L[2]*z;
+                int b = L[3]*x+L[4]*y+L[5]*z;
+                int c = L[6]*x+L[7]*y+L[8]*z;
+
+				int content = gcd(a, b); content = gcd(content, c);
+				a = a/content; b = b/content; c = c/content;
+
+                //cout << "[a, b, c] = [" << a << ", " << b << ", " << c << "]" << endl << flush;
+                mpz_poly_setcoeff_si(A, 0, a);
+                mpz_poly_setcoeff_si(A, 1, b);
+                mpz_poly_setcoeff_si(A, 2, c);
+				mpz_poly_resultant(N0, f0, A);
+				mpz_poly_resultant(N1, f1, A);
+				mpz_abs(N0, N0);
+				mpz_abs(N1, N1);
+				//cout << mpz_get_str(NULL, 10, N0) << endl << flush;
+				//cout << mpz_get_str(NULL, 10, N1) << endl << flush;
+				string str = to_string(a) + "," + to_string(b) + "," + to_string(c) + ":";
+				
+				// trial division on side 0
+				int p = primes[0]; int k = 0; 
+				while (p < sievep0[k0-1]) {
+					int valp = 0;
+					while (mpz_fdiv_ui(N0, p) == 0) {
+						mpz_divexact_ui(N0, N0, p);
+						valp++;
+						stream.str("");
+						stream << hex << p;
+						str += stream.str() + ",";
+					}
+					if (p < 1000) {
+						p = primes[++k];
+						if (p > 1000) {
+							k = 0;
+							while (sievep0[k] < 1000) k++;
+						}
+					}
+					else {
+						p = sievep0[++k];
+					}
+				}
+				if (qside == 0) {
+					mpz_divexact_ui(N0, N0, q);
+					stream.str("");
+					stream << hex << q;
+					str += stream.str();
+				}
+				bool isrel = true;
+				bool cofactor = true;
+				if (mpz_cmp_ui(N0, 1) == 0) { cofactor = false; }
+				str += (cofactor ? "," : "");
+				// cofactorization on side 0
+				if (cofactor) {
+					if (mpz_probab_prime_p(N0, 30) == 0) {  // cofactor definitely composite
+						if (PollardPm1(N0, S, factor)) {
+							mpz_set(p1, factor);
+							mpz_divexact(p2, N0, factor);
+							bool p1prime = mpz_probab_prime_p(p1, 30);
+							bool p2prime = mpz_probab_prime_p(p2, 30);
+							if (p1prime && mpz_cmpabs(p1, lpb) > 0) isrel = false;
+							if (p2prime && mpz_cmpabs(p2, lpb) > 0) isrel = false;
+							if (isrel) {
+								if (mpz_cmpabs(p1, p2) <= 0) {
+									str += mpz_get_str(NULL, 16, p1);
+									str += (p1prime ? "" : "?");
+									str += mpz_get_str(NULL, 16, p2);
+									str += (p2prime ? "" : "?");
+								}
+								else {
+									str += mpz_get_str(NULL, 16, p2);
+									str += (p2prime ? "" : "?");
+									str += mpz_get_str(NULL, 16, p1);
+									str += (p1prime ? "" : "?");
+								}
+							}		
+						}
+						else {
+							str += mpz_get_str(NULL, 16, N0) + "?";
+						}
+					}
+					else {	// cofactor prime but is it < lpb ?
+						if (mpz_cmpabs(N0, lpb) <= 0) str += mpz_get_str(NULL, 16, N0);
+						else isrel = false;
+					}
+				}
+				str += ":";
+
+				// trial division on side 1
+				if (isrel) {
+					p = primes[0]; k = 0; 
+					while (p < sievep1[k1-1]) {
+						int valp = 0;
+						while (mpz_fdiv_ui(N1, p) == 0) {
+							mpz_divexact_ui(N1, N1, p);
+							valp++;
+							stream.str("");
+							stream << hex << p;
+							str += stream.str() + ",";
+						}
+						if (p < 1000) {
+							p = primes[++k];
+							if (p > 1000) {
+								k = 0;
+								while (sievep1[k] < 1000) k++;
+							}
+						}
+						else {
+							p = sievep1[++k];
+						}
+					}
+					if (qside == 1)  {
+						mpz_divexact_ui(N1, N1, q);
+						stream.str("");
+						stream << hex << q;
+						str += stream.str();
+					}
+					bool cofactor = true;
+					if (mpz_cmp_ui(N1, 1) == 0) { cofactor = false; }
+					str += (cofactor ? "," : "");
+					// cofactorization on side 1
+					if (cofactor) {
+						if (mpz_probab_prime_p(N1, 30) == 0) {  // cofactor definitely composite
+							if (PollardPm1(N1, S, factor)) {
+								mpz_set(p1, factor);
+								mpz_divexact(p2, N1, factor);
+								bool p1prime = mpz_probab_prime_p(p1, 30);
+								bool p2prime = mpz_probab_prime_p(p2, 30);
+								if (p1prime && mpz_cmpabs(p1, lpb) > 0) isrel = false;
+								if (p2prime && mpz_cmpabs(p2, lpb) > 0) isrel = false;
+								if (isrel) {
+									if (mpz_cmpabs(p1, p2) <= 0) {
+										str += mpz_get_str(NULL, 16, p1);
+										str += (p1prime ? "" : "?");
+										str += mpz_get_str(NULL, 16, p2);
+										str += (p2prime ? "" : "?");
+									}
+									else {
+										str += mpz_get_str(NULL, 16, p2);
+										str += (p2prime ? "" : "?");
+										str += mpz_get_str(NULL, 16, p1);
+										str += (p1prime ? "" : "?");
+									}
+								}		
+							}
+							else {
+								str += mpz_get_str(NULL, 16, N1) + "?";
+							}
+						}
+						else {	// cofactor prime but is it < lpb ?
+							if (mpz_cmpabs(N1, lpb) <= 0) str += mpz_get_str(NULL, 16, N1);
+							else isrel = false;							
+						}
+					}
+					if (isrel) cout << str << endl << flush;
+				}
+			}
+		}
+	}
+	//cout << "lpb = " << mpz_get_str(NULL, 10, lpb) << endl << flush;
+
+	mpz_clear(p2); mpz_clear(p1);
+	mpz_clear(factor);
+	mpz_clear(lpb);
+    mpz_clear(N1); mpz_clear(N0);
+    mpz_poly_clear(A); mpz_poly_clear(f1); mpz_poly_clear(f0);
 	delete[] fq;
 	delete[] H;
 	//delete[] L;
@@ -288,7 +491,7 @@ int main(int argc, char** argv)
 	delete[] sievep0;
 	delete[] num_s0modp;
 	delete[] s0;
-	mpz_clear(r);
+	mpz_clear(r0);
 	delete[] primes;
 	delete[] sieve;
 	for (int i = 0; i < 20; i++) {
@@ -373,10 +576,10 @@ int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, 
 	cout << "special-q (" << q << "," << r[l] << ")" << endl;
 
 	// compute modpinvq and modqinvp arrays
-	int* modpinvq = new int[nump];
-	int* modqinvp = new int[nump];
+	int64_t* modpinvq = new int64_t[nump];
+	int64_t* modqinvp = new int64_t[nump];
 	for (int i = 0; i < nump; i++) {
-		int p = allp[i];
+		int64_t p = allp[i];
 		if (p == q) continue;
 		modpinvq[i] = modinv(q, p);
 		modqinvp[i] = modinv(p, q);
@@ -387,6 +590,11 @@ int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, 
 	L[6] = 0; L[7] = 0;     L[8] = 1;
 
 	int64L2(L, 3);	// LLL reduce L, time log(q)^2
+
+	// print special-q lattice
+	cout << "special-q lattice [" << L[0] << "," << L[1] << "," << L[2] << ";";
+	cout << L[3] << "," << L[4] << "," << L[5] << ";";
+	cout << L[6] << "," << L[7] << "," << L[8] << "]" << endl << flush;
 
 	int64_t qLinv[9];
 	// compute adjugate of L^-1
@@ -400,7 +608,7 @@ int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, 
 	qLinv[7] = L[1]*L[6]-L[0]*L[7];
 	qLinv[8] = L[0]*L[4]-L[1]*L[3];
 
-	int i = 0; int m = 0;
+	int i = 6; int m = 0;
 	while (i < nump) {
 		int64_t p = allp[i];
 		if (p == q) { i++; continue; }
@@ -567,6 +775,7 @@ inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, 
 	}
 }
 
+
 inline int nonzerolcm(int u1, int u2, int u3)
 {
 	if (u1 == 0) u1 = 1;
@@ -687,10 +896,10 @@ inline int max(int u, int v, int w)
 }
 
 
-inline int modinv(int x, int m)
+inline int64_t modinv(int64_t x, int64_t m)
 {
-    int m0 = m, t, q;
-    int y0 = 0, y = 1;
+    int64_t m0 = m, t, q;
+    int64_t y0 = 0, y = 1;
     if (m == 1) return 1;
     while (x > 1) {
         q = x / m;
@@ -701,3 +910,47 @@ inline int modinv(int x, int m)
     return y;
 }
 
+void GetlcmScalar(int B, mpz_t S, int* primes, int nump)
+{
+    mpz_t* tree = new mpz_t[nump];
+    
+    // Construct product tree
+    n = 0;
+    mpz_t pe; mpz_init(pe); mpz_t pe1; mpz_init(pe1);
+	int p = 2;
+	while (p < B) {
+		// Set tree[n] = p^e, such that p^e < B < p^(e+1)
+		mpz_set_ui(pe, p);
+		mpz_mul_ui(pe1, pe, p);
+		while (mpz_cmp_ui(pe1, B) < 0) { mpz_set(pe, pe1); mpz_mul_ui(pe1, pe, p); }
+		mpz_init(tree[n]);
+		mpz_set(tree[n], pe);
+		n++;
+		p = primes[n];
+    }
+    delete[] sieve; mpz_clear(pe); mpz_clear(pe1);
+    
+    // Coalesce product tree
+    uint64_t treepos = n - 1;
+    while (treepos > 0) {
+        for (i = 0; i <= treepos; i += 2) {
+            if(i < treepos)
+				mpz_lcm(tree[i/2], tree[i],tree[i + 1]);
+            else
+				mpz_set(tree[i/2], tree[i]);
+        }
+        for (i = (treepos >> 1); i < treepos - 1; i++) mpz_set_ui(tree[i + 1], 1);
+        treepos = treepos >> 1;
+    }
+    // tree[0] is the lcm of all primes with powers bounded by B
+    mpz_set(S, tree[0]);
+        
+    for (i = 0; i < n; i++) mpz_clear(tree[i]);
+    delete[] tree;
+}
+
+
+void PollardPm1(mpz_t N, mpz_t S, mpz_t factor)
+{
+
+}
