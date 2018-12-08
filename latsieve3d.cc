@@ -200,8 +200,8 @@ int main(int argc, char** argv)
 	if (verbose) cout << "There are " << k0 << " factor base primes on side 0." << endl << flush;
 	if (verbose) cout << "There are " << k1 << " factor base primes on side 1." << endl << flush;
 	
-	int B = 512;
-	int Mlen = 1024*1024*512*2 + (1<<27);
+	int B = 256;	// 512;
+	int Mlen = 512*512*256*2 + (1<<27);	//1024*1024*512*2 + (1<<27);
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
 	float* H = new float[Mlen];	// histogram
@@ -218,18 +218,18 @@ int main(int argc, char** argv)
 	int* fq = new int[degf+1]();
 	for (int i = 0; i <= degf; i++) fq[i] = mpz_mod_ui(r0, fpoly[i], q);
 	// sieve side 0
-	cout << "Starting sieve on side 0 for special-q " << q << "..." << endl << flush;
+	cout << "# Starting sieve on side 0 for special-q " << q << "..." << endl << flush;
 	start = clock();
 	int m = latsieve3d(fq, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
-	cout << "Size of lattice point list is " << m << "." << endl << flush;
-	cout << "Constructing histogram..." << endl << flush;
+	cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
+	cout << "# Size of lattice point list is " << m << "." << endl << flush;
+	cout << "# Constructing histogram..." << endl << flush;
 	start = clock();
 	//std::stable_sort(M, M + m, &lattice_sorter);
 	histogram(M, H, m);
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
+	cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 	float th0 = 70.0f;
 	if (argc >= 5) th0 = atof(argv[4]);
 	int R0 = 0;
@@ -242,20 +242,20 @@ int main(int argc, char** argv)
 			R0++;
 		}
 	}
-	cout << R0 << " candidates on side 0." << endl << flush;
+	cout << "# " << R0 << " candidates on side 0." << endl << flush;
 	// sieve side 1
-	cout << "Starting sieve on side 1..." << endl << flush;
+	cout << "# Starting sieve on side 1..." << endl << flush;
 	start = clock();
 	m = latsieve3d(fq, degf, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
-	cout << "Size of lattice point list is " << m << "." << endl << flush;
-	cout << "Constructing histogram..." << endl << flush;
+	cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
+	cout << "# Size of lattice point list is " << m << "." << endl << flush;
+	cout << "# Constructing histogram..." << endl << flush;
 	start = clock();
 	//std::stable_sort(M, M + m, &lattice_sorter);
 	histogram(M, H, m);
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
+	cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 	float th1 = 70.0f;
 	if (argc >= 6) th1 = atof(argv[5]);
 	int R1 = 0;
@@ -265,7 +265,7 @@ int main(int argc, char** argv)
 			R1++;
 		}
 	}
-	cout << R1 << " candidates on side 1." << endl << flush;
+	cout << "# " << R1 << " candidates on side 1." << endl << flush;
 	// sort hits
 	sort(rel.begin(), rel.end());
 	// print list of potential relations
@@ -282,7 +282,7 @@ int main(int argc, char** argv)
 			}
 		}
 	}
-	cout << R << " potential relations found." << endl << flush;
+	cout << "# " << R << " potential relations found." << endl << flush;
    
     // compute special-q lattice L 
 	int64_t L[9];
@@ -411,7 +411,7 @@ int main(int argc, char** argv)
 									// save remaining algs to array
 									int lnext = l - j; int lt = lnext;
 									while (lt--) { algarr[lt] = Q.top(); Q.pop(); }
-									lt = lnext; while (lt--) Q.push(algarr[lt]); Q.push(lnext);
+									lt = lnext; if (lt) { while (lt--) Q.push(algarr[lt]); Q.push(lnext); }
 									if (mpz_probab_prime_p(p1, 30)) {
 										if (mpz_cmpabs(p1, lpb) > 0) { isrel = false; break; }
 										else { str += mpz_get_str(NULL, BASE, p1); str += ","; }
@@ -420,8 +420,7 @@ int main(int argc, char** argv)
 										if (!lnext) { isrel = false; break; }
 										mpz_set(pi[n], p1);
 										QN.push(&pi[n++]);
-										lt = lnext; while (lt--) { Q.push(algarr[lt]); }
-										Q.push(lnext); 
+										lt = lnext; if (lt) { while (lt--) Q.push(algarr[lt]); Q.push(lnext); }
 									}
 									if (mpz_probab_prime_p(p2, 30)) {
 										if (mpz_cmpabs(p2, lpb) > 0) { isrel = false; break; }
@@ -431,8 +430,7 @@ int main(int argc, char** argv)
 										if (!lnext) { isrel = false; break; }
 										mpz_set(pi[n], p2);
 										QN.push(&pi[n++]);
-										lt = lnext; while (lt--) { Q.push(algarr[lt]); }
-										Q.push(lnext);
+										lt = lnext; if (lt) { while (lt--) Q.push(algarr[lt]); Q.push(lnext); }
 									}
 								}
 							}
@@ -512,7 +510,7 @@ int main(int argc, char** argv)
 										// save remaining algs to array
 										int lnext = l - j; int lt = lnext;
 										while (lt--) { algarr[lt] = Q.top(); Q.pop(); }
-										lt = lnext; while (lt--) Q.push(algarr[lt]); Q.push(lnext);
+										lt = lnext; if (lt) { while (lt--) Q.push(algarr[lt]); Q.push(lnext); }
 										if (mpz_probab_prime_p(p1, 30)) {
 											if (mpz_cmpabs(p1, lpb) > 0) { isrel = false; break; }
 											else { str += mpz_get_str(NULL, BASE, p1); str += ","; }
@@ -521,8 +519,7 @@ int main(int argc, char** argv)
 											if (!lnext) { isrel = false; break; }
 											mpz_set(pi[n], p1);
 											QN.push(&pi[n++]);
-											lt = lnext; while (lt--) { Q.push(algarr[lt]); }
-											Q.push(lnext); 
+											lt = lnext; if (lt) { while (lt--) Q.push(algarr[lt]); Q.push(lnext); }
 										}
 										if (mpz_probab_prime_p(p2, 30)) {
 											if (mpz_cmpabs(p2, lpb) > 0) { isrel = false; break; }
@@ -532,8 +529,7 @@ int main(int argc, char** argv)
 											if (!lnext) { isrel = false; break; }
 											mpz_set(pi[n], p2);
 											QN.push(&pi[n++]);
-											lt = lnext; while (lt--) { Q.push(algarr[lt]); }
-											Q.push(lnext);
+											lt = lnext; if (lt) { while (lt--) Q.push(algarr[lt]); Q.push(lnext); }
 										}
 									}
 								}
@@ -552,8 +548,8 @@ int main(int argc, char** argv)
 		}
 	}
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	cout << "Finished! Cofactorization took " << timetaken << "s" << endl << flush;
-	cout << R << " actual relations found." << endl << flush;
+	cout << "# Finished! Cofactorization took " << timetaken << "s" << endl << flush;
+	cout << "# " << R << " actual relations found." << endl << flush;
 	//cout << "lpb = " << mpz_get_str(NULL, 10, lpb) << endl << flush;
 
 	for (int i = 0; i < 8; i++) mpz_clear(pi[i]); delete[] pi;
@@ -697,7 +693,7 @@ int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, 
 		int64_t p = allp[i];
 		if (p == q) { i++; continue; }
 		//cout << p << "," << m << endl << flush;
-		float logp = logf(p);
+		float logp = log2f(p);
 		int64_t rl = mod(-r[l], q);
 		for (int k = 0; k < num_smodp[i]; k++) {
 			int64_t n = p*q;
