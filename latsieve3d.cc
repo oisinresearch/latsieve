@@ -118,87 +118,58 @@ int main(int argc, char** argv)
 
 	// set up constants
 	std::clock_t start; double timetaken = 0;
-	int K = 0;
-	#pragma omp parallel
-	{
-		int id = omp_get_thread_num();
-		if (id == 0) K = omp_get_num_threads();
-	}
 	mpz_t r0; mpz_init(r0);
-	int* s0 = new int[degf * nump]();
 	int* sieves0 = new int[degf * nump]();
-	int* num_s0modp = new int[nump]();
 	int* sievep0 = new int[nump]();
 	int* sievenum_s0modp = new int[nump]();
-	int* s1 = new int[degg * nump]();
 	int* sieves1 = new int[degg * nump]();
-	int* num_s1modp = new int[nump]();
 	int* sievep1 = new int[nump]();
 	int* sievenum_s1modp = new int[nump]();
-	int itenpc0 = nump / 10;
-	int itotal = 0;
-	// compute factor base
-	if (verbose) cout << endl << "Constructing factor base with " << K << " threads." << endl << flush;
-	//if (verbose) cout << endl << "[0%]   constructing factor base..." << endl << flush;
+	// load factor base
+	if (verbose) cout << endl << "Loading factor base..." << endl << flush;
 	start = clock();
-	#pragma omp parallel
-	{
-		mpz_t rt; mpz_init(rt); 
-		int id = omp_get_thread_num();
-		int* stemp0 = new int[degf];
-		int* fp = new int[degf+1]();
-		int* stemp1 = new int[degg];
-		int* gp = new int[degg+1]();
-
-	#pragma omp for
-		for (int i = 0; i < nump; i++) {
-			int p = primes[i];
-			for (int j = 0; j <= degf; j++) fp[j] = mpz_mod_ui(rt, fpoly[j], p);
-			int degfp = degf; while (fp[degfp] == 0 || degfp == 0) degfp--;
-			int nums0 = polrootsmod(fp, degfp, stemp0, p);
-			num_s0modp[i] = nums0;
-			for (int j = 0; j < nums0; j++) s0[i*degf + j] = stemp0[j];
-			for (int j = 0; j <= degg; j++) gp[j] = mpz_mod_ui(rt, gpoly[j], p);
-			int deggp = degg; while (gp[deggp] == 0 || deggp == 0) deggp--;
-			int nums1 = polrootsmod(gp, deggp, stemp1, p);
-			num_s1modp[i] = nums1;
-			for (int j = 0; j < nums1; j++) s1[i*degg + j] = stemp1[j];
-
-	#pragma omp atomic
-			itotal++;
-			if (itotal % itenpc0 == 0) {
-	#pragma omp critical
-				if (verbose) cout << "[" << 100 * itotal / nump + 1 << "%]\tConstructing factor base..." << endl << flush;
-			}				 
+	ifstream fbfile(argv[3]);
+	start = clock();
+	// read fbb
+	getline(fbfile, line);
+	int fbb = atoi(line.c_str());
+	// read k0
+	getline(fbfile, line);
+	int k0 = atoi(line.c_str());
+	for (int i = 0; i < k0; i++) {
+		getline(fbfile, line);
+		stringstream ss(line);
+		string substr;
+		getline(ss, substr, ',');
+		sievep0[i] = atoi(substr.c_str());
+		int j = 0;
+		while( ss.good() ) {
+			getline( ss, substr, ',' );
+			sieves0[i*degf + j++] = atoi(substr.c_str());
 		}
-
-		delete[] gp;
-		delete[] stemp1;
-		delete[] fp;
-		delete[] stemp0;
-		mpz_clear(rt);
+		sievenum_s0modp[i] = j;
 	}
-	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC / K;
-	start = clock();
-	int k0 = 0; int k1 = 0;
-	for (int i = 0; i < nump; i++) {
-		int nums0 = num_s0modp[i];
-		if (nums0 > 0) {
-			sievep0[k0] = primes[i];
-			for (int j = 0; j < nums0; j++) sieves0[k0*degf + j] = s0[i*degf + j];
-			sievenum_s0modp[k0++] = nums0;
+	// read k1
+	getline(fbfile, line);
+	int k1 = atoi(line.c_str());
+	for (int i = 0; i < k1; i++) {
+		getline(fbfile, line);
+		stringstream ss(line);
+		string substr;
+		getline(ss, substr, ',');
+		sievep1[i] = atoi(substr.c_str());
+		int j = 0;
+		while( ss.good() ) {
+			getline( ss, substr, ',' );
+			sieves1[i*degf + j++] = atoi(substr.c_str());
 		}
-		int nums1 = num_s1modp[i];
-		if (nums1 > 0) {
-			sievep1[k1] = primes[i];
-			for (int j = 0; j < nums1; j++) sieves1[k1*degg + j] = s1[i*degg + j];
-			sievenum_s1modp[k1++] = nums1;
-		}
+		sievenum_s1modp[i] = j;
 	}
 	timetaken += ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl << flush;
 	if (verbose) cout << "There are " << k0 << " factor base primes on side 0." << endl << flush;
 	if (verbose) cout << "There are " << k1 << " factor base primes on side 1." << endl << flush;
+	fbfile.close();
 	
 	int B = 256;	// 512;
 	int Mlen = 512*512*256*2 + (1<<27);	//1024*1024*512*2 + (1<<27);
@@ -214,7 +185,7 @@ int main(int argc, char** argv)
 	//timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	//cout << "Memory cleared. Time taken: " << timetaken << "s" << endl << flush;
 	int q = 12345701;// 65537;
-	if (argc >= 4) q = atoi(argv[3]);
+	if (argc >= 5) q = atoi(argv[4]);
 	int* fq = new int[degf+1]();
 	for (int i = 0; i <= degf; i++) fq[i] = mpz_mod_ui(r0, fpoly[i], q);
 	// sieve side 0
@@ -231,7 +202,7 @@ int main(int argc, char** argv)
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 	float th0 = 70.0f;
-	if (argc >= 5) th0 = atof(argv[4]);
+	if (argc >= 6) th0 = atof(argv[5]);
 	int R0 = 0;
 	int B2 = 2*B; int BB = B*B;
 	int B2bits = 1; while (1 << B2bits < B2) B2bits++;
@@ -257,7 +228,7 @@ int main(int argc, char** argv)
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 	float th1 = 70.0f;
-	if (argc >= 6) th1 = atof(argv[5]);
+	if (argc >= 7) th1 = atof(argv[6]);
 	int R1 = 0;
 	for (int i = 0; i < m; i++) {
 		if (H[i] > th1) {
@@ -310,7 +281,7 @@ int main(int argc, char** argv)
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	if (verbose) cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
 	int lpbits = 29;
-	if (argc >= 7) lpbits = atoi(argv[6]);
+	if (argc >= 8) lpbits = atoi(argv[7]);
 	mpz_ui_pow_ui(lpb, 2, lpbits);
 	int BASE = 16;
 	int qside = 0;
@@ -564,16 +535,13 @@ int main(int argc, char** argv)
 	delete[] M;
 	delete[] sievenum_s1modp;
 	delete[] sievep1;
-	delete[] num_s1modp;
-	delete[] s1;
+	delete[] sieves1;
 	delete[] sievenum_s0modp;
 	delete[] sievep0;
-	delete[] num_s0modp;
-	delete[] s0;
+	delete[] sieves0;
 	mpz_clear(r0);
 	delete[] primes;
 	delete[] sieve;
-	mpz_clear(t);
 	for (int i = 0; i < 20; i++) {
 		mpz_clear(hpoly[i]);
 		mpz_clear(gpoly[i]);
