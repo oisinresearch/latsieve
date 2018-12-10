@@ -55,6 +55,11 @@ bool EECM(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int Z0);
 
 int main(int argc, char** argv)
 {
+	if (argc == 1) {
+		cout << endl << "Usage: ./latsieve3d inputpoly fbbits factorbasefile qmin qmax th0 th1 lpbbits" << endl << endl;
+		return 0;
+	}
+
 	bool verbose = false;
 		
 	if (verbose) cout << endl << "Reading input polynomial in file " << argv[1] << "..." << flush;
@@ -184,245 +189,162 @@ int main(int argc, char** argv)
 	//memset(M, 0, Mlen * sizeof(keyval));
 	//timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	//cout << "Memory cleared. Time taken: " << timetaken << "s" << endl << flush;
-	int q = 12345701;// 65537;
-	if (argc >= 5) q = atoi(argv[4]);
-	int* fq = new int[degf+1]();
-	for (int i = 0; i <= degf; i++) fq[i] = mpz_mod_ui(r0, fpoly[i], q);
-	// sieve side 0
-	cout << "# Starting sieve on side 0 for special-q " << q << "..." << endl << flush;
-	start = clock();
-	int m = latsieve3d(fq, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
-	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
-	cout << "# Size of lattice point list is " << m << "." << endl << flush;
-	cout << "# Constructing histogram..." << endl << flush;
-	start = clock();
-	//std::stable_sort(M, M + m, &lattice_sorter);
-	histogram(M, H, m);
-	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
-	float th0 = 70.0f;
-	if (argc >= 6) th0 = atof(argv[5]);
-	int R0 = 0;
-	int B2 = 2*B; int BB = B*B;
-	int B2bits = 1; while (1 << B2bits < B2) B2bits++;
-	int BB4bits = 1; while (1 << BB4bits < BB*4) BB4bits++;
-	for (int i = 0; i < m; i++) {
-		if (H[i] > th0) {
-			rel.push_back(i);
-			R0++;
-		}
-	}
-	cout << "# " << R0 << " candidates on side 0." << endl << flush;
-	// sieve side 1
-	cout << "# Starting sieve on side 1..." << endl << flush;
-	start = clock();
-	m = latsieve3d(fq, degf, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
-	cout << "# Size of lattice point list is " << m << "." << endl << flush;
-	cout << "# Constructing histogram..." << endl << flush;
-	start = clock();
-	//std::stable_sort(M, M + m, &lattice_sorter);
-	histogram(M, H, m);
-	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
-	float th1 = 70.0f;
-	if (argc >= 7) th1 = atof(argv[6]);
-	int R1 = 0;
-	for (int i = 0; i < m; i++) {
-		if (H[i] > th1) {
-			rel.push_back(i);
-			R1++;
-		}
-	}
-	cout << "# " << R1 << " candidates on side 1." << endl << flush;
-	// sort hits
-	sort(rel.begin(), rel.end());
-	// print list of potential relations
-	int R = 0;
-	for (int i = 0; i < rel.size()-1; i++)
-	{
-		if (rel[i] == rel[i+1] && rel[i] != 0) {
-			int x = (rel[i] % B2) - B;
-			int y = ((rel[i] >> B2bits) % B2) - B;
-			int z = rel[i] >> BB4bits;
-			if (x != 0 || y != 0 || z != 0) {
-				//cout << x << "," << y << "," << z << endl;
-				R++;
-			}
-		}
-	}
-	cout << "# " << R << " potential relations found." << endl << flush;
-   
-    // compute special-q lattice L 
-	int64_t L[9];
+
+	int qmin; int qmax; mpz_t qmpz; mpz_init(qmpz);
+	mpz_t* pi = new mpz_t[8]; for (int i = 0; i < 8; i++) mpz_init(pi[i]);
 	int* r = new int[degf]();
-	int numl = polrootsmod(fq, degf, r, q);
-    int l = 0;
-	L[0] = q; L[1] = -r[l]; L[2] = 0;
-	L[3] = 0; L[4] = 1;     L[5] = -r[l];
-	L[6] = 0; L[7] = 0;     L[8] = 1;
-	int64L2(L, 3);	// LLL reduce L, time log(q)^2
-    
-    mpz_poly f0; mpz_poly f1; mpz_poly A;
-    mpz_poly_init(f0, degf); mpz_poly_init(f1, degg); mpz_poly_init(A, 3);
-    mpz_poly_set_mpz(f0, fpoly, degf);
+	int* fq = new int[degf+1]();
+	mpz_poly f0; mpz_poly f1; mpz_poly A;
+	mpz_poly_init(f0, degf); mpz_poly_init(f1, degg); mpz_poly_init(A, 3);
+	mpz_poly_set_mpz(f0, fpoly, degf);
 	mpz_poly_set_mpz(f1, gpoly, degg);
-    mpz_t N0; mpz_t N1;
-    mpz_init(N0); mpz_init(N1);
+	mpz_t N0; mpz_t N1;
+	mpz_init(N0); mpz_init(N1);
 	stringstream stream;
-    // compute and factor resultants as much as possible, leave large gcd computation till later.
 	mpz_t lpb; mpz_init(lpb);
 	mpz_t factor; mpz_init(factor); mpz_t p1; mpz_t p2; mpz_init(p1); mpz_init(p2); mpz_t t; mpz_init(t); 
-	start = clock();
-	if (verbose) cout << "Computing Pollard p-1 scalar multiple..." << endl << flush;
-	mpz_t S; mpz_init(S); GetlcmScalar(3000, S, primes, 669);	//1229);	// 900);// 669);	// for Pollard p-1
-	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	if (verbose) cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
+	mpz_t S; mpz_init(S); GetlcmScalar(1000, S, primes, 669);	//1229);	// 900);// 669);	// for Pollard p-1
+	if (argc >= 5) qmin = atoi(argv[4]);
+	if (argc >= 6) qmax = atoi(argv[5]);
+	float th0 = 70.0f;
+	if (argc >= 7) th0 = atof(argv[6]);
+	float th1 = 70.0f;
+	if (argc >= 8) th1 = atof(argv[7]);
 	int lpbits = 29;
-	if (argc >= 8) lpbits = atoi(argv[7]);
-	mpz_ui_pow_ui(lpb, 2, lpbits);
-	int BASE = 16;
-	int qside = 0;
-	stack<mpz_t*> QN; stack<int> Q; int algarr[3]; mpz_t* N;
-	mpz_t* pi = new mpz_t[8]; for (int i = 0; i < 8; i++) mpz_init(pi[i]);
-	start = clock();
-	R = 0;
-	if (verbose) cout << "Starting cofactorizaion..." << endl << flush;
-	for (int i = 0; i < rel.size()-1; i++)
-	{
-		if (rel[i] == rel[i+1] && rel[i] != 0) {
-			int x = (rel[i] % B2) - B;
-			int y = ((rel[i] >> B2bits) % B2) - B;
-			int z = rel[i] >> BB4bits;
-			if (x != 0 || y != 0 || z != 0) {
-                // compute [a,b,c]
-                int a = L[0]*x+L[1]*y+L[2]*z;
-                int b = L[3]*x+L[4]*y+L[5]*z;
-                int c = L[6]*x+L[7]*y+L[8]*z;
+	if (argc >= 9) lpbits = atoi(argv[8]);
 
-				int content = gcd(a, b); content = gcd(content, c);
-				a = a/content; b = b/content; c = c/content;
+	int q = qmin;
+	while (q < qmax) {
+		mpz_set_ui(qmpz, q);
+		mpz_nextprime(qmpz, qmpz);
+		q = mpz_get_ui(qmpz);
+		for (int i = 0; i <= degf; i++) fq[i] = mpz_mod_ui(r0, fpoly[i], q);
+		int numl = polrootsmod(fq, degf, r, q);
+		if (numl == 0 || q > qmax) continue;
+		
+		// sieve side 0
+		cout << "# Starting sieve on side 0 for special-q " << q << "..." << endl << flush;
+		start = clock();
+		int m = latsieve3d(fq, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
+		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
+		cout << "# Size of lattice point list is " << m << "." << endl << flush;
+		cout << "# Constructing histogram..." << endl << flush;
+		start = clock();
+		//std::stable_sort(M, M + m, &lattice_sorter);
+		histogram(M, H, m);
+		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
+		int R0 = 0;
+		int B2 = 2*B; int BB = B*B;
+		int B2bits = 1; while (1 << B2bits < B2) B2bits++;
+		int BB4bits = 1; while (1 << BB4bits < BB*4) BB4bits++;
+		rel.clear();
+		for (int i = 0; i < m; i++) {
+			if (H[i] > th0) {
+				rel.push_back(i);
+				R0++;
+			}
+		}
+		cout << "# " << R0 << " candidates on side 0." << endl << flush;
+		// sieve side 1
+		cout << "# Starting sieve on side 1..." << endl << flush;
+		start = clock();
+		m = latsieve3d(fq, degf, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
+		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
+		cout << "# Size of lattice point list is " << m << "." << endl << flush;
+		cout << "# Constructing histogram..." << endl << flush;
+		start = clock();
+		//std::stable_sort(M, M + m, &lattice_sorter);
+		histogram(M, H, m);
+		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
+		int R1 = 0;
+		for (int i = 0; i < m; i++) {
+			if (H[i] > th1) {
+				rel.push_back(i);
+				R1++;
+			}
+		}
+		cout << "# " << R1 << " candidates on side 1." << endl << flush;
+		// sort hits
+		sort(rel.begin(), rel.end());
+		// print list of potential relations
+		int R = 0;
+		for (int i = 0; i < rel.size()-1; i++)
+		{
+			if (rel[i] == rel[i+1] && rel[i] != 0) {
+				int x = (rel[i] % B2) - B;
+				int y = ((rel[i] >> B2bits) % B2) - B;
+				int z = rel[i] >> BB4bits;
+				if (x != 0 || y != 0 || z != 0) {
+					//cout << x << "," << y << "," << z << endl;
+					R++;
+				}
+			}
+		}
+		cout << "# " << R << " potential relations found." << endl << flush;
+	   
+		// compute special-q lattice L 
+		int64_t L[9];
+		numl = polrootsmod(fq, degf, r, q);
+		int l = 0;
+		L[0] = q; L[1] = -r[l]; L[2] = 0;
+		L[3] = 0; L[4] = 1;     L[5] = -r[l];
+		L[6] = 0; L[7] = 0;     L[8] = 1;
+		int64L2(L, 3);	// LLL reduce L, time log(q)^2
+		
+		// compute and factor resultants as much as possible, leave large gcd computation till later.
+		start = clock();
+		if (verbose) cout << "Computing Pollard p-1 scalar multiple..." << endl << flush;
+		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+		if (verbose) cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
+		mpz_ui_pow_ui(lpb, 2, lpbits);
+		int BASE = 16;
+		int qside = 0;
+		stack<mpz_t*> QN; stack<int> Q; int algarr[3]; mpz_t* N;
+		start = clock();
+		R = 0;
+		if (verbose) cout << "Starting cofactorizaion..." << endl << flush;
+		for (int i = 0; i < rel.size()-1; i++)
+		{
+			if (rel[i] == rel[i+1] && rel[i] != 0) {
+				int x = (rel[i] % B2) - B;
+				int y = ((rel[i] >> B2bits) % B2) - B;
+				int z = rel[i] >> BB4bits;
+				if (x != 0 || y != 0 || z != 0) {
+					// compute [a,b,c]
+					int a = L[0]*x+L[1]*y+L[2]*z;
+					int b = L[3]*x+L[4]*y+L[5]*z;
+					int c = L[6]*x+L[7]*y+L[8]*z;
+	
+					int64_t D = b*(int64_t)b - 4*a*(int64_t)c;
+					if (floor(sqrt(D)+0.5)*floor(sqrt(D)+0.5) == D) {
+						continue;	// a+b*x+c*x^2 is not irreducible over Z
+					}
 
-                //cout << "[a, b, c] = [" << a << ", " << b << ", " << c << "]" << endl << flush;
-                mpz_poly_setcoeff_si(A, 0, a);
-                mpz_poly_setcoeff_si(A, 1, b);
-                mpz_poly_setcoeff_si(A, 2, c);
-				mpz_poly_resultant(N0, f0, A);
-				mpz_poly_resultant(N1, f1, A);
-				mpz_abs(N0, N0);
-				mpz_abs(N1, N1);
-				//cout << mpz_get_str(NULL, 10, N0) << endl << flush;
-				//cout << mpz_get_str(NULL, 10, N1) << endl << flush;
-				string str = to_string(a) + "," + to_string(b) + "," + to_string(c) + ":";
-				
-				// trial division on side 0
-				int p = primes[0]; int k = 0; 
-				while (p < sievep0[k0-1]) {
-					int valp = 0;
-					while (mpz_fdiv_ui(N0, p) == 0) {
-						mpz_divexact_ui(N0, N0, p);
-						valp++;
-						stream.str("");
-						stream << hex << p;
-						str += stream.str() + ",";
-					}
-					if (p < 1000) {
-						p = primes[++k];
-						if (p > 1000) {
-							k = 0;
-							while (sievep0[k] < 1000) k++;
-						}
-					}
-					else {
-						p = sievep0[++k];
-					}
-				}
-				if (qside == 0) {
-					mpz_divexact_ui(N0, N0, q);
-					stream.str("");
-					stream << hex << q;
-					str += stream.str();
-				}
-				bool isrel = true;
-				bool cofactor = true;
-				if (mpz_cmp_ui(N0, 1) == 0) { cofactor = false; }
-				str += (cofactor ? "," : "");
-				// cofactorization on side 0
-				int n = 0; while (!Q.empty()) Q.pop(); while (!QN.empty()) QN.pop();
-				if (cofactor) {
-					if (mpz_probab_prime_p(N0, 30) == 0) {  // cofactor definitely composite
-						
-						QN.push(&N0); Q.push(2); Q.push(1); Q.push(0); Q.push(3);
-						while (!QN.empty()) {
-							mpz_t* N = QN.top(); QN.pop();
-							int l = Q.top(); Q.pop();
-							int j = 0;
-							bool factored = false;
-							while (!factored) {
-								int alg = Q.top(); Q.pop(); j++;
-								switch (alg) {
-									case 0: factored = PollardPm1(*N, S, factor);
-											break;	
-									case 1: factored = EECM(*N, S, factor, 25921, 83521, 19, 9537, 2737);
-											break;	
-									case 2: factored = EECM(*N, S, factor, 1681, 707281, 3, 19642, 19803);
-											break;	
-								}
-								if ( !factored ) {
-									if ( j >= l ) { isrel = false; break; }
-								}
-								else {
-									mpz_set(p1, factor);
-									mpz_divexact(p2, *N, factor);
-									if (mpz_cmpabs(p1, p2) > 0) {
-										 mpz_set(t, p1); mpz_set(p1, p2); mpz_set(p2, t);	// sort
-									}
-									// save remaining algs to array
-									int lnext = l - j; int lt = lnext;
-									while (lt--) { algarr[lt] = Q.top(); Q.pop(); }
-									lt = lnext; if (lt) { while (lt--) Q.push(algarr[lt]); Q.push(lnext); }
-									if (mpz_probab_prime_p(p1, 30)) {
-										if (mpz_cmpabs(p1, lpb) > 0) { isrel = false; break; }
-										else { str += mpz_get_str(NULL, BASE, p1); str += ","; }
-									}
-									else {
-										if (!lnext) { isrel = false; break; }
-										mpz_set(pi[n], p1);
-										QN.push(&pi[n++]);
-										lt = lnext; if (lt) { while (lt--) Q.push(algarr[lt]); Q.push(lnext); }
-									}
-									if (mpz_probab_prime_p(p2, 30)) {
-										if (mpz_cmpabs(p2, lpb) > 0) { isrel = false; break; }
-										else { str += mpz_get_str(NULL, BASE, p2); }
-									}
-									else {
-										if (!lnext) { isrel = false; break; }
-										mpz_set(pi[n], p2);
-										QN.push(&pi[n++]);
-										lt = lnext; if (lt) { while (lt--) Q.push(algarr[lt]); Q.push(lnext); }
-									}
-								}
-							}
-							if (!isrel) break;
-						}
-					}
-					else {	// cofactor prime but is it < lpb?
-						if (mpz_cmpabs(N0, lpb) > 0) isrel = false;
-						else { str += mpz_get_str(NULL, BASE, N0); }
-					}
-				}
-				
-				str += ":";
+					int content = gcd(a, b); content = gcd(content, c);
+					a = a/content; b = b/content; c = c/content;
 
-				// trial division on side 1
-				if (isrel) {
-					p = primes[0]; k = 0; 
-					while (p < sievep1[k1-1]) {
+					//cout << "[a, b, c] = [" << a << ", " << b << ", " << c << "]" << endl << flush;
+					mpz_poly_setcoeff_si(A, 0, a);
+					mpz_poly_setcoeff_si(A, 1, b);
+					mpz_poly_setcoeff_si(A, 2, c);
+					mpz_poly_resultant(N0, f0, A);
+					mpz_poly_resultant(N1, f1, A);
+					mpz_abs(N0, N0);
+					mpz_abs(N1, N1);
+					//cout << mpz_get_str(NULL, 10, N0) << endl << flush;
+					//cout << mpz_get_str(NULL, 10, N1) << endl << flush;
+					string str = to_string(a) + "," + to_string(b) + "," + to_string(c) + ":";
+					
+					// trial division on side 0
+					int p = primes[0]; int k = 0; 
+					while (p < sievep0[k0-1]) {
 						int valp = 0;
-						while (mpz_fdiv_ui(N1, p) == 0) {
-							mpz_divexact_ui(N1, N1, p);
+						while (mpz_fdiv_ui(N0, p) == 0) {
+							mpz_divexact_ui(N0, N0, p);
 							valp++;
 							stream.str("");
 							stream << hex << p;
@@ -432,28 +354,29 @@ int main(int argc, char** argv)
 							p = primes[++k];
 							if (p > 1000) {
 								k = 0;
-								while (sievep1[k] < 1000) k++;
+								while (sievep0[k] < 1000) k++;
 							}
 						}
 						else {
-							p = sievep1[++k];
+							p = sievep0[++k];
 						}
 					}
-					if (qside == 1)  {
-						mpz_divexact_ui(N1, N1, q);
+					if (qside == 0) {
+						mpz_divexact_ui(N0, N0, q);
 						stream.str("");
 						stream << hex << q;
 						str += stream.str();
 					}
+					bool isrel = true;
 					bool cofactor = true;
-					if (mpz_cmp_ui(N1, 1) == 0) { cofactor = false; }
-					str += (qside == 1 && cofactor ? "," : "");
-					// cofactorization on side 1
-					n = 0; while (!Q.empty()) Q.pop(); while (!QN.empty()) QN.pop();
+					if (mpz_cmp_ui(N0, 1) == 0) { cofactor = false; }
+					str += (cofactor ? "," : "");
+					// cofactorization on side 0
+					int n = 0; while (!Q.empty()) Q.pop(); while (!QN.empty()) QN.pop();
 					if (cofactor) {
-						if (mpz_probab_prime_p(N1, 30) == 0) {  // cofactor definitely composite
+						if (mpz_probab_prime_p(N0, 30) == 0) {  // cofactor definitely composite
 							
-							QN.push(&N1); Q.push(2); Q.push(1); Q.push(0); Q.push(3);
+							QN.push(&N0); Q.push(2); Q.push(1); Q.push(0); Q.push(3);
 							while (!QN.empty()) {
 								mpz_t* N = QN.top(); QN.pop();
 								int l = Q.top(); Q.pop();
@@ -481,7 +404,7 @@ int main(int argc, char** argv)
 										// save remaining algs to array
 										int lnext = l - j; int lt = lnext;
 										while (lt--) { algarr[lt] = Q.top(); Q.pop(); }
-										lt = lnext; if (lt) { while (lt--) Q.push(algarr[lt]); Q.push(lnext); }
+										lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
 										if (mpz_probab_prime_p(p1, 30)) {
 											if (mpz_cmpabs(p1, lpb) > 0) { isrel = false; break; }
 											else { str += mpz_get_str(NULL, BASE, p1); str += ","; }
@@ -490,7 +413,7 @@ int main(int argc, char** argv)
 											if (!lnext) { isrel = false; break; }
 											mpz_set(pi[n], p1);
 											QN.push(&pi[n++]);
-											lt = lnext; if (lt) { while (lt--) Q.push(algarr[lt]); Q.push(lnext); }
+											lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
 										}
 										if (mpz_probab_prime_p(p2, 30)) {
 											if (mpz_cmpabs(p2, lpb) > 0) { isrel = false; break; }
@@ -500,7 +423,7 @@ int main(int argc, char** argv)
 											if (!lnext) { isrel = false; break; }
 											mpz_set(pi[n], p2);
 											QN.push(&pi[n++]);
-											lt = lnext; if (lt) { while (lt--) Q.push(algarr[lt]); Q.push(lnext); }
+											lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
 										}
 									}
 								}
@@ -508,28 +431,131 @@ int main(int argc, char** argv)
 							}
 						}
 						else {	// cofactor prime but is it < lpb?
-							if (mpz_cmpabs(N1, lpb) > 0) isrel = false;
-							else { str += mpz_get_str(NULL, BASE, N1); }
+							if (mpz_cmpabs(N0, lpb) > 0) isrel = false;
+							else { str += mpz_get_str(NULL, BASE, N0); }
 						}
 					}
+					
+					str += ":";
 
-					if (isrel) { cout << str << endl << flush; R++; }
+					// trial division on side 1
+					if (isrel) {
+						p = primes[0]; k = 0; 
+						while (p < sievep1[k1-1]) {
+							int valp = 0;
+							while (mpz_fdiv_ui(N1, p) == 0) {
+								mpz_divexact_ui(N1, N1, p);
+								valp++;
+								stream.str("");
+								stream << hex << p;
+								str += stream.str() + ",";
+							}
+							if (p < 1000) {
+								p = primes[++k];
+								if (p > 1000) {
+									k = 0;
+									while (sievep1[k] < 1000) k++;
+								}
+							}
+							else {
+								p = sievep1[++k];
+							}
+						}
+						if (qside == 1)  {
+							mpz_divexact_ui(N1, N1, q);
+							stream.str("");
+							stream << hex << q;
+							str += stream.str();
+						}
+						bool cofactor = true;
+						if (mpz_cmp_ui(N1, 1) == 0) { cofactor = false; }
+						str += (qside == 1 && cofactor ? "," : "");
+						// cofactorization on side 1
+						n = 0; while (!Q.empty()) Q.pop(); while (!QN.empty()) QN.pop();
+						if (cofactor) {
+							if (mpz_probab_prime_p(N1, 30) == 0) {  // cofactor definitely composite
+								
+								QN.push(&N1); Q.push(2); Q.push(1); Q.push(0); Q.push(3);
+								while (!QN.empty()) {
+									mpz_t* N = QN.top(); QN.pop();
+									int l = Q.top(); Q.pop();
+									int j = 0;
+									bool factored = false;
+									while (!factored) {
+										int alg = Q.top(); Q.pop(); j++;
+										switch (alg) {
+											case 0: factored = PollardPm1(*N, S, factor);
+													break;	
+											case 1: factored = EECM(*N, S, factor, 25921, 83521, 19, 9537, 2737);
+													break;	
+											case 2: factored = EECM(*N, S, factor, 1681, 707281, 3, 19642, 19803);
+													break;	
+										}
+										if ( !factored ) {
+											if ( j >= l ) { isrel = false; break; }
+										}
+										else {
+											mpz_set(p1, factor);
+											mpz_divexact(p2, *N, factor);
+											if (mpz_cmpabs(p1, p2) > 0) {
+												 mpz_set(t, p1); mpz_set(p1, p2); mpz_set(p2, t);	// sort
+											}
+											// save remaining algs to array
+											int lnext = l - j; int lt = lnext;
+											while (lt--) { algarr[lt] = Q.top(); Q.pop(); }
+											lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
+											if (mpz_probab_prime_p(p1, 30)) {
+												if (mpz_cmpabs(p1, lpb) > 0) { isrel = false; break; }
+												else { str += mpz_get_str(NULL, BASE, p1); str += ","; }
+											}
+											else {
+												if (!lnext) { isrel = false; break; }
+												mpz_set(pi[n], p1);
+												QN.push(&pi[n++]);
+												lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
+											}
+											if (mpz_probab_prime_p(p2, 30)) {
+												if (mpz_cmpabs(p2, lpb) > 0) { isrel = false; break; }
+												else { str += mpz_get_str(NULL, BASE, p2); }
+											}
+											else {
+												if (!lnext) { isrel = false; break; }
+												mpz_set(pi[n], p2);
+												QN.push(&pi[n++]);
+												lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
+											}
+										}
+									}
+									if (!isrel) break;
+								}
+							}
+							else {	// cofactor prime but is it < lpb?
+								if (mpz_cmpabs(N1, lpb) > 0) isrel = false;
+								else { str += mpz_get_str(NULL, BASE, N1); }
+							}
+						}
+
+						if (isrel) { cout << str << endl << flush; R++; }
+					}
 				}
 			}
 		}
+		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+		cout << "# Finished! Cofactorization took " << timetaken << "s" << endl << flush;
+		cout << "# " << R << " actual relations found." << endl << flush;
+		//cout << "lpb = " << mpz_get_str(NULL, 10, lpb) << endl << flush;
 	}
-	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	cout << "# Finished! Cofactorization took " << timetaken << "s" << endl << flush;
-	cout << "# " << R << " actual relations found." << endl << flush;
-	//cout << "lpb = " << mpz_get_str(NULL, 10, lpb) << endl << flush;
 
-	for (int i = 0; i < 8; i++) mpz_clear(pi[i]); delete[] pi;
+	mpz_clear(S);
 	mpz_clear(t); mpz_clear(p2); mpz_clear(p1);
 	mpz_clear(factor);
 	mpz_clear(lpb);
     mpz_clear(N1); mpz_clear(N0);
     mpz_poly_clear(A); mpz_poly_clear(f1); mpz_poly_clear(f0);
 	delete[] fq;
+	delete[] r;
+	for (int i = 0; i < 8; i++) mpz_clear(pi[i]); delete[] pi;
+	mpz_clear(qmpz);
 	delete[] H;
 	//delete[] L;
 	delete[] M;
