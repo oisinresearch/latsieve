@@ -58,9 +58,13 @@ bool EECM(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int Z0);
 int main(int argc, char** argv)
 {
 	if (argc == 1) {
-		cout << endl << "Usage: ./latsieve3d inputpoly fbbits factorbasefile qmin qmax th0 th1 lpbbits cofacscalar" << endl << endl;
+		cout << endl << "Usage: ./latsieve3d inputpoly fbbits factorbasefile B1 B2 B3 qmin qmax th0 th1 lpbbits cofacscalar" << endl << endl;
 		return 0;
 	}
+
+	cout << "# ";
+	for (int i = 0; i < argc; i++) cout << argv[i] << " ";
+	cout << endl << flush;
 
 	bool verbose = false;
 		
