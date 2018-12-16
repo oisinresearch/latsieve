@@ -33,7 +33,8 @@ struct keyval {
 	float logp;
 };
 
-int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp, keyval* M, int Mlen, int B);
+int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
+		 keyval* M, int Mlen, int* B);
 void histogram(keyval*M, float* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
 void csort(keyval* M, keyval* L, int* H, int len);
@@ -41,8 +42,9 @@ inline int floordiv(int a, int b);
 inline int64_t modinv(int64_t x, int64_t m);
 inline int nonzerolcm(int u1, int u2, int u3);
 inline int gcd(int a, int b);
-inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, int B, int* a, int* b);
-inline bool planeintersectsbox(int nx, int ny, int nz, int x, int y, int z, int B);
+inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, 
+				int B1, int B2, int B3, int* a, int* b);
+inline bool planeintersectsbox(int nx, int ny, int nz, int x, int y, int z, int B1, int B2, int B3);
 inline int minnonneg(int u, int v, int w);
 inline int minabs(int u, int v, int w);
 inline int maxabs(int u, int v, int w);
@@ -56,7 +58,7 @@ bool EECM(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int Z0);
 int main(int argc, char** argv)
 {
 	if (argc == 1) {
-		cout << endl << "Usage: ./latsieve3d inputpoly fbbits factorbasefile qmin qmax th0 th1 lpbbits" << endl << endl;
+		cout << endl << "Usage: ./latsieve3d inputpoly fbbits factorbasefile qmin qmax th0 th1 lpbbits cofacscalar" << endl << endl;
 		return 0;
 	}
 
@@ -176,8 +178,14 @@ int main(int argc, char** argv)
 	if (verbose) cout << "There are " << k1 << " factor base primes on side 1." << endl << flush;
 	fbfile.close();
 	
-	int B = 256;	// 512;
-	int Mlen = 512*512*256*2 + (1<<27);	//1024*1024*512*2 + (1<<27);
+	int B[3] = { 9, 9, 8 };
+	if (argc >= 5) B[0] = atoi(argv[4]);
+	if (argc >= 6) B[1] = atoi(argv[5]);
+	if (argc >= 7) B[2] = atoi(argv[6]);
+	int B1bits = B[0]; int B2bits = B[1]; int B3bits = B[2];
+	int B1 = 1<<B1bits; int B2 = 1<<B2bits; int B3 = 1<<B3bits;
+	int Mlen = 2*B1*2*B2*B3*2;	//1024*1024*512*2 + (1<<27);
+	Mlen = (int)(1.3f * Mlen);
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
 	float* H = new float[Mlen];	// histogram
@@ -203,15 +211,17 @@ int main(int argc, char** argv)
 	stringstream stream;
 	mpz_t lpb; mpz_init(lpb);
 	mpz_t factor; mpz_init(factor); mpz_t p1; mpz_t p2; mpz_init(p1); mpz_init(p2); mpz_t t; mpz_init(t); 
-	mpz_t S; mpz_init(S); GetlcmScalar(1000, S, primes, 669);	//1229);	// 900);// 669);	// for Pollard p-1
-	if (argc >= 5) qmin = atoi(argv[4]);
-	if (argc >= 6) qmax = atoi(argv[5]);
+	if (argc >= 8) qmin = atoi(argv[7]);
+	if (argc >= 9) qmax = atoi(argv[8]);
 	float th0 = 70.0f;
-	if (argc >= 7) th0 = atof(argv[6]);
+	if (argc >= 10) th0 = atof(argv[9]);
 	float th1 = 70.0f;
-	if (argc >= 8) th1 = atof(argv[7]);
+	if (argc >= 11) th1 = atof(argv[10]);
 	int lpbits = 29;
-	if (argc >= 9) lpbits = atoi(argv[8]);
+	if (argc >= 12) lpbits = atoi(argv[11]);
+	int cofacS = 1000;
+	if (argc >= 13) cofacS = atoi(argv[12]);
+	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, primes, 669);	// max S = 5000
 
 	int q = qmin;
 	while (q < qmax) {
@@ -236,9 +246,10 @@ int main(int argc, char** argv)
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 		int R0 = 0;
-		int B2 = 2*B; int BB = B*B;
-		int B2bits = 1; while (1 << B2bits < B2) B2bits++;
-		int BB4bits = 1; while (1 << BB4bits < BB*4) BB4bits++;
+		int B1x2 = 2*B1; int B2xB2 = B2*B2;
+		int B1x2bits = B1bits + 1;
+		int B2x2 = 2*B2;
+		int B2xB2x4bits = (B2bits * 2) + 2;
 		rel.clear();
 		for (int i = 0; i < m; i++) {
 			if (H[i] > th0) {
@@ -275,9 +286,9 @@ int main(int argc, char** argv)
 		for (int i = 0; i < rel.size()-1; i++)
 		{
 			if (rel[i] == rel[i+1] && rel[i] != 0) {
-				int x = (rel[i] % B2) - B;
-				int y = ((rel[i] >> B2bits) % B2) - B;
-				int z = rel[i] >> BB4bits;
+				int x = (rel[i] % B1x2) - B1;
+				int y = ((rel[i] >> B1x2bits) % B2x2) - B2;
+				int z = rel[i] >> B2xB2x4bits;
 				if (x != 0 || y != 0 || z != 0) {
 					//cout << x << "," << y << "," << z << endl;
 					R++;
@@ -310,9 +321,9 @@ int main(int argc, char** argv)
 		for (int i = 0; i < rel.size()-1; i++)
 		{
 			if (rel[i] == rel[i+1] && rel[i] != 0) {
-				int x = (rel[i] % B2) - B;
-				int y = ((rel[i] >> B2bits) % B2) - B;
-				int z = rel[i] >> BB4bits;
+				int x = (rel[i] % B1x2) - B1;
+				int y = ((rel[i] >> B1x2bits) % B2x2) - B2;
+				int z = rel[i] >> B2xB2x4bits;
 				if (x != 0 || y != 0 || z != 0) {
 					// compute [a,b,c]
 					int a = L[0]*x+L[1]*y+L[2]*z;
@@ -417,7 +428,7 @@ int main(int argc, char** argv)
 										}
 										if (mpz_probab_prime_p(p2, 30)) {
 											if (mpz_cmpabs(p2, lpb) > 0) { isrel = false; break; }
-											else { str += mpz_get_str(NULL, BASE, p2); }
+											else { str += mpz_get_str(NULL, BASE, p2); str += QN.empty() ? "" : ","; }
 										}
 										else {
 											if (!lnext) { isrel = false; break; }
@@ -516,7 +527,7 @@ int main(int argc, char** argv)
 											}
 											if (mpz_probab_prime_p(p2, 30)) {
 												if (mpz_cmpabs(p2, lpb) > 0) { isrel = false; break; }
-												else { str += mpz_get_str(NULL, BASE, p2); }
+												else { str += mpz_get_str(NULL, BASE, p2); str += QN.empty() ? "" : ","; }
 											}
 											else {
 												if (!lnext) { isrel = false; break; }
@@ -634,17 +645,26 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 }
 
 
-int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp, keyval* M, int Mlen, int B)
+int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
+			 keyval* M, int Mlen, int* B)
 {
 	int64_t L[9];
 	int64_t L2[9];
 	int64_t L3[9];
 	int* r = new int[degf]();
 	int numl = polrootsmod(f, degf, r, q);
-	int B1 = B-1;
-	int B2 = 2*B; int BB = B*B;
-	int B2bits = 1; while (1 << B2bits < B2) B2bits++;
-	int BB4bits = 1; while (1 << BB4bits < BB*4) BB4bits++;
+	int B1bits = B[0];
+	int B2bits = B[1];
+	int B3bits = B[2];
+	int B1 = 1<<B1bits;
+	int B2 = 1<<B2bits;
+	int B3 = 1<<B3bits;
+	int B1max = B1 - 1;
+	int B2max = B2 - 1;
+	int B3max = B3 - 1;
+	int B1x2 = 2*B1;
+	int B1x2bits = B1bits + 1;
+	int B2xB2x4bits = (B2bits * 2) + 2;
 
 	// print (q,r) ideal
 	//cout << "special-q (" << q << "," << r[l] << ")" << endl;
@@ -710,14 +730,14 @@ int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, 
 
 			// enumerate lattice vectors (x,y,z) in box [-B,B]x[-B,B]x[0,B]
 			int x = w1; int y = w2; int z = w3;
-			while (planeintersectsbox(nx, ny, nz, x-w1, y-w2, z-w3, B)) {
+			while (planeintersectsbox(nx, ny, nz, x-w1, y-w2, z-w3, B1, B2, B3)) {
 				x -= w1; y -= w2; z -= w3;
 			}
 			int j1, j2, j3, jmin;
-			while (planeintersectsbox(nx, ny, nz, x, y, z, B)) {
+			while (planeintersectsbox(nx, ny, nz, x, y, z, B1, B2, B3)) {
 				int ws1 = x; int ws2 = y; int ws3 = z;
 				int a = 0; int b = 0;
-				getab(u1, u2, u3, v1, v2, v3, x, y, z, B, &a, &b);
+				getab(u1, u2, u3, v1, v2, v3, x, y, z, B1, B2, B3, &a, &b);
 				x += a*u1 + b*v1;
 				y += a*u2 + b*v2;
 				z += a*u3 + b*v3;
@@ -726,20 +746,20 @@ int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, 
 				bool inplane = true;
 				while (inplane) {
 					// pin vector to start of row
-					int u1B = u1 < 0 ? B1 : -B; int u2B = u2 < 0 ? B1 : -B; int u3B = u3 < 0 ? B1 : 0;
+					int u1B = u1 < 0 ? B1max : -B1; int u2B = u2 < 0 ? B2max : -B2; int u3B = u3 < 0 ? B3max : 0;
 					j1 = u1 == 0 ? -1 : (x - u1B) / u1;
 					j2 = u2 == 0 ? -1 : (y - u2B) / u2;
 					j3 = u3 == 0 ? -1 : (z - u3B) / u3;
 					jmin = minnonneg(j1, j2, j3);
 					x -= jmin*u1; y -= jmin*u2; z -= jmin*u3;
-					if (x >= -B && x < B && y >= -B && y < B && z >= 0 && z < B) {
-						int u1B = u1 < 0 ? -B : B1; int u2B = u2 < 0 ? -B : B1; int u3B = u3 < 0 ? 0 : B1;
+					if (x >= -B1 && x < B1 && y >= -B2 && y < B2 && z >= 0 && z < B3) {
+						int u1B = u1 < 0 ? -B1 : B1max; int u2B = u2 < 0 ? -B2 : B2max; int u3B = u3 < 0 ? 0 : B3max;
 						j1 = u1 == 0 ? -1 : (u1B - x) / u1;
 						j2 = u2 == 0 ? -1 : (u2B - y) / u2;
 						j3 = u3 == 0 ? -1 : (u3B - z) / u3;
 						jmin = minnonneg(j1, j2, j3);
 						for (int j = 0; j <= jmin; j++) {
-							int id = (x + B) + ((y + B) << B2bits) + (z << BB4bits);
+							int id = (x + B1) + ((y + B2) << B1x2bits) + (z << B2xB2x4bits);
 							M[m++] = (keyval){ id, logp };
 							x += u1; y += u2; z += u3;
 						}
@@ -755,20 +775,20 @@ int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, 
 				inplane = true;
 				while (inplane) {
 					// pin vector to start of row
-					int u1B = u1 < 0 ? B1 : -B; int u2B = u2 < 0 ? B1 : -B; int u3B = u3 < 0 ? B1 : 0;
+					int u1B = u1 < 0 ? B1max : -B1; int u2B = u2 < 0 ? B2max : -B2; int u3B = u3 < 0 ? B3max : 0;
 					j1 = u1 == 0 ? -1 : (x - u1B) / u1;
 					j2 = u2 == 0 ? -1 : (y - u2B) / u2;
 					j3 = u3 == 0 ? -1 : (z - u3B) / u3;
 					jmin = minnonneg(j1, j2, j3);
 					x -= jmin*u1; y -= jmin*u2; z -= jmin*u3;
-					if (x >= -B && x < B && y >= -B && y < B && z >= 0 && z < B) {
-						int u1B = u1 < 0 ? -B : B1; int u2B = u2 < 0 ? -B : B1; int u3B = u3 < 0 ? 0 : B1;
+					if (x >= -B1 && x < B1 && y >= -B2 && y < B2 && z >= 0 && z < B3) {
+						int u1B = u1 < 0 ? -B1 : B1max; int u2B = u2 < 0 ? -B2 : B2max; int u3B = u3 < 0 ? 0 : B3max;
 						j1 = u1 == 0 ? -1 : (u1B - x) / u1;
 						j2 = u2 == 0 ? -1 : (u2B - y) / u2;
 						j3 = u3 == 0 ? -1 : (u3B - z) / u3;
 						jmin = minnonneg(j1, j2, j3);
 						for (int j = 0; j <= jmin; j++) {
-							int id = (x + B) + ((y + B) << B2bits) + (z << BB4bits);
+							int id = (x + B1) + ((y + B2) << B1x2bits) + (z << B2xB2x4bits);
 							M[m++] = (keyval){ id, logp };
 							x += u1; y += u2; z += u3;
 						}
@@ -804,12 +824,13 @@ inline int floordiv(int a, int b)
 
 
 // Integer programming to get (a,b) such that (x,y,z) + a*(u1,u2,u3) + b*(v1,v2,v3) within [-B,B[x[-B,B[x[0,B[
-inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, int B, int* a, int* b)
+inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, 
+				int B1, int B2, int B3, int* a, int* b)
 {
 	int U[6] = { u1, u2, u3, -u1, -u2, -u3 };
 	int V[6] = { v1, v2, v3, -v1, -v2, -v3 };
-	int C[6] = { B-x-1, B-y-1, B-z-1, B+x, B+y, z };
-	*a = B; *b = B;
+	int C[6] = { B1-x-1, B2-y-1, B3-z-1, B1+x, B2+y, z };
+	*a = B1; *b = B1;
 
 	int L = abs(nonzerolcm(u1, u2, u3));
 
@@ -901,13 +922,13 @@ inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, 
 
 
 // determine if plane with normal (nx, ny, nz) containing point (x,y,z) intersects box [-B,B]x[-B,B]x[0,B]
-inline bool planeintersectsbox(int nx, int ny, int nz, int x, int y, int z, int B)
+inline bool planeintersectsbox(int nx, int ny, int nz, int x, int y, int z, int B1, int B2, int B3)
 {
 	int d = nx*x + ny*y + nz*z;
 
-	int nxB0 = -nx*B; int nxB1 = nx*B;
-	int nyB0 = -ny*B; int nyB1 = ny*B;
-	int nzB1 = nz*B;
+	int nxB0 = -nx*B1; int nxB1 = nx*(B1-1);
+	int nyB0 = -ny*B2; int nyB1 = ny*(B2-1);
+	int nzB1 = nz*(B3-1);
 
 	int s0 = ( nxB0 + nyB0 + /*nz*0*/ - d ) > 0;
 	int s1 = ( nxB1 + nyB0 + /*nz*0*/ - d ) > 0;
