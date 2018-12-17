@@ -33,7 +33,7 @@ struct keyval {
 	float logp;
 };
 
-int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
+int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
 		 keyval* M, int Mlen, int* B);
 void histogram(keyval*M, float* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
@@ -202,10 +202,10 @@ int main(int argc, char** argv)
 	//timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	//cout << "Memory cleared. Time taken: " << timetaken << "s" << endl << flush;
 
-	int qmin; int qmax; mpz_t qmpz; mpz_init(qmpz);
+	int64_t qmin; int64_t qmax; mpz_t qmpz; mpz_init(qmpz);
 	mpz_t* pi = new mpz_t[8]; for (int i = 0; i < 8; i++) mpz_init(pi[i]);
-	int* r = new int[degf]();
-	int* fq = new int[degf+1]();
+	int64_t* r = new int64_t[degf]();
+	int64_t* fq = new int64_t[degf+1]();
 	mpz_poly f0; mpz_poly f1; mpz_poly A;
 	mpz_poly_init(f0, degf); mpz_poly_init(f1, degg); mpz_poly_init(A, 3);
 	mpz_poly_set_mpz(f0, fpoly, degf);
@@ -215,8 +215,8 @@ int main(int argc, char** argv)
 	stringstream stream;
 	mpz_t lpb; mpz_init(lpb);
 	mpz_t factor; mpz_init(factor); mpz_t p1; mpz_t p2; mpz_init(p1); mpz_init(p2); mpz_t t; mpz_init(t); 
-	if (argc >= 8) qmin = atoi(argv[7]);
-	if (argc >= 9) qmax = atoi(argv[8]);
+	if (argc >= 8) qmin = strtoll(argv[7], NULL, 10);	// atoi(argv[7]);
+	if (argc >= 9) qmax = strtoll(argv[8], NULL, 10);	// atoi(argv[8]);
 	float th0 = 70.0f;
 	if (argc >= 10) th0 = atof(argv[9]);
 	float th1 = 70.0f;
@@ -227,7 +227,7 @@ int main(int argc, char** argv)
 	if (argc >= 13) cofacS = atoi(argv[12]);
 	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, primes, 669);	// max S = 5000
 
-	int q = qmin;
+	int64_t q = qmin;
 	while (q < qmax) {
 		mpz_set_ui(qmpz, q);
 		mpz_nextprime(qmpz, qmpz);
@@ -649,13 +649,13 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 }
 
 
-int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
+int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
 			 keyval* M, int Mlen, int* B)
 {
 	int64_t L[9];
 	int64_t L2[9];
 	int64_t L3[9];
-	int* r = new int[degf]();
+	int64_t* r = new int64_t[degf]();
 	int numl = polrootsmod(f, degf, r, q);
 	int B1bits = B[0];
 	int B2bits = B[1];
@@ -712,10 +712,10 @@ int latsieve3d(int* f, int degf, int64_t q, int l, int* allp, int nump, int* s, 
 		if (p == q) { i++; continue; }
 		//cout << p << "," << m << endl << flush;
 		float logp = log2f(p);
-		int64_t rl = mod(-r[l], q);
+		__int128 rl = mod(-r[l], q);
 		for (int k = 0; k < num_smodp[i]; k++) {
 			int64_t n = p*q;
-			int64_t sk = mod(-s[i*degf+k],p);
+			__int128 sk = mod(-s[i*degf+k],p);
 			int64_t t = q*( (sk * modpinvq[i]) % p ) + p*( (rl * modqinvp[i]) % q ); // CRT
 			if (t >= n) t -= n;
 			L2[0] = n; L2[1] = t; L2[2] = 0;
