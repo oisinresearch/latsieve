@@ -226,6 +226,7 @@ int main(int argc, char** argv)
 	int cofacS = 1000;
 	if (argc >= 13) cofacS = atoi(argv[12]);
 	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, primes, 669);	// max S = 5000
+	char* str2 = (char*)malloc(20*sizeof(char));
 
 	int64_t q = qmin;
 	while (q < qmax) {
@@ -422,7 +423,7 @@ int main(int argc, char** argv)
 										lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
 										if (mpz_probab_prime_p(p1, 30)) {
 											if (mpz_cmpabs(p1, lpb) > 0) { isrel = false; break; }
-											else { str += mpz_get_str(NULL, BASE, p1); str += ","; }
+											else { mpz_get_str(str2, BASE, p1); str += str2; str += ","; }
 										}
 										else {
 											if (!lnext) { isrel = false; break; }
@@ -432,7 +433,7 @@ int main(int argc, char** argv)
 										}
 										if (mpz_probab_prime_p(p2, 30)) {
 											if (mpz_cmpabs(p2, lpb) > 0) { isrel = false; break; }
-											else { str += mpz_get_str(NULL, BASE, p2); str += QN.empty() ? "" : ","; }
+											else { mpz_get_str(str2, BASE, p2); str += str2; str += QN.empty() ? "" : ","; }
 										}
 										else {
 											if (!lnext) { isrel = false; break; }
@@ -447,7 +448,7 @@ int main(int argc, char** argv)
 						}
 						else {	// cofactor prime but is it < lpb?
 							if (mpz_cmpabs(N0, lpb) > 0) isrel = false;
-							else { str += mpz_get_str(NULL, BASE, N0); }
+							else { mpz_get_str(str2, BASE, N0); str += str2; }
 						}
 					}
 					
@@ -521,7 +522,7 @@ int main(int argc, char** argv)
 											lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
 											if (mpz_probab_prime_p(p1, 30)) {
 												if (mpz_cmpabs(p1, lpb) > 0) { isrel = false; break; }
-												else { str += mpz_get_str(NULL, BASE, p1); str += ","; }
+												else { mpz_get_str(str2, BASE, p1); str += str2; str += ","; }
 											}
 											else {
 												if (!lnext) { isrel = false; break; }
@@ -531,7 +532,7 @@ int main(int argc, char** argv)
 											}
 											if (mpz_probab_prime_p(p2, 30)) {
 												if (mpz_cmpabs(p2, lpb) > 0) { isrel = false; break; }
-												else { str += mpz_get_str(NULL, BASE, p2); str += QN.empty() ? "" : ","; }
+												else { mpz_get_str(str2, BASE, p2); str += str2; str += QN.empty() ? "" : ","; }
 											}
 											else {
 												if (!lnext) { isrel = false; break; }
@@ -546,7 +547,7 @@ int main(int argc, char** argv)
 							}
 							else {	// cofactor prime but is it < lpb?
 								if (mpz_cmpabs(N1, lpb) > 0) isrel = false;
-								else { str += mpz_get_str(NULL, BASE, N1); }
+								else { mpz_get_str(str2, BASE, N1); str += str2; }
 							}
 						}
 
@@ -561,6 +562,7 @@ int main(int argc, char** argv)
 		//cout << "lpb = " << mpz_get_str(NULL, 10, lpb) << endl << flush;
 	}
 
+	free(str2);
 	mpz_clear(S);
 	mpz_clear(t); mpz_clear(p2); mpz_clear(p1);
 	mpz_clear(factor);
@@ -1071,6 +1073,7 @@ bool PollardPm1(mpz_t N, mpz_t S, mpz_t factor)
 	mpz_gcd(factor, N, g);
 	bool result = mpz_cmpabs_ui(factor, 1) > 0 && mpz_cmpabs(factor, N) < 0;
 	//if (result) cout << endl << endl << "\t\t\tP-1 worked!!!!" << endl << endl << flush;
+	mpz_clear(g);
 	return result;
 }
 

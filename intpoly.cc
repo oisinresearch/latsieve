@@ -402,6 +402,7 @@ int polrootsmod(int64_t* f, int degf, int64_t* roots, int64_t p)
 	}
 
 	// clean up
+	delete[] gdegs;
 	delete[] h2;
 	delete[] h1;
 	delete[] gsplit;

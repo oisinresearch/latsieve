@@ -133,6 +133,7 @@ void int64L2(int64_t* borig, int d)
 	delete[] uu;
 	delete[] rr;
 	delete[] G;
+	delete[] b;
 }
 
 void copysquareint64array(int64_t* src, int64_t* dest, int d)
