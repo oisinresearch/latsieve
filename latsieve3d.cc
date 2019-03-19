@@ -33,6 +33,8 @@ struct keyval {
 	float logp;
 };
 
+__int128 MASK64;
+
 int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
 		 keyval* M, int Mlen, int* B);
 void histogram(keyval*M, float* H, int len);
@@ -42,6 +44,7 @@ inline int floordiv(int a, int b);
 inline int64_t modinv(int64_t x, int64_t m);
 inline int nonzerolcm(int u1, int u2, int u3);
 inline int gcd(int a, int b);
+inline __int128 gcd128(__int128 a, __int128 b);
 inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, 
 				int B1, int B2, int B3, int* a, int* b);
 inline bool planeintersectsbox(int nx, int ny, int nz, int x, int y, int z, int B1, int B2, int B3);
@@ -51,12 +54,24 @@ inline int maxabs(int u, int v, int w);
 inline int min(int u, int v, int w);
 inline int max(int u, int v, int w);
 void GetlcmScalar(int B, mpz_t S, int* primes, int nump);
+inline __int128 make_int128(uint64_t lo, uint64_t hi);
 bool PollardPm1(mpz_t N, mpz_t S, mpz_t factor);
+bool PollardPm1_mpz(mpz_t N, mpz_t S, mpz_t factor);
+bool PollardPm1_int128(__int128 N, mpz_t S, __int128 &factor, int64_t mulo, int64_t muhi);
 bool EECM(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int Z0);
+bool EECM_mpz(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int Z0);
+bool EECM_int128(__int128 N, mpz_t S, __int128 &factor, int d, int a, int X0, int Y0, int Z0, int64_t mulo, int64_t muhi);
 
 
 int main(int argc, char** argv)
 {
+	// set constant
+	MASK64 = 1L;
+	MASK64 = MASK64 << 64;
+	MASK64 = MASK64 - 1L;
+
+	//cout << (uint64_t)(MASK64) << " " << (uint64_t)(MASK64 >> 64) << endl;
+
 	if (argc == 1) {
 		cout << endl << "Usage: ./latsieve3d inputpoly fbbits factorbasefile B1 B2 B3 qmin qmax th0 th1 lpbbits cofacscalar" << endl << endl;
 		return 0;
@@ -66,7 +81,7 @@ int main(int argc, char** argv)
 	for (int i = 0; i < argc; i++) cout << argv[i] << " ";
 	cout << endl << flush;
 
-	bool verbose = false;
+	bool verbose = true;// false;
 		
 	if (verbose) cout << endl << "Reading input polynomial in file " << argv[1] << "..." << flush;
 	//vector<mpz_class> fpoly;
@@ -456,7 +471,7 @@ int main(int argc, char** argv)
 
 					// trial division on side 1
 					if (isrel) {
-						p = primes[0]; k = 0; 
+						p = primes[0]; k = 0;
 						while (p < sievep1[k1-1]) {
 							int valp = 0;
 							while (mpz_fdiv_ui(N1, p) == 0) {
@@ -1053,6 +1068,40 @@ void GetlcmScalar(int B, mpz_t S, int* primes, int nump)
 
 bool PollardPm1(mpz_t N, mpz_t S, mpz_t factor)
 {
+	int bitlen = mpz_sizeinbase(N, 2);
+	if (bitlen < 64) {
+		// convert N to __int128
+		__int128 N128 = make_int128(mpz_getlimbn(N,0), mpz_getlimbn(N, 1));
+		__int128 factor128 = 1;
+		int64_t mulo = 0; int64_t muhi = 0;
+		bool factored = PollardPm1_int128(N128, S, factor128, mulo, muhi);
+		// convert factor128 to mpz_t
+		mp_limb_t* factor_limbs = mpz_limbs_modify(factor, 2);
+		factor_limbs[0] = factor128 & MASK64;
+		factor_limbs[1] = factor128 >> 64;
+		if (factored) cout << mpz_get_str(NULL,10,N) << " = c * " << mpz_get_str(NULL,10,factor) << " factored!" << endl; 
+		return factored;
+	}
+	else if (0) { //bitlen < 128) {
+		// convert N to __int128
+		__int128 N128 = make_int128(mpz_getlimbn(N,0), mpz_getlimbn(N, 1));
+		__int128 factor128 = 1;
+		int64_t mulo = 0; int64_t muhi = 0;
+		bool factored = PollardPm1_int128(N128, S, factor128, mulo, muhi);
+		// convert factor128 to mpz_t
+		mp_limb_t* factor_limbs = mpz_limbs_modify(factor, 2);
+		factor_limbs[0] = factor128 & MASK64;
+		factor_limbs[1] = factor128 >> 64;
+		return factored;
+	}
+	else {
+		return PollardPm1_mpz(N, S, factor);
+	}
+}
+
+
+bool PollardPm1_mpz(mpz_t N, mpz_t S, mpz_t factor)
+{
     int L = mpz_sizeinbase(S, 2); // exact for base = power of 2
 	mpz_t g; mpz_init_set_ui(g, 2);
       
@@ -1078,6 +1127,80 @@ bool PollardPm1(mpz_t N, mpz_t S, mpz_t factor)
 }
 
 
+inline __int128 gcd128(__int128 a, __int128 b)
+{
+	a = abs(a);
+	b = abs(b);
+	__int128 c;
+	while (b != 0) {
+		c = b;
+		b = a % c;
+		a = c;
+	}
+	return a;
+}
+
+
+bool PollardPm1_int128(__int128 N, mpz_t S, __int128 &factor, int64_t mulo, int64_t muhi)
+{
+    int L = mpz_sizeinbase(S, 2); // exact for base = power of 2
+	__int128 g = 2;
+      
+    // Scalar multiplication using square and multiply
+    for (int i = 2; i <= L; i++) {
+        // square
+		g = g * g;
+		g = g % N;
+        if (mpz_tstbit(S, L - i) == 1) {
+            // multiply
+			g = g * 2;
+			if (g >= N) g -= N; 
+        }
+    }
+	// subtract 1
+	g = g - 1;
+	// compute gcd
+	factor = gcd128(N, g);
+	bool result = (factor > 1) && (factor < N);
+	//if (result) cout << endl << endl << "\t\t\tP-1 worked!!!!" << endl << endl << flush;
+	return result;
+}
+
+
+bool EECM(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int Z0)
+{
+	int bitlen = mpz_sizeinbase(N, 2);
+	if (bitlen < 44) {
+		//cout << mpz_get_str(NULL,10,N) << endl; 
+		// convert N to __int128
+		__int128 N128 = make_int128(mpz_getlimbn(N,0), mpz_getlimbn(N, 1));
+		__int128 factor128 = 1;
+		int64_t mulo = 0; int64_t muhi = 0;
+		bool factored = EECM_int128(N128, S, factor128, d, a, X0, Y0, Z0, mulo, muhi);
+		// convert factor128 to mpz_t
+		mp_limb_t* factor_limbs = mpz_limbs_modify(factor, 2);
+		factor_limbs[0] = factor128 & MASK64;
+		factor_limbs[1] = factor128 >> 64; //if (factored) cout << mpz_get_str(NULL,10,N) << " factored!" << endl; 
+		return factored;
+	}
+	else if (0) { //bitlen < 128) {
+		// convert N to __int128
+		__int128 N128 = make_int128(mpz_getlimbn(N,0), mpz_getlimbn(N, 1));
+		__int128 factor128 = 1;
+		int64_t mulo = 0; int64_t muhi = 0;
+		bool factored = EECM_int128(N128, S, factor128, d, a, X0, Y0, Z0, mulo, muhi);
+		// convert factor128 to mpz_t
+		mp_limb_t* factor_limbs = mpz_limbs_modify(factor, 2);
+		factor_limbs[0] = factor128 & MASK64;
+		factor_limbs[1] = factor128 >> 64;
+		return factored;
+	}
+	else {
+		return EECM_mpz(N, S, factor, d, a, X0, Y0, Z0);
+	}
+}
+
+
 /* ScalarMultiplyEdwards
  * 
  * Multiply a point [X0:Y0:Z0] on a twisted edwards curve by a scalar multiple
@@ -1088,7 +1211,7 @@ bool PollardPm1(mpz_t N, mpz_t S, mpz_t factor)
  * S	scalar multiple
  * L	length of S in bits");
 */
-bool EECM(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int Z0)
+bool EECM_mpz(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int Z0)
 {
 	mpz_t SX, SY, SZ;
     mpz_t A, B, B2, B3, C, dC, B2mC, D, CaD, B2mCmD, E, EmD, F, AF, G, AG, aC, DmaC, H, Hx2, J;
@@ -1104,7 +1227,7 @@ bool EECM(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int Z0)
 	mpz_init_set_ui(SZ, Z0);
     
 	mpz_init(mulmod);
-
+//int len=mpz_sizeinbase(N,2);if(len > 64 && len < 128) cout << mpz_get_str(NULL,10,N) << endl; 
     int L = mpz_sizeinbase(S, 2); // exact for base = power of 2
     
     // Scalar multiplication using double & add algorithm
@@ -1167,6 +1290,94 @@ bool EECM(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int Z0)
 	bool result = mpz_cmpabs_ui(factor, 1) > 0 && mpz_cmpabs(factor, N) < 0;
 	//if (result) cout << endl << endl << "\t\t\tEECM worked!!!!" << endl << endl << flush;
 	return result;
+}
+
+
+
+/* ScalarMultiplyEdwards (__int128 version)
+ * 
+ * Multiply a point [X0:Y0:Z0] on a twisted edwards curve by a scalar multiple
+ * d	d parameter of twisted Edwards curve
+ * a	a parameter of twisted Edwards curve
+ * X0,Y0,Z0	point on curve to multiply, in projective coordinates
+ * N	we work modulo N
+ * S	scalar multiple
+ * L	length of S in bits");
+*/
+bool EECM_int128(__int128 N, mpz_t S, __int128 &factor, int d, int a, int X0, int Y0, int Z0, int64_t mulo, int64_t muhi)
+{
+	__int128 SX, SY, SZ;
+    __int128 A, B, B2, B3, C, dC, B2mC, D, CaD, B2mCmD, E, EmD, F, AF, G, AG, aC, DmaC, H, Hx2, J;
+    __int128 X0aY0, X0aY0xB, X0aY0xB_mCmD, X, Y, Z, mulmod;
+   
+   	SX = X0;
+	SY = Y-1;
+	SZ = Z0;
+    int L = mpz_sizeinbase(S, 2); // exact for base = power of 2
+    
+    // Scalar multiplication using double & add algorithm
+    // doubling formula: [2](x:y:z) = ((B-C-D)*J:F*(E-D):F*J)
+    for(int i = 2; i <= L; i++) {
+        // double
+        B = SX + SY;
+        B2 = (B * B) % N;
+		C = (SX * SX) % N;
+		D = (SY * SY) % N;
+		E = C * a;
+		F = E + D;
+		H = (SZ * SZ) % N;
+		Hx2 = H << 1;
+		J = F - Hx2;
+		CaD = C + D;
+		B2mCmD = B2 - CaD;
+		X = B2mCmD * J;
+		EmD = E - D;
+		Y = F * EmD;
+		Z = F * J;
+		SX = X % N;
+		SY = Y % N;
+		SZ = Z % N;
+        if(mpz_tstbit(S, L - i) == 1) {
+            // add
+			A = SZ * Z0;
+			B = SX + SY;
+			B3 = (A * A) % N;
+			C = SX * X0;
+			D = SY * Y0;
+			dC = C * d;
+			CaD = C + D;
+			E = (dC * D) % N;
+			F = B3 - E;
+			G = B3 + E;
+			X0aY0xB = (B * (X0 + Y0)) % N;
+			X0aY0xB_mCmD = X0aY0xB - CaD;
+			AF = (A * F) % N;
+			X = AF * X0aY0xB_mCmD;
+			AG = (A * G) % N;
+			aC = C * a;
+			DmaC = D - aC;
+			Y = AG * DmaC;
+			Z = F * G;
+			SX = X % N;
+			SY = Y % N;
+			SZ = Z % N;
+        }
+    }
+	// try to retrieve factor
+	factor = gcd128(N, SX);
+
+	bool result = (factor > 0) && (factor < N);
+	//if (result) cout << endl << endl << "\t\t\tEECM worked!!!!" << endl << endl << flush;
+	return result;
+}
+
+
+inline __int128 make_int128(uint64_t lo, uint64_t hi)
+{
+	__int128 N = hi;
+	N = N << 64;
+	N += lo;
+	return N;
 }
 
 

@@ -10,6 +10,7 @@
 #include <stack>	// stack
 #include <string>
 #include "factorsmall.h"
+#include <assert.h>
 
 using std::cout;
 using std::endl;
@@ -17,18 +18,18 @@ using std::flush;
 using std::ifstream;
 using std::string;
 using std::to_string;
+using std::stringstream;
 auto npos = std::string::npos;
 
 inline int gcd(int a, int b);
+bool known_good_prime(int pt, int* pcache, int pmin, int* sievep, int kmin, int k);
 
 int main (int argc, char** argv)
 {
 	if (argc == 1) {
-		cout << endl << "Usage: ./galoisexpand inputpoly fbb relations" << endl << flush;
+		cout << endl << "Usage: ./galoisexpand inputpoly factorbase relations" << endl << flush;
 		return 0;
 	}
-
-	bool verbose = false;
 
 	// read input polynomial
 	mpz_t* fpoly = new mpz_t[20];	// max degree of 20.  Not the neatest
@@ -39,52 +40,113 @@ int main (int argc, char** argv)
 		mpz_init(gpoly[i]);
 		mpz_init(hpoly[i]);
 	}
+	int64_t* fi64 = new int64_t[20]();
+	int64_t* gi64 = new int64_t[20]();
+	int64_t* fmodp = new int64_t[20]();
+	int64_t* gmodp = new int64_t[20]();
 	string line;
 	char linebuffer[100];
 	ifstream file(argv[1]);
 	getline(file, line);	// first line contains number n to factor
 	// read nonlinear poly
 	int degf = -1;
-	if (verbose) cout << endl << "Side 0 polynomial f0 (ascending coefficients)" << endl;
 	while (getline(file, line) && line.substr(0,1) == "c" ) {
 		line = line.substr(line.find_first_of(" ")+1);
-		//mpz_set_str(c, line.c_str(), 10);
 		mpz_set_str(fpoly[++degf], line.c_str(), 10);
-		//mpz_get_str(linebuffer, 10, fpoly[degf-1]);
-		if (verbose) cout << line << endl << flush;
+		fi64[degf] = mpz_get_si(fpoly[degf]);
 	}
-	//int degf = fpoly.size();
 	// read other poly
 	int degg = -1;
 	bool read = true;
-	if (verbose) cout << endl << "Side 1 polynomial f1: (ascending coefficients)" << endl;
 	while (read && line.substr(0,1) == "Y" ) {
 		line = line.substr(line.find_first_of(" ")+1);
-		//mpz_set_str(c, line.c_str(), 10);
 		mpz_set_str(gpoly[++degg], line.c_str(), 10);
-		//mpz_get_str(linebuffer, 10, gpoly[degg-1]);
-		if (verbose) cout << line << endl << flush;
+		gi64[degg] = mpz_get_si(gpoly[degg]);
 		read = static_cast<bool>(getline(file, line));
 	}
-	//int degg = gpoly.size();
 	file.close();
-	if (verbose) cout << endl << "Complete.  Degree f0 = " << degf << ", degree f1 = " << degg << "." << endl;
+	int64_t* froots = new int64_t[degf+1];
+	int64_t* groots = new int64_t[degg+1];
 
+	// load factor base
+	ifstream fbfile(argv[2]);
+	// read fbb
+	getline(fbfile, line);
+	int fbb = atoi(line.c_str());
 	// compute small primes
-	if (verbose) cout << endl << "Starting sieve of Eratosthenes for small primes..." << endl << flush;
-	int fbbits = atoi(argv[2]);
-	int max = 1<<fbbits;
-	char* sieve = new char[max+1]();
+	int fbmax = fbb;
+	char* sieve = new char[fbmax+1]();
 	int* primes = new int[1077871];	// hardcoded for the moment.  Allows fbb of 2^23 easily
-	for (int i = 2; i <= sqrt(max); i++)
+	for (int i = 2; i <= sqrt(fbmax); i++)
 		if(!sieve[i])
-			for (int j = i*i; j <= max; j += i)
+			for (int j = i*i; j <= fbmax; j += i)
 				if(!sieve[j]) sieve[j] = 1;
 	int nump = 0;
-	for (int i = 2; i <= max-1; i++)
+	for (int i = 2; i <= fbmax-1; i++)
 		if (!sieve[i])
 			primes[nump++] = i;
-	if (verbose) cout << "Complete." << endl;
+
+	// set up constants
+	std::clock_t start; double timetaken = 0;
+	mpz_t r0; mpz_init(r0);
+	int* sieves0 = new int[degf * nump]();
+	int* sievep0 = new int[nump]();
+	int* sievenum_s0modp = new int[nump]();
+	int* sieves1 = new int[degg * nump]();
+	int* sievep1 = new int[nump]();
+	int* sievenum_s1modp = new int[nump]();
+	// read k0
+	getline(fbfile, line);
+	int k0 = atoi(line.c_str());
+	for (int i = 0; i < k0; i++) {
+		getline(fbfile, line);
+		stringstream ss(line);
+		string substr;
+		getline(ss, substr, ',');
+		sievep0[i] = atoi(substr.c_str());
+		int j = 0;
+		while( ss.good() ) {
+			getline( ss, substr, ',' );
+			sieves0[i*degf + j++] = atoi(substr.c_str());
+		}
+		sievenum_s0modp[i] = j;
+	}
+	// read k1
+	getline(fbfile, line);
+	int k1 = atoi(line.c_str());
+	for (int i = 0; i < k1; i++) {
+		getline(fbfile, line);
+		stringstream ss(line);
+		string substr;
+		getline(ss, substr, ',');
+		sievep1[i] = atoi(substr.c_str());
+		int j = 0;
+		while( ss.good() ) {
+			getline( ss, substr, ',' );
+			sieves1[i*degf + j++] = atoi(substr.c_str());
+		}
+		sievenum_s1modp[i] = j;
+	}
+	timetaken += ( clock() - start ) / (double) CLOCKS_PER_SEC;
+	fbfile.close();
+
+	// construct p0 cache and p1 cache
+	int p0min = 1000;
+	int* p0cache = new int[p0min]();
+	int c0 = 0; int k0min = 0; 
+	for (int p = 2; p < p0min; p++) {
+		int t = c0;
+		while (sievep0[t] < p) t++;
+		if (sievep0[t] == p) { c0 = t + 1; p0cache[p] = 1; k0min++; }	// factor base prime
+	}
+	int p1min = 1000;
+	int* p1cache = new int[p1min]();
+	int c1 = 0; int k1min = 0;
+	for (int p = 2; p < p1min; p++) {
+		int t = c1;
+		while (sievep1[t] < p) t++;
+		if (sievep1[t] == p) { c1 = t + 1; p1cache[p] = 1; k1min++; }	// factor base prime
+	}
 
 	// read relations file
 	mpz_poly f0; mpz_poly f1; mpz_poly A;
@@ -101,12 +163,89 @@ int main (int argc, char** argv)
 	string separator2 = ",";
 	while (rels >> line) {
 		string line0 = line;
+		bool isrel = true;
 
 		string Astr = line.substr(0, line.find(separator1));
 		line.erase(0, Astr.length() + 1);
 		int a = atoi(Astr.substr(0, Astr.find(separator2)).c_str());  Astr.erase(0, Astr.find(separator2) + 1);
 		int b = atoi(Astr.substr(0, Astr.find(separator2)).c_str());  Astr.erase(0, Astr.find(separator2) + 1);
 		int c = atoi(Astr.substr(0, Astr.find(separator2)).c_str());
+
+		// check if relation is valid, i.e. all primes are factor base primes
+		mpz_poly_setcoeff_si(A, 0, a);
+		mpz_poly_setcoeff_si(A, 1, b);
+		mpz_poly_setcoeff_si(A, 2, c);
+		mpz_poly_resultant(N0, f0, A);
+		mpz_poly_resultant(N1, f1, A);
+		mpz_abs(N0, N0);
+		mpz_abs(N1, N1);
+		// side 0
+		string N0str = line.substr(0, line.find(separator1));
+		while (N0str.length()) {
+			string pstr = N0str.substr(0, N0str.find(separator2));
+			if (pstr.length()) {
+				mpz_set_str(p, pstr.c_str(), BASE);
+				assert(mpz_divisible_p(N0, p));
+				mpz_divexact(N0, N0, p);
+				if (mpz_cmp_ui(p, fbmax) < 0) {
+					int pt = mpz_get_ui(p);
+					if (!known_good_prime(pt, p0cache, p0min, sievep0, k0min, k0)) { // relation is bad
+						isrel = false;
+						break;
+					}
+				}
+				else { // make sure large prime is good
+					int pt = mpz_get_ui(p);
+					for (int i = 0; i <= degf; i++) fmodp[i] = mod(fi64[i], pt);
+					int nr = polrootsmod(fmodp, degf, froots, pt);
+					if (nr == 0) {
+						isrel = false;
+						break;
+					}
+				}
+				int pos = N0str.find(separator2);
+				if (pos == npos) pos = pstr.length() - 1;
+				N0str.erase(0, pos + 1);
+			}
+		}
+		if (!isrel) {
+			cout << "#" << line0 << endl << flush;
+			continue;
+		}
+		// side 1
+		line.erase(0, line.find(separator1) + 1);
+		string N1str = line.substr(0, line.find(separator1));
+		while (N1str.length()) {
+			string pstr = N1str.substr(0, N1str.find(separator2));
+			if (pstr.length()) {
+				mpz_set_str(p, pstr.c_str(), BASE);
+				assert(mpz_divisible_p(N1, p));
+				mpz_divexact(N1, N1, p);
+				if (mpz_cmp_ui(p, fbmax) < 0) {
+					int pt = mpz_get_ui(p);
+					if (!known_good_prime(pt, p1cache, p1min, sievep1, k1min, k1)) { // relation is bad
+						isrel = false;
+						break;
+					}
+				}
+				else { // make sure large prime is good
+					int pt = mpz_get_ui(p);
+					for (int i = 0; i <= degg; i++) gmodp[i] = mod(gi64[i], pt);
+					int nr = polrootsmod(gmodp, degg, groots, pt);
+					if (nr == 0) {
+						isrel = false;
+						break;
+					}
+				}
+				int pos = N1str.find(separator2);
+				if (pos == npos) pos = pstr.length() - 1;
+				N1str.erase(0, pos + 1);
+			}
+		}
+		if (!isrel) {
+			cout << "#" << line0 << endl << flush;
+			continue;
+		}
 
 		// print original relation
 		cout << line0 << endl << flush;
@@ -210,6 +349,12 @@ int main (int argc, char** argv)
     mpz_poly_clear(A); mpz_poly_clear(f1); mpz_poly_clear(f0);
 	delete[] primes;
 	delete[] sieve;
+	delete[] groots;
+	delete[] froots;
+	delete[] gmodp;
+	delete[] fmodp;
+	delete[] gi64;
+	delete[] fi64;
 	for (int i = 0; i < 20; i++) {
 		mpz_clear(hpoly[i]);
 		mpz_clear(gpoly[i]);
@@ -234,6 +379,41 @@ inline int gcd(int a, int b)
 		a = c;
 	}
 	return a;
+}
+
+
+bool known_good_prime(int pt, int* pcache, int pmin, int* sievep, int kmin, int k)
+{
+	if (pt < pmin) return pcache[pt];
+
+	// else binary subdivision search
+	bool known_good = false;
+	int max = k;
+	int min = kmin;
+	int i = min + (max - min) / 2;
+	while (true) {
+		int i_bak = i;
+		if (i != min) {
+			if (pt == sievep[i]) { known_good = true; break; }
+			else if (pt < sievep[i]) max = i;
+			else min = i;
+		}
+		else {
+			i = i_bak + 1;
+			if (i != max) {
+				if (pt == sievep[i]) { known_good = true; break; }
+				else if (pt < sievep[i]) max = i;
+				else min = i;
+			}
+			else {
+				// prime pt is less than factor base max but is not good
+				break;
+			}
+		}
+		// binary subdivision
+		i = min + (max - min) / 2;
+	}
+	return known_good;
 }
 
 
