@@ -81,7 +81,7 @@ int main(int argc, char** argv)
 	for (int i = 0; i < argc; i++) cout << argv[i] << " ";
 	cout << endl << flush;
 
-	bool verbose = true;// false;
+	bool verbose = false;
 		
 	if (verbose) cout << endl << "Reading input polynomial in file " << argv[1] << "..." << flush;
 	//vector<mpz_class> fpoly;
@@ -203,8 +203,8 @@ int main(int argc, char** argv)
 	if (argc >= 7) B[2] = atoi(argv[6]);
 	int B1bits = B[0]; int B2bits = B[1]; int B3bits = B[2];
 	int B1 = 1<<B1bits; int B2 = 1<<B2bits; int B3 = 1<<B3bits;
-	int Mlen = 2*B1*2*B2*B3*2;	//1024*1024*512*2 + (1<<27);
-	Mlen = (int)(1.3f * Mlen);
+	int Mlen = (B1*2*B2*2*B3);	// require positive z coordinate
+	Mlen = (int)(2.6f * Mlen);	// upper bound on number of vectors in sieve box
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
 	float* H = new float[Mlen];	// histogram
@@ -266,10 +266,10 @@ int main(int argc, char** argv)
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 		int R0 = 0;
-		int B1x2 = 2*B1; int B2xB2 = B2*B2;
-		int B1x2bits = B1bits + 1;
+		int B1xB2 = B1*B2;
+		int B2x2bits = B2bits + 1;
 		int B2x2 = 2*B2;
-		int B2xB2x4bits = (B2bits * 2) + 2;
+		int B1xB2x2bits = B1bits + B2bits + 1;
 		rel.clear();
 		for (int i = 0; i < m; i++) {
 			if (H[i] > th0) {
@@ -301,22 +301,7 @@ int main(int argc, char** argv)
 		cout << "# " << R1 << " candidates on side 1." << endl << flush;
 		// sort hits
 		sort(rel.begin(), rel.end());
-		// print list of potential relations
-		int R = 0;
-		for (int i = 0; i < rel.size()-1; i++)
-		{
-			if (rel[i] == rel[i+1] && rel[i] != 0) {
-				int x = (rel[i] % B1x2) - B1;
-				int y = ((rel[i] >> B1x2bits) % B2x2) - B2;
-				int z = rel[i] >> B2xB2x4bits;
-				if (x != 0 || y != 0 || z != 0) {
-					//cout << x << "," << y << "," << z << endl;
-					R++;
-				}
-			}
-		}
-		cout << "# " << R << " potential relations found." << endl << flush;
-	   
+		
 		// compute special-q lattice L 
 		int64_t L[9];
 		numl = polrootsmod(fq, degf, r, q);
@@ -326,11 +311,27 @@ int main(int argc, char** argv)
 		L[6] = 0; L[7] = 0;     L[8] = 1;
 		int64L2(L, 3);	// LLL reduce L, time log(q)^2
 		
+		// print list of potential relations
+		int R = 0;
+		for (int i = 0; i < rel.size()-1; i++)
+		{
+			if (rel[i] == rel[i+1] && rel[i] != 0) {
+				int x = rel[i] % B1;
+				int y = ((rel[i] >> B1bits) % B2x2) - B2;
+				int z =  (rel[i] >> B1xB2x2bits) - B3;
+				if (x != 0 || y != 0 || z != 0) {
+					// compute [a,b,c]
+					//int a = L[0]*x+L[1]*y+L[2]*z;
+					//int b = L[3]*x+L[4]*y+L[5]*z;
+					//int c = L[6]*x+L[7]*y+L[8]*z;
+					//cout << rel[i] << ": " << a << "," << b << "," << c << endl;
+					R++;
+				}
+			}
+		}
+		cout << "# " << R << " potential relations found." << endl << flush;
+	   
 		// compute and factor resultants as much as possible, leave large gcd computation till later.
-		start = clock();
-		if (verbose) cout << "Computing Pollard p-1 scalar multiple..." << endl << flush;
-		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-		if (verbose) cout << "Finished! Time taken: " << timetaken << "s" << endl << flush;
 		mpz_ui_pow_ui(lpb, 2, lpbits);
 		int BASE = 16;
 		int qside = 0;
@@ -341,9 +342,9 @@ int main(int argc, char** argv)
 		for (int i = 0; i < rel.size()-1; i++)
 		{
 			if (rel[i] == rel[i+1] && rel[i] != 0) {
-				int x = (rel[i] % B1x2) - B1;
-				int y = ((rel[i] >> B1x2bits) % B2x2) - B2;
-				int z = rel[i] >> B2xB2x4bits;
+				int x = rel[i] % B1;
+				int y = ((rel[i] >> B1bits) % B2x2) - B2;
+				int z =  (rel[i] >> B1xB2x2bits) - B3;
 				if (x != 0 || y != 0 || z != 0) {
 					// compute [a,b,c]
 					int a = L[0]*x+L[1]*y+L[2]*z;
@@ -618,7 +619,9 @@ void histogram(keyval*M, float* H, int len)
 	// clear H
 	memset(H, 0, len * sizeof(float));
 	// fill H
-	for (int i = 0; i < len; i++) H[M[i].id] += M[i].logp;
+	for (int i = 0; i < len; i++) {
+		H[M[i].id] += M[i].logp;
+	}
 }
 
 
@@ -683,9 +686,7 @@ int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int*
 	int B1max = B1 - 1;
 	int B2max = B2 - 1;
 	int B3max = B3 - 1;
-	int B1x2 = 2*B1;
-	int B1x2bits = B1bits + 1;
-	int B2xB2x4bits = (B2bits * 2) + 2;
+	int B1xB2x2bits = B1bits + B2bits + 1;
 
 	// print (q,r) ideal
 	//cout << "special-q (" << q << "," << r[l] << ")" << endl;
@@ -749,7 +750,7 @@ int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int*
 			int ny = u3*v1 - u1*v3;
 			int nz = u1*v2 - u2*v1;
 
-			// enumerate lattice vectors (x,y,z) in box [-B,B]x[-B,B]x[0,B]
+			// enumerate lattice vectors (x,y,z) in box [0,B[x[-B,B[x[-B,B[
 			int x = w1; int y = w2; int z = w3;
 			while (planeintersectsbox(nx, ny, nz, x-w1, y-w2, z-w3, B1, B2, B3)) {
 				x -= w1; y -= w2; z -= w3;
@@ -767,20 +768,20 @@ int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int*
 				bool inplane = true;
 				while (inplane) {
 					// pin vector to start of row
-					int u1B = u1 < 0 ? B1max : -B1; int u2B = u2 < 0 ? B2max : -B2; int u3B = u3 < 0 ? B3max : 0;
+					int u1B = u1 < 0 ? B1max : 0; int u2B = u2 < 0 ? B2max : -B2; int u3B = u3 < 0 ? B3max : -B3;
 					j1 = u1 == 0 ? -1 : (x - u1B) / u1;
 					j2 = u2 == 0 ? -1 : (y - u2B) / u2;
 					j3 = u3 == 0 ? -1 : (z - u3B) / u3;
 					jmin = minnonneg(j1, j2, j3);
 					x -= jmin*u1; y -= jmin*u2; z -= jmin*u3;
-					if (x >= -B1 && x < B1 && y >= -B2 && y < B2 && z >= 0 && z < B3) {
-						int u1B = u1 < 0 ? -B1 : B1max; int u2B = u2 < 0 ? -B2 : B2max; int u3B = u3 < 0 ? 0 : B3max;
+					if (x >= 0 && x < B1 && y >= -B2 && y < B2 && z >= -B3 && z < B3) {
+						int u1B = u1 < 0 ? 0 : B1max; int u2B = u2 < 0 ? -B2 : B2max; int u3B = u3 < 0 ? -B3 : B3max;
 						j1 = u1 == 0 ? -1 : (u1B - x) / u1;
 						j2 = u2 == 0 ? -1 : (u2B - y) / u2;
 						j3 = u3 == 0 ? -1 : (u3B - z) / u3;
 						jmin = minnonneg(j1, j2, j3);
 						for (int j = 0; j <= jmin; j++) {
-							int id = (x + B1) + ((y + B2) << B1x2bits) + (z << B2xB2x4bits);
+							int id = x + ((y + B2) << B1bits) + ((z + B3) << B1xB2x2bits);
 							M[m++] = (keyval){ id, logp };
 							x += u1; y += u2; z += u3;
 						}
@@ -796,20 +797,20 @@ int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int*
 				inplane = true;
 				while (inplane) {
 					// pin vector to start of row
-					int u1B = u1 < 0 ? B1max : -B1; int u2B = u2 < 0 ? B2max : -B2; int u3B = u3 < 0 ? B3max : 0;
+					int u1B = u1 < 0 ? B1max : 0; int u2B = u2 < 0 ? B2max : -B2; int u3B = u3 < 0 ? B3max : -B3;
 					j1 = u1 == 0 ? -1 : (x - u1B) / u1;
 					j2 = u2 == 0 ? -1 : (y - u2B) / u2;
 					j3 = u3 == 0 ? -1 : (z - u3B) / u3;
 					jmin = minnonneg(j1, j2, j3);
 					x -= jmin*u1; y -= jmin*u2; z -= jmin*u3;
-					if (x >= -B1 && x < B1 && y >= -B2 && y < B2 && z >= 0 && z < B3) {
-						int u1B = u1 < 0 ? -B1 : B1max; int u2B = u2 < 0 ? -B2 : B2max; int u3B = u3 < 0 ? 0 : B3max;
+					if (x >= 0 && x < B1 && y >= -B2 && y < B2 && z >= -B3 && z < B3) {
+						int u1B = u1 < 0 ? 0 : B1max; int u2B = u2 < 0 ? -B2 : B2max; int u3B = u3 < 0 ? -B3 : B3max;
 						j1 = u1 == 0 ? -1 : (u1B - x) / u1;
 						j2 = u2 == 0 ? -1 : (u2B - y) / u2;
 						j3 = u3 == 0 ? -1 : (u3B - z) / u3;
 						jmin = minnonneg(j1, j2, j3);
 						for (int j = 0; j <= jmin; j++) {
-							int id = (x + B1) + ((y + B2) << B1x2bits) + (z << B2xB2x4bits);
+							int id = x + ((y + B2) << B1bits) + ((z + B3) << B1xB2x2bits);
 							M[m++] = (keyval){ id, logp };
 							x += u1; y += u2; z += u3;
 						}
@@ -844,13 +845,13 @@ inline int floordiv(int a, int b)
 }
 
 
-// Integer programming to get (a,b) such that (x,y,z) + a*(u1,u2,u3) + b*(v1,v2,v3) within [-B,B[x[-B,B[x[0,B[
+// Integer programming to get (a,b) such that (x,y,z) + a*(u1,u2,u3) + b*(v1,v2,v3) within [0,B[x[-B,B[x[-B,B[
 inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, 
 				int B1, int B2, int B3, int* a, int* b)
 {
 	int U[6] = { u1, u2, u3, -u1, -u2, -u3 };
 	int V[6] = { v1, v2, v3, -v1, -v2, -v3 };
-	int C[6] = { B1-x-1, B2-y-1, B3-z-1, B1+x, B2+y, z };
+	int C[6] = { B1-x-1, B2-y-1, B3-z-1, x, B2+y, B3+z };
 	*a = B1; *b = B1;
 
 	int L = abs(nonzerolcm(u1, u2, u3));
@@ -942,23 +943,23 @@ inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, 
 */
 
 
-// determine if plane with normal (nx, ny, nz) containing point (x,y,z) intersects box [-B,B]x[-B,B]x[0,B]
+// determine if plane with normal (nx, ny, nz) containing point (x,y,z) intersects box [0,B[x[-B,B[x[-B,B[
 inline bool planeintersectsbox(int nx, int ny, int nz, int x, int y, int z, int B1, int B2, int B3)
 {
 	int d = nx*x + ny*y + nz*z;
 
-	int nxB0 = -nx*B1; int nxB1 = nx*(B1-1);
+	/* nxB0 = 0 */     int nxB1 = nx*(B1-1);
 	int nyB0 = -ny*B2; int nyB1 = ny*(B2-1);
-	int nzB1 = nz*(B3-1);
+	int nzB0 = -nz*B3; int nzB1 = nz*(B3-1);
 
-	int s0 = ( nxB0 + nyB0 + /*nz*0*/ - d ) > 0;
-	int s1 = ( nxB1 + nyB0 + /*nz*0*/ - d ) > 0;
-	int s2 = ( nxB0 + nyB1 + /*nz*0*/ - d ) > 0;
-	int s3 = ( nxB1 + nyB1 + /*nz*0*/ - d ) > 0;
-	int s4 = ( nxB0 + nyB0 +   nzB1   - d ) > 0;
-	int s5 = ( nxB1 + nyB0 +   nzB1   - d ) > 0;
-	int s6 = ( nxB0 + nyB1 +   nzB1   - d ) > 0;
-	int s7 = ( nxB1 + nyB1 +   nzB1   - d ) > 0;
+	int s0 = ( /*nxB0 +*/ nyB0 + nzB0 - d ) > 0;
+	int s1 = ( nxB1   +   nyB0 + nzB0 - d ) > 0;
+	int s2 = ( /*nxB0 +*/ nyB1 + nzB0 - d ) > 0;
+	int s3 = ( nxB1   +   nyB1 + nzB0 - d ) > 0;
+	int s4 = ( /*nxB0 +*/ nyB0 + nzB1 - d ) > 0;
+	int s5 = ( nxB1   +   nyB0 + nzB1 - d ) > 0;
+	int s6 = ( /*nxB0 +*/ nyB1 + nzB1 - d ) > 0;
+	int s7 = ( nxB1   +   nyB1 + nzB1 - d ) > 0;
 
 	int mask = s0 + (s1<<1) + (s2<<2) + (s3<<3) + (s4<<4) + (s5<<5) + (s6<<6) + (s7<<7);
 
@@ -1069,7 +1070,7 @@ void GetlcmScalar(int B, mpz_t S, int* primes, int nump)
 bool PollardPm1(mpz_t N, mpz_t S, mpz_t factor)
 {
 	int bitlen = mpz_sizeinbase(N, 2);
-	if (bitlen < 64) {
+	if (0) { //bitlen < 64) {
 		// convert N to __int128
 		__int128 N128 = make_int128(mpz_getlimbn(N,0), mpz_getlimbn(N, 1));
 		__int128 factor128 = 1;
@@ -1079,7 +1080,7 @@ bool PollardPm1(mpz_t N, mpz_t S, mpz_t factor)
 		mp_limb_t* factor_limbs = mpz_limbs_modify(factor, 2);
 		factor_limbs[0] = factor128 & MASK64;
 		factor_limbs[1] = factor128 >> 64;
-		if (factored) cout << mpz_get_str(NULL,10,N) << " = c * " << mpz_get_str(NULL,10,factor) << " factored!" << endl; 
+		//if (factored) cout << mpz_get_str(NULL,10,N) << " = c * " << mpz_get_str(NULL,10,factor128) << " factored!" << endl; 
 		return factored;
 	}
 	else if (0) { //bitlen < 128) {
@@ -1170,7 +1171,7 @@ bool PollardPm1_int128(__int128 N, mpz_t S, __int128 &factor, int64_t mulo, int6
 bool EECM(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int Z0)
 {
 	int bitlen = mpz_sizeinbase(N, 2);
-	if (bitlen < 44) {
+	if (0) { //bitlen < 44) {
 		//cout << mpz_get_str(NULL,10,N) << endl; 
 		// convert N to __int128
 		__int128 N128 = make_int128(mpz_getlimbn(N,0), mpz_getlimbn(N, 1));
