@@ -393,7 +393,7 @@ int main(int argc, char** argv)
 							p = sievep0[++k];
 						}
 					}
-					if (qside == 0) {
+					if (mpz_fdiv_ui(N0, q) == 0 && qside == 0) {
 						mpz_divexact_ui(N0, N0, q);
 						stream.str("");
 						stream << hex << q;
@@ -493,7 +493,7 @@ int main(int argc, char** argv)
 								p = sievep1[++k];
 							}
 						}
-						if (qside == 1)  {
+						if (mpz_fdiv_ui(N1, q) == 0 && qside == 1)  {
 							mpz_divexact_ui(N1, N1, q);
 							stream.str("");
 							stream << hex << q;
