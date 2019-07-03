@@ -35,9 +35,9 @@ int main(int argc, char** argv)
 int main(int argc, char** argv)
 {
 	if (argc == 2) {
-		int f[13] = { 923478, 92387, 23476, 23476, 923746, 23473, 239874, 23874, 182734, 293874, 293847, 349857, 430958 };
+		int64_t f[13] = { 923478, 92387, 23476, 23476, 923746, 23473, 239874, 23874, 182734, 293874, 293847, 349857, 430958 };
 
-		int p = atoi(argv[1]);
+		int64_t p = atoi(argv[1]);
 		// reduce f mod p
 		for (int i = 0; i <= 12; i++) f[i] = mod(f[i], p);
 
@@ -47,7 +47,7 @@ int main(int argc, char** argv)
 		int nump = Eratosthenes(primes);
 		*/
 
-		int r[12];
+		int64_t r[12];
 		int degf = 12; while (f[degf] == 0) degf--;
 		//int k = chienrootsmod(f, 12, p, r, primes);
 		int k = polrootsmod(f, degf, r, p);
@@ -350,7 +350,7 @@ int polrootsmod(int64_t* f, int degf, int64_t* roots, int64_t p)
 		}
 		int degh1 = 0;
 		// assign h1 = f1 if f1 != 0, otherwise assign h1 = f2
-		if (degf1 > 0) {
+		if (!poliszero(f1, degf1)) {
 			for (int i = 0; i <= degf1; i++) h1[i] = f1[i];
 			degh1 = poldegree(h1, degf1);
 		}
