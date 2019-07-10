@@ -42,8 +42,8 @@ vector<pair<int,string> > sm;
 string deduce_on_one_side(string ellstr, string filename);
 string deduce_from_both_sides(string ellstr, string filename);
 void getabc(string filename, int64_t &a, int64_t &b, int64_t &c);
-int get_unknown_primes_one_side(vector<prime>* unknownprimes, string filename, int side);
-int get_unknown_primes_both_side(vector<prime>* unknownprimes, string filename);
+int num_unknown_primes_both_sides(string filename);
+int num_unknown_primes_one_side(string filename);
 
 int main(int argc, char** argv)
 {
@@ -62,146 +62,6 @@ int main(int argc, char** argv)
 	deduce_on_one_side(ellstr, inputfile);
 
 	return 0;
-}
-
-void getabc(string filename, int64_t &a, int64_t &b, int64_t &c)
-{
-    string separator0 = " ";
-    string separator1 = ":";
-    string separator2 = ",";
-	string line;
-	ifstream file(filename);
-
-	// read a b c
-	getline(file, line);
-	a = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-	b = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-	c = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-}
-
-void get_unknown_primes_one_side(stack<prime>* unknownprimes, string filename, int side)
-{
-    string separator0 = " ";
-    string separator1 = ":";
-    string separator2 = ",";
-	string line;
-	ifstream file(filename);
-
-	// read a b c
-	getline(file, line);
-	int64_t a = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-	int64_t b = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-	int64_t c = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-
-	int tside = 0;
-
-	// read "side S:"
-	getline(file, line);
-
-	// read ideal logs/Schirokauer exponents
-	while (getline(file, line)) {
-		if (line.find("Schirokauer Maps:", 0) == 0) break;
-
-		int side = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string pstr = line.substr(0, line.find(separator0));
-		line.erase(0, line.find(separator0) + 1);
-
-		int64_t r = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		int e = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string val = line;
-
-		if (pstr != "sm_exp") {
-			int64_t p = strtoull(pstr.c_str(), NULL, 10);
-			if (val == "") unknownprimes->push((prime){ p, r, side });
-		}
-	}
-
-	return unknownprimes->size();
-}
-
-int get_unknown_primes_both_side(vector<prime>* unknownprimes, string filename)
-{
-    string separator0 = " ";
-    string separator1 = ":";
-    string separator2 = ",";
-	string line;
-	ifstream file(filename);
-
-	// read a b c
-	getline(file, line);
-	int64_t a = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-	int64_t b = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-	int64_t c = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-
-	int tside = 0;
-
-	// read "side 0:"
-	getline(file, line);
-
-	// read side 0 ideal logs/Schirokauer exponents
-	while (getline(file, line)) {
-		if (line.find("side 1:", 0) == 0) break;
-
-		int side = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string pstr = line.substr(0, line.find(separator0));
-		line.erase(0, line.find(separator0) + 1);
-
-		int64_t r = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		int e = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string val = line;
-
-		if (pstr != "sm_exp") {
-			int64_t p = strtoull(pstr.c_str(), NULL, 10);
-			if (val == "") unknownprimes->push((prime){ p, r, 0 });
-		}
-	}
-
-	// read side 1 ideal logs/Schirokauer exponents
-	while (getline(file, line)) {
-		if (line.find("Schirokauer Maps:", 0) == 0) break;
-
-		int side = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string pstr = line.substr(0, line.find(separator0));
-		line.erase(0, line.find(separator0) + 1);
-
-		int64_t r = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		int e = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string val = line;
-
-		if (prime != "sm_exp") {
-			int64_t p = strtoull(pstr.c_str(), NULL, 10);
-			if (val == "") unknownprimes->push_back((prime){ p, r, 1 });
-		}
-	}
-
-	return unknownprimes->size();
 }
 
 string deduce_on_one_side(string ellstr, string filename)
@@ -223,38 +83,9 @@ string deduce_on_one_side(string ellstr, string filename)
 
 	int tside = 0;
 
-	// read "side 0:"
+	// read "side S:"
 	getline(file, line);
 
-/*
-	// read side 0 ideal logs/Schirokauer exponents
-	while (getline(file, line)) {
-		if (line.find("side 1:", 0) == 0) break;
-
-		int side = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string prime = line.substr(0, line.find(separator0));
-		line.erase(0, line.find(separator0) + 1);
-
-		int64_t r = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		int e = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string val = line;
-
-		if (prime == "sm_exp") {
-			sm_exp.push_back(make_pair(side, val));
-		}
-		else {
-			int64_t p = strtoull(prime.c_str(), NULL, 10);
-			dlogs.push_back((dlog){ side, p, r, e, val });
-			if (val == "") tside = side;
-		}
-	}
-*/
 	// read side 1 ideal logs/Schirokauer exponents
 	while (getline(file, line)) {
 		if (line.find("Schirokauer Maps:", 0) == 0) break;
@@ -262,7 +93,7 @@ string deduce_on_one_side(string ellstr, string filename)
 		int side = atoi(line.substr(0, line.find(separator0)).c_str());
 		line.erase(0, line.find(separator0) + 1);
 
-		string prime = line.substr(0, line.find(separator0));
+		string pstr = line.substr(0, line.find(separator0));
 		line.erase(0, line.find(separator0) + 1);
 
 		int64_t r = atoi(line.substr(0, line.find(separator0)).c_str());
@@ -273,13 +104,14 @@ string deduce_on_one_side(string ellstr, string filename)
 
 		string val = line;
 
-		if (prime == "sm_exp") {
+		if (pstr == "sm_exp") {
 			sm_exp.push_back(make_pair(side, val));
 		}
 		else {
-			int64_t p = strtoull(prime.c_str(), NULL, 10);
+			int64_t p = strtoull(pstr.c_str(), NULL, 10);
+			if (val == "")
+				val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt");
 			dlogs.push_back((dlog){ side, p, r, e, val });
-			if (val == "") tside = side;
 		}
 	}
 
@@ -320,8 +152,9 @@ string deduce_on_one_side(string ellstr, string filename)
 			mpz_add(tlog, tlog, log);
 			mpz_mod(tlog, tlog, ell);	// reduce mod ell
 		}
-		else {
-			q = p;
+		else { // can't hit this since val has always been looked up
+			string pfilename = "deduce_" + to_string(p) + ".txt";
+			val = deduce_from_both_sides(ell, pfilename);
 		}
 	}
 	// then Schirokauer maps
@@ -348,7 +181,7 @@ string deduce_on_one_side(string ellstr, string filename)
 	string tlogstr = mpz_get_str(NULL, 10, tlog);
 
 	//cout << endl;
-	//cout << "vlog(" << q << ") = " << mpz_get_str(NULL, 10, tlog) << endl;
+	cout << "vlog(" << q << ") = " << mpz_get_str(NULL, 10, tlog) << endl;
 
 	mpz_clear(exp);
 	mpz_clear(ell);
@@ -387,7 +220,7 @@ string deduce_from_both_sides(string ellstr, string filename)
 		int side = atoi(line.substr(0, line.find(separator0)).c_str());
 		line.erase(0, line.find(separator0) + 1);
 
-		string prime = line.substr(0, line.find(separator0));
+		string pstr = line.substr(0, line.find(separator0));
 		line.erase(0, line.find(separator0) + 1);
 
 		int64_t r = atoi(line.substr(0, line.find(separator0)).c_str());
@@ -398,13 +231,14 @@ string deduce_from_both_sides(string ellstr, string filename)
 
 		string val = line;
 
-		if (prime == "sm_exp") {
+		if (pstr == "sm_exp") {
 			sm_exp.push_back(make_pair(side, val));
 		}
 		else {
-			int64_t p = strtoull(prime.c_str(), NULL, 10);
+			int64_t p = strtoull(pstr.c_str(), NULL, 10);
+			if (val == "")
+				val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt");
 			dlogs.push_back((dlog){ side, p, r, e, val });
-			if (val == "") tside = side;
 		}
 	}
 
@@ -415,7 +249,7 @@ string deduce_from_both_sides(string ellstr, string filename)
 		int side = atoi(line.substr(0, line.find(separator0)).c_str());
 		line.erase(0, line.find(separator0) + 1);
 
-		string prime = line.substr(0, line.find(separator0));
+		string pstr = line.substr(0, line.find(separator0));
 		line.erase(0, line.find(separator0) + 1);
 
 		int64_t r = atoi(line.substr(0, line.find(separator0)).c_str());
@@ -426,13 +260,14 @@ string deduce_from_both_sides(string ellstr, string filename)
 
 		string val = line;
 
-		if (prime == "sm_exp") {
+		if (pstr == "sm_exp") {
 			sm_exp.push_back(make_pair(side, val));
 		}
 		else {
-			int64_t p = strtoull(prime.c_str(), NULL, 10);
+			int64_t p = strtoull(pstr.c_str(), NULL, 10);
+			if (val == "")
+				val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt");
 			dlogs.push_back((dlog){ side, p, r, e, val });
-			if (val == "") tside = side;
 		}
 	}
 
@@ -506,4 +341,130 @@ string deduce_from_both_sides(string ellstr, string filename)
 	mpz_clear(tlog);
 
 	return tlogstr;
+}
+
+int num_unknown_primes_both_sides(string filename)
+{
+	vector<prime> unknownprimes;
+
+    string separator0 = " ";
+    string separator1 = ":";
+    string separator2 = ",";
+	string line;
+	ifstream file(filename);
+
+	// read a b c
+	getline(file, line);
+	int64_t a = atoi(line.substr(0, line.find(separator0)).c_str());
+	line.erase(0, line.find(separator0) + 1);
+	int64_t b = atoi(line.substr(0, line.find(separator0)).c_str());
+	line.erase(0, line.find(separator0) + 1);
+	int64_t c = atoi(line.substr(0, line.find(separator0)).c_str());
+	line.erase(0, line.find(separator0) + 1);
+
+	int tside = 0;
+
+	// read "side 0:"
+	getline(file, line);
+
+	// read side 0 ideal logs/Schirokauer exponents
+	while (getline(file, line)) {
+		if (line.find("side 1:", 0) == 0) break;
+
+		int side = atoi(line.substr(0, line.find(separator0)).c_str());
+		line.erase(0, line.find(separator0) + 1);
+
+		string pstr = line.substr(0, line.find(separator0));
+		line.erase(0, line.find(separator0) + 1);
+
+		int64_t r = atoi(line.substr(0, line.find(separator0)).c_str());
+		line.erase(0, line.find(separator0) + 1);
+
+		int e = atoi(line.substr(0, line.find(separator0)).c_str());
+		line.erase(0, line.find(separator0) + 1);
+
+		string val = line;
+
+		if (pstr != "sm_exp") {
+			int64_t p = strtoull(pstr.c_str(), NULL, 10);
+			if (val == "") unknownprimes.push_back((prime){ p, r, 0 });
+		}
+	}
+
+	// read side 1 ideal logs/Schirokauer exponents
+	while (getline(file, line)) {
+		if (line.find("Schirokauer Maps:", 0) == 0) break;
+
+		int side = atoi(line.substr(0, line.find(separator0)).c_str());
+		line.erase(0, line.find(separator0) + 1);
+
+		string pstr = line.substr(0, line.find(separator0));
+		line.erase(0, line.find(separator0) + 1);
+
+		int64_t r = atoi(line.substr(0, line.find(separator0)).c_str());
+		line.erase(0, line.find(separator0) + 1);
+
+		int e = atoi(line.substr(0, line.find(separator0)).c_str());
+		line.erase(0, line.find(separator0) + 1);
+
+		string val = line;
+
+		if (prime != "sm_exp") {
+			int64_t p = strtoull(pstr.c_str(), NULL, 10);
+			if (val == "") unknownprimes.push_back((prime){ p, r, 1 });
+		}
+	}
+
+	return unknownprimes->size();
+}
+
+int num_unknown_primes_one_side(string filename)
+{
+	vector<prime> unknownprimes;
+
+    string separator0 = " ";
+    string separator1 = ":";
+    string separator2 = ",";
+	string line;
+	ifstream file(filename);
+
+	// read a b c
+	getline(file, line);
+	int64_t a = atoi(line.substr(0, line.find(separator0)).c_str());
+	line.erase(0, line.find(separator0) + 1);
+	int64_t b = atoi(line.substr(0, line.find(separator0)).c_str());
+	line.erase(0, line.find(separator0) + 1);
+	int64_t c = atoi(line.substr(0, line.find(separator0)).c_str());
+	line.erase(0, line.find(separator0) + 1);
+
+	int tside = 0;
+
+	// read "side S:"
+	getline(file, line);
+
+	// read side 1 ideal logs/Schirokauer exponents
+	while (getline(file, line)) {
+		if (line.find("Schirokauer Maps:", 0) == 0) break;
+
+		int side = atoi(line.substr(0, line.find(separator0)).c_str());
+		line.erase(0, line.find(separator0) + 1);
+
+		string pstr = line.substr(0, line.find(separator0));
+		line.erase(0, line.find(separator0) + 1);
+
+		int64_t r = atoi(line.substr(0, line.find(separator0)).c_str());
+		line.erase(0, line.find(separator0) + 1);
+
+		int e = atoi(line.substr(0, line.find(separator0)).c_str());
+		line.erase(0, line.find(separator0) + 1);
+
+		string val = line;
+
+		if (prime != "sm_exp") {
+			int64_t p = strtoull(pstr.c_str(), NULL, 10);
+			if (val == "") unknownprimes.push_back((prime){ p, r, 1 });
+		}
+	}
+
+	return unknownprimes->size();
 }
