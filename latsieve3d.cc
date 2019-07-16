@@ -72,8 +72,8 @@ int main(int argc, char** argv)
 
 	//cout << (uint64_t)(MASK64) << " " << (uint64_t)(MASK64 >> 64) << endl;
 
-	if (argc == 1) {
-		cout << endl << "Usage: ./latsieve3d inputpoly fbbits factorbasefile B1 B2 B3 qmin qmax th0 th1 lpbbits cofacscalar" << endl << endl;
+	if (argc != 14) {
+		cout << endl << "Usage: ./latsieve3d inputpoly fbbits factorbasefile B1 B2 B3 qmin qmax th0 th1 lpbbits cofacscalar qside" << endl << endl;
 		return 0;
 	}
 
@@ -242,18 +242,24 @@ int main(int argc, char** argv)
 	if (argc >= 13) cofacS = atoi(argv[12]);
 	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, primes, 669);	// max S = 5000
 	char* str2 = (char*)malloc(20*sizeof(char));
+	int qside = atoi(argv[13]);
 
 	int64_t q = qmin;
 	while (q < qmax) {
 		mpz_set_ui(qmpz, q);
 		mpz_nextprime(qmpz, qmpz);
 		q = mpz_get_ui(qmpz);
-		for (int i = 0; i <= degf; i++) fq[i] = mpz_mod_ui(r0, fpoly[i], q);
+		mpz_t* fpolyside = fpoly;
+		int degfside = degf;
+		if (qside == 1) { fpolyside = gpoly; degfside = degg; }
+		for (int i = 0; i <= degf; i++) fq[i] = mpz_mod_ui(r0, fpolyside[i], q);
 		int numl = polrootsmod(fq, degf, r, q);
 		if (numl == 0 || q > qmax) continue;
 		
 		// sieve side 0
-		cout << "# Starting sieve on side 0 for special-q " << q << "..." << endl << flush;
+		cout << "# Starting sieve on side 0";
+		if (qside == 0) cout << " for special-q " << q;
+		cout << "..." << endl << flush;
 		start = clock();
 		int m = latsieve3d(fq, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
@@ -279,7 +285,9 @@ int main(int argc, char** argv)
 		}
 		cout << "# " << R0 << " candidates on side 0." << endl << flush;
 		// sieve side 1
-		cout << "# Starting sieve on side 1..." << endl << flush;
+		cout << "# Starting sieve on side 1";
+		if (qside == 1) cout << " for special-q " << q;
+		cout << "..." << endl << flush;
 		start = clock();
 		m = latsieve3d(fq, degf, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
@@ -334,7 +342,6 @@ int main(int argc, char** argv)
 		// compute and factor resultants as much as possible, leave large gcd computation till later.
 		mpz_ui_pow_ui(lpb, 2, lpbits);
 		int BASE = 16;
-		int qside = 0;
 		stack<mpz_t*> QN; stack<int> Q; int algarr[3]; mpz_t* N;
 		start = clock();
 		R = 0;
@@ -402,7 +409,7 @@ int main(int argc, char** argv)
 					bool isrel = true;
 					bool cofactor = true;
 					if (mpz_cmp_ui(N0, 1) == 0) { cofactor = false; }
-					str += (cofactor ? "," : "");
+					str += (qside == 0 && cofactor ? "," : "");
 					// cofactorization on side 0
 					int n = 0; while (!Q.empty()) Q.pop(); while (!QN.empty()) QN.pop();
 					if (cofactor) {

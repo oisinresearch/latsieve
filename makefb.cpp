@@ -79,17 +79,17 @@ int main(int argc, char** argv)
 	if (verbose) cout << endl << "Complete.  Degree f0 = " << degf << ", degree f1 = " << degg << "." << endl;
 
 	if (verbose) cout << endl << "Starting sieve of Eratosthenes for small primes..." << endl << flush;
-	int fbb = 1<<21;
+	int64_t fbb = 1<<21;
 	if (argc >=3) fbb = atoi(argv[2]);
-	int max = fbb; // 10000000;// 65536;
+	int64_t max = fbb; // 10000000;// 65536;
 	char* sieve = new char[max+1]();
-	int* primes = new int[max]; // int[155611]; //new int[809228];	//new int[6542]; 	// 2039 is the 309th prime, largest below 2048
-	for (int i = 2; i <= sqrt(max); i++)
+	int64_t* primes = new int64_t[max]; // int64_t[155611]; //new int64_t[809228];	//new int64_t[6542]; 	// 2039 is the 309th prime, largest below 2048
+	for (int64_t i = 2; i <= sqrt(max); i++)
 		if(!sieve[i])
-			for (int j = i*i; j <= max; j += i)
+			for (int64_t j = i*i; j <= max; j += i)
 				if(!sieve[j]) sieve[j] = 1;
-	int nump = 0;
-	for (int i = 2; i <= max-1; i++)
+	int64_t nump = 0;
+	for (int64_t i = 2; i <= max-1; i++)
 		if (!sieve[i])
 			primes[nump++] = i;
 	if (verbose) cout << "Complete." << endl;
@@ -103,18 +103,18 @@ int main(int argc, char** argv)
 		if (id == 0) K = omp_get_num_threads();
 	}
 	mpz_t r0; mpz_init(r0);
-	int* s0 = new int[degf * nump]();
-	int* sieves0 = new int[degf * nump]();
+	int64_t* s0 = new int64_t[degf * nump]();
+	int64_t* sieves0 = new int64_t[degf * nump]();
 	int* num_s0modp = new int[nump]();
-	int* sievep0 = new int[nump]();
+	int64_t* sievep0 = new int64_t[nump]();
 	int* sievenum_s0modp = new int[nump]();
-	int* s1 = new int[degg * nump]();
-	int* sieves1 = new int[degg * nump]();
+	int64_t* s1 = new int64_t[degg * nump]();
+	int64_t* sieves1 = new int64_t[degg * nump]();
 	int* num_s1modp = new int[nump]();
-	int* sievep1 = new int[nump]();
+	int64_t* sievep1 = new int64_t[nump]();
 	int* sievenum_s1modp = new int[nump]();
-	int itenpc0 = nump / 10;
-	int itotal = 0;
+	int64_t itenpc0 = nump / 10;
+	int64_t itotal = 0;
 	// compute factor base
 	if (verbose) cout << endl << "Constructing factor base with " << K << " threads." << endl << flush;
 	//if (verbose) cout << endl << "[0%]   constructing factor base..." << endl << flush;
@@ -123,14 +123,14 @@ int main(int argc, char** argv)
 	{
 		mpz_t rt; mpz_init(rt); 
 		int id = omp_get_thread_num();
-		int* stemp0 = new int[degf];
-		int* fp = new int[degf+1]();
-		int* stemp1 = new int[degg];
-		int* gp = new int[degg+1]();
+		int64_t* stemp0 = new int64_t[degf];
+		int64_t* fp = new int64_t[degf+1]();
+		int64_t* stemp1 = new int64_t[degg];
+		int64_t* gp = new int64_t[degg+1]();
 
 	#pragma omp for
-		for (int i = 0; i < nump; i++) {
-			int p = primes[i];
+		for (int64_t i = 0; i < nump; i++) {
+			int64_t p = primes[i];
 			for (int j = 0; j <= degf; j++) fp[j] = mpz_mod_ui(rt, fpoly[j], p);
 			int degfp = degf; while (fp[degfp] == 0 || degfp == 0) degfp--;
 			int nums0 = polrootsmod(fp, degfp, stemp0, p);

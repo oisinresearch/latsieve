@@ -1,0 +1,19 @@
+\r nfs3d.gp
+[p,f,gg]=loadpoly("~/phd/latsieve3d/test2/fp6bd40_002.poly");
+ell=389545041355532555398291
+h=(p^6-1)/ell
+\p 80
+d=floor(Pi*10^71)
+v=digits(d,10^12)
+T0=sum(i=1,6,v[i]*x^(6-i))
+g=x+8
+i=37
+T=liftall(Mod(Mod(g,p),f)^i*T0)
+[a,b,c]=[5164571,-34343615,82773589]
+P=a+b*x+c*x^2
+liftall(Mod(Mod(P/T,p),gg)^((p^6-1)/ell))
+M=[4,4,1;-2,1,1;1,-2,1];
+[a1,b1,c1]=[a,b,c]
+a1+b1*x+c1*x^2
+[a1,b1,c1]=vector(3,i,polcoeff(%,i-1));[a1,b1,c1]=[a1,b1,c1]*M;[a1,b1,c1]=[a1,b1,c1]/content([a1,b1,c1]);a1+b1*x+c1*x^2
+

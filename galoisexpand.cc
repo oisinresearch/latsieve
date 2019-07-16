@@ -26,8 +26,8 @@ bool known_good_prime(int pt, int* pcache, int pmin, int* sievep, int kmin, int 
 
 int main (int argc, char** argv)
 {
-	if (argc == 1) {
-		cout << endl << "Usage: ./galoisexpand inputpoly factorbase relations" << endl << flush;
+	if (argc/2 != 2 ) {	// argc must be 4 or 5
+		cout << endl << "Usage: ./galoisexpand inputpoly factorbase relations {nocheck}" << endl << flush;
 		return 0;
 	}
 
@@ -148,6 +148,10 @@ int main (int argc, char** argv)
 		if (sievep1[t] == p) { c1 = t + 1; p1cache[p] = 1; k1min++; }	// factor base prime
 	}
 
+	bool nocheck = false;
+	string argv4(argv[4]);
+	if (argv4 == "nocheck") nocheck = true;
+
 	// read relations file
 	mpz_poly f0; mpz_poly f1; mpz_poly A;
 	mpz_poly_init(f0, degf); mpz_poly_init(f1, degg); mpz_poly_init(A, 3);
@@ -187,20 +191,22 @@ int main (int argc, char** argv)
 				mpz_set_str(p, pstr.c_str(), BASE);
 				assert(mpz_divisible_p(N0, p));
 				mpz_divexact(N0, N0, p);
-				if (mpz_cmp_ui(p, fbmax) < 0) {
-					int pt = mpz_get_ui(p);
-					if (!known_good_prime(pt, p0cache, p0min, sievep0, k0min, k0)) { // relation is bad
-						isrel = false;
-						break;
+				if (!nocheck) {
+					if (mpz_cmp_ui(p, fbmax) < 0) {
+						int pt = mpz_get_ui(p);
+						if (!known_good_prime(pt, p0cache, p0min, sievep0, k0min, k0)) { // relation is bad
+							isrel = false;
+							break;
+						}
 					}
-				}
-				else { // make sure large prime is good
-					int pt = mpz_get_ui(p);
-					for (int i = 0; i <= degf; i++) fmodp[i] = mod(fi64[i], pt);
-					int nr = polrootsmod(fmodp, degf, froots, pt);
-					if (nr == 0) {
-						isrel = false;
-						break;
+					else { // make sure large prime is good
+						int pt = mpz_get_ui(p);
+						for (int i = 0; i <= degf; i++) fmodp[i] = mod(fi64[i], pt);
+						int nr = polrootsmod(fmodp, degf, froots, pt);
+						if (nr == 0) {
+							isrel = false;
+							break;
+						}
 					}
 				}
 				int pos = N0str.find(separator2);
@@ -221,20 +227,22 @@ int main (int argc, char** argv)
 				mpz_set_str(p, pstr.c_str(), BASE);
 				assert(mpz_divisible_p(N1, p));
 				mpz_divexact(N1, N1, p);
-				if (mpz_cmp_ui(p, fbmax) < 0) {
-					int pt = mpz_get_ui(p);
-					if (!known_good_prime(pt, p1cache, p1min, sievep1, k1min, k1)) { // relation is bad
-						isrel = false;
-						break;
+				if (!nocheck) {
+					if (mpz_cmp_ui(p, fbmax) < 0) {
+						int pt = mpz_get_ui(p);
+						if (!known_good_prime(pt, p1cache, p1min, sievep1, k1min, k1)) { // relation is bad
+							isrel = false;
+							break;
+						}
 					}
-				}
-				else { // make sure large prime is good
-					int pt = mpz_get_ui(p);
-					for (int i = 0; i <= degg; i++) gmodp[i] = mod(gi64[i], pt);
-					int nr = polrootsmod(gmodp, degg, groots, pt);
-					if (nr == 0) {
-						isrel = false;
-						break;
+					else { // make sure large prime is good
+						int pt = mpz_get_ui(p);
+						for (int i = 0; i <= degg; i++) gmodp[i] = mod(gi64[i], pt);
+						int nr = polrootsmod(gmodp, degg, groots, pt);
+						if (nr == 0) {
+							isrel = false;
+							break;
+						}
 					}
 				}
 				int pos = N1str.find(separator2);
@@ -259,7 +267,7 @@ int main (int argc, char** argv)
 
 			int64_t D = b*(int64_t)b - 4*a*(int64_t)c;
 			if (floor(sqrt(D)+0.5)*floor(sqrt(D)+0.5) == D) {
-				cout << "a + b*x + c*x^2 not irreducible!  Skipping..." << endl << flush;
+				cout << "a + b*x + c*x^2 not irreducible!  Skipping..." << endl;
 				continue;	// a+b*x+c*x^2 is not irreducible over Z
 			}
 			
@@ -295,7 +303,7 @@ int main (int argc, char** argv)
 					N0str.erase(0, pos + 1);
 				}
 			}
-			if (mpz_sizeinbase(N0, 2) > 63) { cout << "Error - Galois conjugate not smooth!" << endl << flush; return 0; }
+			if (mpz_sizeinbase(N0, 2) > 63) { cout << "Error - Galois conjugate not smooth!" << endl; return 0; }
 			int64_t n = mpz_get_ui(N0);
 			int k = factorsmall(n, primes, q, e);
 			for (int i = 0; i < k; i++) {
@@ -391,9 +399,9 @@ bool known_good_prime(int pt, int* pcache, int pmin, int* sievep, int kmin, int 
 	int max = k;
 	int min = kmin;
 	int i = min + (max - min) / 2;
-	while (true) {
+	for (;;) {
 		int i_bak = i;
-		if (i != min) {
+		if (i >= min) {
 			if (pt == sievep[i]) { known_good = true; break; }
 			else if (pt < sievep[i]) max = i;
 			else min = i;

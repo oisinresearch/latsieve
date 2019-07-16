@@ -39,6 +39,7 @@ typedef struct relstruct {
 int main (int argc, char** argv)
 {
 	if (argc == 1) {
+		cout << "Sort relations in-place from smallest ideal to largest (norm) on each side." << endl;
 		cout << endl << "Usage: ./presort inputpoly factorbase relations" << endl << flush;
 		return 0;
 	}

@@ -35,29 +35,21 @@ typedef struct struct2 {
 	int s;
 } prime;
 
-vector<pair<int,string> > sm_exp;
-vector<dlog> dlogs;
-vector<pair<int,string> > sm;
-
 string deduce_on_one_side(string ellstr, string filename);
-string deduce_from_both_sides(string ellstr, string filename);
-void getabc(string filename, int64_t &a, int64_t &b, int64_t &c);
-int num_unknown_primes_both_sides(string filename);
-int num_unknown_primes_one_side(string filename);
+string deduce_from_both_sides(string ellstr, string filename, int target_side);
 
 int main(int argc, char** argv)
 {
-	if (argc != 7) {
-		cout << "Usage:  ./deduce_full poly badidealfile dlogfile ell inputfile side" << endl << endl;
+	if (argc != 5) {
+		//cout << "Usage:  ./deduce_full poly badidealfile dlogfile ell inputfile side" << endl << endl;
+		cout << "Usage:  ./deduce_full dlogfile ell inputfile side" << endl << endl;
 		return 0;
 	}
 
-	string poly(argv[1]);
-	string bad(argv[2]);
-	string dlog(argv[3]);
-	string ellstr(argv[4]);
-	string inputfile(argv[5]);
-	string side(argv[6]);
+	string dlog(argv[1]);
+	string ellstr(argv[2]);
+	string inputfile(argv[3]);
+	string side(argv[4]);
 
 	deduce_on_one_side(ellstr, inputfile);
 
@@ -66,6 +58,10 @@ int main(int argc, char** argv)
 
 string deduce_on_one_side(string ellstr, string filename)
 {
+	vector<pair<int,string> > sm_exp;
+	vector<dlog> dlogs;
+	vector<pair<int,string> > sm;
+
     string separator0 = " ";
     string separator1 = ":";
     string separator2 = ",";
@@ -109,10 +105,13 @@ string deduce_on_one_side(string ellstr, string filename)
 		}
 		else {
 			int64_t p = strtoull(pstr.c_str(), NULL, 10);
-			if (val == "")
-				val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt");
+			if (val == "") {
+				val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt", side);
+				cout << "\tvlog(" << p << ") = " << val << " on side " << side << endl;
+			}
 			dlogs.push_back((dlog){ side, p, r, e, val });
 		}
+		tside = side;
 	}
 
 	// read Schirokauer map logs
@@ -146,7 +145,7 @@ string deduce_on_one_side(string ellstr, string filename)
 		int e = dlogs[i].e;
 		string val = dlogs[i].log;
 		if (val != "") {
-			//cout << " + " << e << "*" << val;
+			cout << " + " << e << "*" << val;
 			mpz_set_str(log, val.c_str(), 10);
 			mpz_mul_si(log, log, e);
 			mpz_add(tlog, tlog, log);
@@ -154,7 +153,7 @@ string deduce_on_one_side(string ellstr, string filename)
 		}
 		else { // can't hit this since val has always been looked up
 			string pfilename = "deduce_" + to_string(p) + ".txt";
-			val = deduce_from_both_sides(ell, pfilename);
+			val = deduce_from_both_sides(ellstr, pfilename, 1);
 		}
 	}
 	// then Schirokauer maps
@@ -165,22 +164,27 @@ string deduce_on_one_side(string ellstr, string filename)
 		int side = sm[offset + i].first;
 		string eval = sm_exp[i].second;
 		string val = sm[offset + i].second;
-		//cout << " + " << eval << "*" << val;
+		cout << " + " << eval << "*" << val;
 		mpz_set_str(exp, eval.c_str(), 10);
 		mpz_set_str(log, val.c_str(), 10);
 		mpz_mul(log, log, exp);
 		mpz_add(tlog, tlog, log);
 		mpz_mod(tlog, tlog, ell);	// reduce mod ell		
 	}
-	// Note that the following commented-out line is wrong - the J ideal has norm 1, therefore log zero.
-	mpz_add_ui(tlog, tlog, 1);	// account for J ideal (warning - hardcoded to side 1)
-	//cout << " + 1";
-	//mpz_sub(tlog, ell, tlog);	// move known logs to other side
+	if (tside == 1) {
+		mpz_add_ui(tlog, tlog, 1);	// account for J ideal (warning - hardcoded to side 1)
+		cout << " + 1";
+	}
+	
 	mpz_mod(tlog, tlog, ell);	// reduce mod ell
+
+	if (tside == 0) {
+		mpz_sub(tlog, ell, tlog);	// move known logs to other side
+	}
 
 	string tlogstr = mpz_get_str(NULL, 10, tlog);
 
-	//cout << endl;
+	cout << endl;
 	cout << "vlog(" << q << ") = " << mpz_get_str(NULL, 10, tlog) << endl;
 
 	mpz_clear(exp);
@@ -191,13 +195,20 @@ string deduce_on_one_side(string ellstr, string filename)
 	return tlogstr;
 }
 
-string deduce_from_both_sides(string ellstr, string filename)
+string deduce_from_both_sides(string ellstr, string filename, int target_side)
 {
+	vector<pair<int,string> > sm_exp;
+	vector<dlog> dlogs;
+	vector<pair<int,string> > sm;
+
     string separator0 = " ";
     string separator1 = ":";
     string separator2 = ",";
 	string line;
 	ifstream file(filename);
+
+	string pfilestr = filename.substr(7, filename.find(".") - 7);
+	int64_t pfile = strtoull(pfilestr.c_str(), NULL, 10);
 
 	// read a b c
 	getline(file, line);
@@ -236,8 +247,10 @@ string deduce_from_both_sides(string ellstr, string filename)
 		}
 		else {
 			int64_t p = strtoull(pstr.c_str(), NULL, 10);
-			if (val == "")
-				val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt");
+			if (val == "" && p != pfile) {
+				val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt", 0);
+				cout << "\tvlog(" << p << ") = " << val << " on side " << 0 << endl;
+			}
 			dlogs.push_back((dlog){ side, p, r, e, val });
 		}
 	}
@@ -265,8 +278,10 @@ string deduce_from_both_sides(string ellstr, string filename)
 		}
 		else {
 			int64_t p = strtoull(pstr.c_str(), NULL, 10);
-			if (val == "")
-				val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt");
+			if (val == "" && p != pfile) {
+				val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt", 1);
+				cout << "\tvlog(" << p << ") = " << val << " on side " << 1 << endl;
+			}
 			dlogs.push_back((dlog){ side, p, r, e, val });
 		}
 	}
@@ -325,10 +340,16 @@ string deduce_from_both_sides(string ellstr, string filename)
 		mpz_add(tlog, tlog, log);
 		mpz_mod(tlog, tlog, ell);	// reduce mod ell		
 	}
-	// Note that the following commented-out line is wrong - the J ideal has norm 1, therefore log zero.
-	//cout << " + 1";
+	//if (target_side == 1) {
 	mpz_add_ui(tlog, tlog, 1);	// account for J ideal (warning - hardcoded to side 1)
+	//cout << " + 1";
+	//}
+
+	//cout << endl << "\ttarget side = " << target_side << endl;
+
+	//if (target_side == 0) {
 	mpz_sub(tlog, ell, tlog);	// move known logs to other side
+	//}
 
 	string tlogstr = mpz_get_str(NULL, 10, tlog);
 
@@ -343,128 +364,3 @@ string deduce_from_both_sides(string ellstr, string filename)
 	return tlogstr;
 }
 
-int num_unknown_primes_both_sides(string filename)
-{
-	vector<prime> unknownprimes;
-
-    string separator0 = " ";
-    string separator1 = ":";
-    string separator2 = ",";
-	string line;
-	ifstream file(filename);
-
-	// read a b c
-	getline(file, line);
-	int64_t a = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-	int64_t b = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-	int64_t c = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-
-	int tside = 0;
-
-	// read "side 0:"
-	getline(file, line);
-
-	// read side 0 ideal logs/Schirokauer exponents
-	while (getline(file, line)) {
-		if (line.find("side 1:", 0) == 0) break;
-
-		int side = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string pstr = line.substr(0, line.find(separator0));
-		line.erase(0, line.find(separator0) + 1);
-
-		int64_t r = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		int e = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string val = line;
-
-		if (pstr != "sm_exp") {
-			int64_t p = strtoull(pstr.c_str(), NULL, 10);
-			if (val == "") unknownprimes.push_back((prime){ p, r, 0 });
-		}
-	}
-
-	// read side 1 ideal logs/Schirokauer exponents
-	while (getline(file, line)) {
-		if (line.find("Schirokauer Maps:", 0) == 0) break;
-
-		int side = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string pstr = line.substr(0, line.find(separator0));
-		line.erase(0, line.find(separator0) + 1);
-
-		int64_t r = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		int e = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string val = line;
-
-		if (prime != "sm_exp") {
-			int64_t p = strtoull(pstr.c_str(), NULL, 10);
-			if (val == "") unknownprimes.push_back((prime){ p, r, 1 });
-		}
-	}
-
-	return unknownprimes->size();
-}
-
-int num_unknown_primes_one_side(string filename)
-{
-	vector<prime> unknownprimes;
-
-    string separator0 = " ";
-    string separator1 = ":";
-    string separator2 = ",";
-	string line;
-	ifstream file(filename);
-
-	// read a b c
-	getline(file, line);
-	int64_t a = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-	int64_t b = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-	int64_t c = atoi(line.substr(0, line.find(separator0)).c_str());
-	line.erase(0, line.find(separator0) + 1);
-
-	int tside = 0;
-
-	// read "side S:"
-	getline(file, line);
-
-	// read side 1 ideal logs/Schirokauer exponents
-	while (getline(file, line)) {
-		if (line.find("Schirokauer Maps:", 0) == 0) break;
-
-		int side = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string pstr = line.substr(0, line.find(separator0));
-		line.erase(0, line.find(separator0) + 1);
-
-		int64_t r = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		int e = atoi(line.substr(0, line.find(separator0)).c_str());
-		line.erase(0, line.find(separator0) + 1);
-
-		string val = line;
-
-		if (prime != "sm_exp") {
-			int64_t p = strtoull(pstr.c_str(), NULL, 10);
-			if (val == "") unknownprimes.push_back((prime){ p, r, 1 });
-		}
-	}
-
-	return unknownprimes->size();
-}
