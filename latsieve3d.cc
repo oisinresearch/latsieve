@@ -1,10 +1,11 @@
+#include <cstdlib>
 #include <stdint.h>	// int64_t
 #include <iostream> // cout
 #include <iomanip> // setprecision
 #include "L2lu64.h"
 #include <gmpxx.h>
 #include "intpoly.h"
-#include <math.h>	// sqrt
+#include <cmath>	// sqrt
 #include <fstream>	// file
 #include <ctime>	// clock_t
 #include <cstring>	// memset
@@ -27,17 +28,18 @@ using std::to_string;
 using std::hex;
 using std::stringstream;
 using std::stack;
+using std::abs;
 
 struct keyval {
 	int id;
-	float logp;
+	uint8_t logp;
 };
 
 __int128 MASK64;
 
 int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
 		 keyval* M, int Mlen, int* B);
-void histogram(keyval*M, float* H, int len);
+void histogram(keyval*M, uint8_t* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
 void csort(keyval* M, keyval* L, int* H, int len);
 inline int floordiv(int a, int b);
@@ -131,7 +133,7 @@ int main(int argc, char** argv)
 	if (argc >=3) fbbits = atoi(argv[2]);
 	int max = 1<<fbbits; // 10000000;// 65536;
 	char* sieve = new char[max+1]();
-	int* primes = new int[1077871]; // int[155611]; //new int[809228];	//new int[6542]; 	// 2039 is the 309th prime, largest below 2048
+	int* primes = new int[2097152]; //int[1077871]; // int[155611]; //new int[809228];	//new int[6542]; 	// 2039 is the 309th prime, largest below 2048
 	for (int i = 2; i <= sqrt(max); i++)
 		if(!sieve[i])
 			for (int j = i*i; j <= max; j += i)
@@ -204,10 +206,10 @@ int main(int argc, char** argv)
 	int B1bits = B[0]; int B2bits = B[1]; int B3bits = B[2];
 	int B1 = 1<<B1bits; int B2 = 1<<B2bits; int B3 = 1<<B3bits;
 	int Mlen = (B1*2*B2*2*B3);	// require positive z coordinate
-	Mlen = (int)(2.6f * Mlen);	// upper bound on number of vectors in sieve box
+	Mlen = (int)(2.3f * Mlen);	// upper bound on number of vectors in sieve box
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
-	float* H = new float[Mlen];	// histogram
+	uint8_t* H = new uint8_t[Mlen];	// histogram
 	vector<int> rel;
 	// clear M
 	//cout << "Clearing memory..." << endl << flush;
@@ -232,10 +234,10 @@ int main(int argc, char** argv)
 	mpz_t factor; mpz_init(factor); mpz_t p1; mpz_t p2; mpz_init(p1); mpz_init(p2); mpz_t t; mpz_init(t); 
 	if (argc >= 8) qmin = strtoll(argv[7], NULL, 10);	// atoi(argv[7]);
 	if (argc >= 9) qmax = strtoll(argv[8], NULL, 10);	// atoi(argv[8]);
-	float th0 = 70.0f;
-	if (argc >= 10) th0 = atof(argv[9]);
-	float th1 = 70.0f;
-	if (argc >= 11) th1 = atof(argv[10]);
+	uint8_t th0 = 70;
+	if (argc >= 10) th0 = atoi(argv[9]);
+	uint8_t th1 = 70;
+	if (argc >= 11) th1 = atoi(argv[10]);
 	int lpbits = 29;
 	if (argc >= 12) lpbits = atoi(argv[11]);
 	int cofacS = 1000;
@@ -621,10 +623,10 @@ int main(int argc, char** argv)
 }
 
 
-void histogram(keyval*M, float* H, int len)
+void histogram(keyval*M, uint8_t* H, int len)
 {
 	// clear H
-	memset(H, 0, len * sizeof(float));
+	memset(H, 0, len * sizeof(uint8_t));
 	// fill H
 	for (int i = 0; i < len; i++) {
 		H[M[i].id] += M[i].logp;
@@ -736,7 +738,7 @@ int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int*
 		int64_t p = allp[i];
 		if (p == q) { i++; continue; }
 		//cout << p << "," << m << endl << flush;
-		float logp = log2f(p);
+		uint8_t logp = log2f(p);
 		__int128 rl = mod(-r[l], q);
 		for (int k = 0; k < num_smodp[i]; k++) {
 			int64_t n = p*q;
@@ -748,9 +750,11 @@ int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int*
 			L2[6] = 0; L2[7] = 0; L2[8] = 1;
 			int64L2(L2,3);	// LLL reduce L, time log(n)^2
 			mat3x3prod(qLinv, L2, L3);	// L3 =  qLinv*L2
-			int u1 = L3[0]/q; int u2 = L3[3]/q; int u3 = L3[6]/q;
-			int v1 = L3[1]/q; int v2 = L3[4]/q; int v3 = L3[7]/q;
-			int w1 = L3[2]/q; int w2 = L3[5]/q; int w3 = L3[8]/q;
+            for (int ii = 0; ii < 9; ii++) L3[ii] /= q;
+            int64L2(L3,3);
+			int u1 = L3[0]; int u2 = L3[3]; int u3 = L3[6];
+			int v1 = L3[1]; int v2 = L3[4]; int v3 = L3[7];
+			int w1 = L3[2]; int w2 = L3[5]; int w3 = L3[8];
 
 			// compute normal (cross product)
 			int nx = u2*v3 - u3*v2;
@@ -1137,8 +1141,8 @@ bool PollardPm1_mpz(mpz_t N, mpz_t S, mpz_t factor)
 
 inline __int128 gcd128(__int128 a, __int128 b)
 {
-	a = abs(a);
-	b = abs(b);
+	a = a < 0 ? -a : a;
+	b = b < 0 ? -b : b;
 	__int128 c;
 	while (b != 0) {
 		c = b;
