@@ -26,8 +26,8 @@ bool known_good_prime(int pt, int* pcache, int pmin, int* sievep, int kmin, int 
 
 int main (int argc, char** argv)
 {
-	if (argc/2 != 2 ) {	// argc must be 4 or 5
-		cout << endl << "Usage: ./galoisexpand inputpoly factorbase relations {nocheck}" << endl << flush;
+	if ((argc+1)/2 != 3 ) {	// argc must be 5 or 6
+		cout << endl << "Usage: ./galoisexpand inputpoly factorbase relations genbadmax {nocheck}" << endl << flush;
 		return 0;
 	}
 
@@ -148,9 +148,13 @@ int main (int argc, char** argv)
 		if (sievep1[t] == p) { c1 = t + 1; p1cache[p] = 1; k1min++; }	// factor base prime
 	}
 
+    int64_t genbadmax = 1000;
+    genbadmax = atoi(argv[4]);
+
 	bool nocheck = false;
-	string argv4(argv[4]);
-	if (argv4 == "nocheck") nocheck = true;
+	string argv5("");
+    if (argc == 6) argv5.assign(argv[5], strlen(argv[5]));
+	if (argv5 == "nocheck") nocheck = true;
 
 	// read relations file
 	mpz_poly f0; mpz_poly f1; mpz_poly A;
@@ -194,7 +198,7 @@ int main (int argc, char** argv)
 				if (!nocheck) {
 					if (mpz_cmp_ui(p, fbmax) < 0) {
 						int pt = mpz_get_ui(p);
-						if (!known_good_prime(pt, p0cache, p0min, sievep0, k0min, k0)) { // relation is bad
+						if (!known_good_prime(pt, p0cache, p0min, sievep0, k0min, k0) && pt > genbadmax) { // relation is bad
 							isrel = false;
 							break;
 						}
@@ -230,7 +234,7 @@ int main (int argc, char** argv)
 				if (!nocheck) {
 					if (mpz_cmp_ui(p, fbmax) < 0) {
 						int pt = mpz_get_ui(p);
-						if (!known_good_prime(pt, p1cache, p1min, sievep1, k1min, k1)) { // relation is bad
+						if (!known_good_prime(pt, p1cache, p1min, sievep1, k1min, k1) && pt > genbadmax) { // relation is bad
 							isrel = false;
 							break;
 						}
@@ -404,6 +408,7 @@ bool known_good_prime(int pt, int* pcache, int pmin, int* sievep, int kmin, int 
 		if (i >= min) {
 			if (pt == sievep[i]) { known_good = true; break; }
 			else if (pt < sievep[i]) max = i;
+            else if (min == i) break;
 			else min = i;
 		}
 		else {
@@ -420,6 +425,7 @@ bool known_good_prime(int pt, int* pcache, int pmin, int* sievep, int kmin, int 
 		}
 		// binary subdivision
 		i = min + (max - min) / 2;
+        if (min == max) break;  // couldn't find pt in sievep if this is true
 	}
 	return known_good;
 }
