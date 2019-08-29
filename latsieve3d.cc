@@ -189,7 +189,7 @@ int main(int argc, char** argv)
 		int j = 0;
 		while( ss.good() ) {
 			getline( ss, substr, ',' );
-			sieves1[i*degf + j++] = atoi(substr.c_str());
+			sieves1[i*degg + j++] = atoi(substr.c_str());
 		}
 		sievenum_s1modp[i] = j;
 	}
@@ -291,7 +291,7 @@ int main(int argc, char** argv)
 		if (qside == 1) cout << " for special-q " << q;
 		cout << "..." << endl << flush;
 		start = clock();
-		m = latsieve3d(fq, degf, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
+		m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 		cout << "# Size of lattice point list is " << m << "." << endl << flush;
@@ -733,7 +733,7 @@ int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int*
 	qLinv[7] = L[1]*L[6]-L[0]*L[7];
 	qLinv[8] = L[0]*L[4]-L[1]*L[3];
 
-	int i = 8; int m = 0;
+	int i = 40; int m = 0;
 	while (i < nump) {
 		int64_t p = allp[i];
 		if (p == q) { i++; continue; }
