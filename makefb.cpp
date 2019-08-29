@@ -185,13 +185,15 @@ int main(int argc, char** argv)
 	fprintf(out, "%d\n", k0);
 	for (int i = 0; i < k0; i++) {
 		fprintf(out, "%d", sievep0[i]);
-		for (int j = 0; j < sievenum_s0modp[i]; j++) fprintf(out, ",%d", sieves0[i*degf + j]);
+		for (int j = 0; j < sievenum_s0modp[i]; j++)
+            fprintf(out, ",%d", sieves0[i*degf + j]);
 		fprintf(out, "\n");
 	}
 	fprintf(out, "%d\n", k1);
 	for (int i = 0; i < k1; i++) {
 		fprintf(out, "%d", sievep1[i]);
-		for (int j = 0; j < sievenum_s1modp[i]; j++) fprintf(out, ",%d", sieves1[i*degf + j]);
+		for (int j = 0; j < sievenum_s1modp[i]; j++)
+            fprintf(out, ",%d", sieves1[i*degg + j]);
 		fprintf(out, "\n");
 	}
 	fclose(out);
