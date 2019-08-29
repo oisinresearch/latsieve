@@ -1,0 +1,7 @@
+all:
+	g++ mpz_poly.cpp L2lu64.cc factorsmall.cc intpoly.cc latsieve3d.cc -o latsieve3d -lgmp -lgmpxx -std=c++11 -fopenmp -I/ichec/work/staff/orobinson/local/gmp-6.1.2/include -L/ichec/work/staff/orobinson/local/gmp-6.1.2/lib -O3
+	g++ -o makefb -lgmp -lgmpxx makefb.cpp intpoly.cc mpz_poly.cpp factorsmall.cc -std=c++11 -fopenmp -O3 -I/ichec/work/staff/orobinson/local/gmp-6.1.2/include -L/ichec/work/staff/orobinson/local/gmp-6.1.2/lib
+	g++ mpz_poly.cpp factorsmall.cc intpoly.cc galoisexpand.cc -o galoisexpand -lgmp -lgmpxx -std=c++11 -g -I/ichec/work/staff/orobinson/local/gmp-6.1.2/include -L/ichec/work/staff/orobinson/local/gmp-6.1.2/lib
+	g++ rootsofunity.cc -o rootsofunity -O3
+	g++ encode3d.cc -o encode3d -O3
+	g++ mpz_poly.cpp factorsmall.cc intpoly.cc presort.cc -o presort -lgmp -lgmpxx -std=c++11 -O3 -I/ichec/work/staff/orobinson/local/gmp-6.1.2/include -L/ichec/work/staff/orobinson/local/gmp-6.1.2/lib
