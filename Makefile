@@ -9,4 +9,6 @@ all:
 	g++ rootsofunity.cc -o rootsofunity -O3
 	g++ -o deduce -lgmp -lgmpxx -lm -lpari -lpthread deduce.cc -std=c++11 -g -I/usr/local/include -L/usr/local/lib -O0 -g
 	g++ -o deduce_one_side -lgmp -lgmpxx -lm -lpari -lpthread deduce_one_side.cc -std=c++11 -g -I/usr/local/include -L/usr/local/lib -O0 -g
-	g++ -o deduce_full -lgmp -lgmpxx -lm -lpari -lpthread deduce_full.cc -std=c++11 -g -I/usr/local/include -L/usr/local/lib -O0 -g
+	g++ mpz_poly.cpp L2lu64.cc L2lu128.cc factorsmall.cc intpoly.cc latsieve3dQ.cc -o latsieve3dQ -lgmp -lgmpxx -std=c++11 -fopenmp -O3
+	g++ -o rotate_full -lgmp -lgmpxx -lm -lpari -lpthread rotate_full.cc -std=c++11 -g -I/ichec/work/ndmat031c/local/gmp-6.1.2/include -I/ichec/work/ndmat031c/local/pari-2.11.0/include -L/ichec/work/ndmat031c/local/gmp-6.1.2/lib -L/ichec/work/ndmat031c/local/pari-2.11.0/lib -O0 -g
+	g++ -o deduce_full -lgmp -lgmpxx -lm -lpari -lpthread deduce_full.cc -std=c++11 -g -I/ichec/work/ndmat031c/local/gmp-6.1.2/include -I/ichec/work/ndmat031c/local/pari-2.11.0/include -L/ichec/work/ndmat031c/local/gmp-6.1.2/lib -L/ichec/work/ndmat031c/local/pari-2.11.0/lib -O0 -g

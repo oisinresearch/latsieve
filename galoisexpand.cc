@@ -198,7 +198,7 @@ int main (int argc, char** argv)
 				if (!nocheck) {
 					if (mpz_cmp_ui(p, fbmax) < 0) {
 						int pt = mpz_get_ui(p);
-						if (!known_good_prime(pt, p0cache, p0min, sievep0, k0min, k0) && pt > genbadmax) { // relation is bad
+						if (!known_good_prime(pt, p0cache, p0min, sievep0, k0min, k0)) { // && pt > genbadmax) { // relation is bad
 							isrel = false;
 							break;
 						}
@@ -234,7 +234,7 @@ int main (int argc, char** argv)
 				if (!nocheck) {
 					if (mpz_cmp_ui(p, fbmax) < 0) {
 						int pt = mpz_get_ui(p);
-						if (!known_good_prime(pt, p1cache, p1min, sievep1, k1min, k1) && pt > genbadmax) { // relation is bad
+						if (!known_good_prime(pt, p1cache, p1min, sievep1, k1min, k1)) { // && pt > genbadmax) { // relation is bad
 							isrel = false;
 							break;
 						}

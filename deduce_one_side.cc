@@ -7,6 +7,7 @@
 #include <sstream>	// stringstream
 #include <string>
 #include <assert.h>
+#include <vector>
 
 using std::cout;
 using std::endl;

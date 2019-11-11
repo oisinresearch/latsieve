@@ -1,7 +1,11 @@
 all:
-	g++ mpz_poly.cpp L2lu64.cc factorsmall.cc intpoly.cc latsieve3d.cc -o latsieve3d -lgmp -lgmpxx -std=c++11 -fopenmp -I/ichec/work/staff/orobinson/local/gmp-6.1.2/include -L/ichec/work/staff/orobinson/local/gmp-6.1.2/lib -O3
-	g++ -o makefb -lgmp -lgmpxx makefb.cpp intpoly.cc mpz_poly.cpp factorsmall.cc -std=c++11 -fopenmp -O3 -I/ichec/work/staff/orobinson/local/gmp-6.1.2/include -L/ichec/work/staff/orobinson/local/gmp-6.1.2/lib
-	g++ mpz_poly.cpp factorsmall.cc intpoly.cc galoisexpand.cc -o galoisexpand -lgmp -lgmpxx -std=c++11 -g -I/ichec/work/staff/orobinson/local/gmp-6.1.2/include -L/ichec/work/staff/orobinson/local/gmp-6.1.2/lib
+	g++ mpz_poly.cpp L2lu64.cc factorsmall.cc intpoly.cc latsieve3d.cc -o latsieve3d -lgmp -lgmpxx -std=c++11 -fopenmp -I/ichec/work/ndmat031c/local/gmp-6.1.2/include -L/ichec/work/ndmat031c/local/gmp-6.1.2/lib -O3
+	g++ -o makefb -lgmp -lgmpxx makefb.cpp intpoly.cc mpz_poly.cpp factorsmall.cc -std=c++11 -fopenmp -O3 -I/ichec/work/ndmat031c/local/gmp-6.1.2/include -L/ichec/work/ndmat031c/local/gmp-6.1.2/lib
+	g++ mpz_poly.cpp factorsmall.cc intpoly.cc galoisexpand.cc -o galoisexpand -lgmp -lgmpxx -std=c++11 -g -I/ichec/work/ndmat031c/local/gmp-6.1.2/include -L/ichec/work/ndmat031c/local/gmp-6.1.2/lib
 	g++ rootsofunity.cc -o rootsofunity -O3
 	g++ encode3d.cc -o encode3d -O3
-	g++ mpz_poly.cpp factorsmall.cc intpoly.cc presort.cc -o presort -lgmp -lgmpxx -std=c++11 -O3 -I/ichec/work/staff/orobinson/local/gmp-6.1.2/include -L/ichec/work/staff/orobinson/local/gmp-6.1.2/lib
+	g++ mpz_poly.cpp factorsmall.cc intpoly.cc presort.cc -o presort -lgmp -lgmpxx -std=c++11 -O3 -I/ichec/work/ndmat031c/local/gmp-6.1.2/include -L/ichec/work/ndmat031c/local/gmp-6.1.2/lib
+	g++ -o deduce -lgmp -lgmpxx -lm -lpari -lpthread deduce.cc -std=c++11 -I/ichec/work/ndmat031c/local/gmp-6.1.2/include -L/ichec/work/ndmat031c/local/gmp-6.1.2/lib -I/ichec/work/ndmat031c/local/pari-2.11.0/include -L/ichec/work/ndmat031c/local/pari-2.11.0/lib -O0 -g
+	g++ -o deduce_one_side -lgmp -lgmpxx -lm -lpari -lpthread deduce_one_side.cc -std=c++11 -I/ichec/work/ndmat031c/local/gmp-6.1.2/include -L/ichec/work/ndmat031c/local/gmp-6.1.2/lib -I/ichec/work/ndmat031c/local/pari-2.11.0/include -L/ichec/work/ndmat031c/local/pari-2.11.0/lib -O0 -g
+	g++ -o deduce_full -lgmp -lgmpxx -lm -lpari -lpthread deduce_full.cc -std=c++11 -I/ichec/work/ndmat031c/local/gmp-6.1.2/include -L/ichec/work/ndmat031c/local/gmp-6.1.2/lib -I/ichec/work/ndmat031c/local/pari-2.11.0/include -L/ichec/work/ndmat031c/local/pari-2.11.0/lib -O0 -g
+	g++ sortideals.cc -o sortideals -lgmp -lgmpxx -I/ichec/work/ndmat031c/local/gmp-6.1.2/include -L/ichec/work/ndmat031c/local/gmp-6.1.2/lib -g -O0

@@ -37,11 +37,9 @@ int main (int argc, char** argv)
         int bbits = b; if (b < 0) { binfo++; bbits = -bbits; }; while (bbits>>=1) binfo++;
         int cbits = c; if (c < 0) { cinfo++; cbits = -cbits; }; while (cbits>>=1) cinfo++;
 
-        if (ainfo <= 20 && binfo <= 22 && cinfo <= 22) {
-            uint64_t absb = b; if (b < 0) absb = -b;
-            int64_t A =  (a<<11) + (absb>>10);    // A = ((a+(1<<20))<<11) + ((b+(1<<20))>>11);
-            if (b < 0) A = -A;
-            uint64_t B = (absb%(1<<10)) + ((c+(1<<21))<<10); // B = (b+(1<<20))%(1<<11)+((c+(1<<20))<<11);
+        if (ainfo <= 32 && binfo <= 32 && cinfo <= 32) {
+            int64_t A = ((a+(1l<<31))<<16) + ((b+(1l<<31))>>16);
+            uint64_t B = (b+(1l<<31))%(1l<<16)+((c+(1l<<31))<<16);
 
             cout << A << "," << B << ":" << line << endl;
         }

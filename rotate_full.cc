@@ -44,7 +44,7 @@ int main(int argc, char** argv)
 {
 	if (argc != 5) {
 		//cout << "Usage:  ./deduce_full poly badidealfile dlogfile ell inputfile side" << endl << endl;
-		cout << "Usage:  ./deduce_full dlogfile ell inputfile side" << endl << endl;
+		cout << "Usage:  ./rotate_full dlogfile ell inputfile side" << endl << endl;
 		return 0;
 	}
 
@@ -109,7 +109,8 @@ string deduce_on_one_side(string ellstr, string filename)
 			int64_t p = strtoull(pstr.c_str(), NULL, 10);
 			if (val == "") {
 				val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt", side);
-				cout << "\tvlog(" << p << ") = " << val << " on side " << side << endl;
+				//cout << "\tvlog(" << p << ") = " << val << " on side " << side << endl;
+				cout << "[a,b,c] = " << "[" << a << "," << b << "," << c << "]; p = " << p << endl;
 			}
 			dlogs.push_back((dlog){ side, p, r, e, val });
 		}
@@ -147,7 +148,7 @@ string deduce_on_one_side(string ellstr, string filename)
 		int e = dlogs[i].e;
 		string val = dlogs[i].log;
 		if (val != "") {
-			cout << " + " << e << "*" << val;
+			//cout << " + " << e << "*" << val;
 			mpz_set_str(log, val.c_str(), 10);
 			mpz_mul_si(log, log, e);
 			mpz_add(tlog, tlog, log);
@@ -166,7 +167,7 @@ string deduce_on_one_side(string ellstr, string filename)
 		int side = sm[offset + i].first;
 		string eval = sm_exp[i].second;
 		string val = sm[offset + i].second;
-		cout << " + " << eval << "*" << val;
+		//cout << " + " << eval << "*" << val;
 		mpz_set_str(exp, eval.c_str(), 10);
 		mpz_set_str(log, val.c_str(), 10);
 		mpz_mul(log, log, exp);
@@ -175,7 +176,7 @@ string deduce_on_one_side(string ellstr, string filename)
 	}
 	if (tside == 1) {
 		mpz_add_ui(tlog, tlog, 1);	// account for J ideal (warning - hardcoded to side 1)
-		cout << " + 1";
+		//cout << " + 1";
 	}
 	
 	mpz_mod(tlog, tlog, ell);	// reduce mod ell
@@ -185,6 +186,8 @@ string deduce_on_one_side(string ellstr, string filename)
 	}
 
 	string tlogstr = mpz_get_str(NULL, 10, tlog);
+
+	//cout << "[a,b,c] = " << "[" << a << "," << b << "," << c << "]; p = " << q << endl;
 
 	cout << endl;
 	cout << "vlog(" << q << ") = " << mpz_get_str(NULL, 10, tlog) << endl;
@@ -251,7 +254,8 @@ string deduce_from_both_sides(string ellstr, string filename, int target_side)
 			int64_t p = strtoull(pstr.c_str(), NULL, 10);
 			if (val == "" && p != pfile) {
 				val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt", 0);
-				cout << "\tvlog(" << p << ") = " << val << " on side " << 0 << endl;
+				//cout << "\tvlog(" << p << ") = " << val << " on side " << 0 << endl;
+				cout << "[a,b,c] = " << "[" << a << "," << b << "," << c << "]; p = " << p << endl;
 			}
 			dlogs.push_back((dlog){ side, p, r, e, val });
 		}
@@ -282,7 +286,8 @@ string deduce_from_both_sides(string ellstr, string filename, int target_side)
 			int64_t p = strtoull(pstr.c_str(), NULL, 10);
 			if (val == "" && p != pfile) {
 				val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt", 1);
-				cout << "\tvlog(" << p << ") = " << val << " on side " << 1 << endl;
+				//cout << "\tvlog(" << p << ") = " << val << " on side " << 1 << endl;
+				cout << "[a,b,c] = " << "[" << a << "," << b << "," << c << "]; p = " << p << endl;
 			}
 			dlogs.push_back((dlog){ side, p, r, e, val });
 		}
@@ -357,6 +362,9 @@ string deduce_from_both_sides(string ellstr, string filename, int target_side)
 
 	//cout << endl;
 	//cout << "vlog(" << q << ") = " << mpz_get_str(NULL, 10, tlog) << endl;
+
+    if (q != 0)
+    	cout << "[a,b,c] = " << "[" << a << "," << b << "," << c << "]; p = " << q << endl;
 
 	mpz_clear(exp);
 	mpz_clear(ell);
