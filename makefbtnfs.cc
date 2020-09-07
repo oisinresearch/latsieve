@@ -140,9 +140,9 @@ int main(int argc, char** argv)
 	{
 		mpz_t rt; mpz_init(rt); 
 		int id = omp_get_thread_num();
-		int64_t* stemP0 = new int64_t[degfht];
+		int64_t* S0temp = new int64_t[degfht];
 		int64_t* fp = new int64_t[degfht+1]();
-		int64_t* stemP1 = new int64_t[degght];
+		int64_t* S1temp = new int64_t[degght];
 		int64_t* gp = new int64_t[degght+1]();
 		int64_t* stemp = new int64_t[degh];
 		int64_t* hp = new int64_t[degh+1]();
@@ -152,14 +152,14 @@ int main(int argc, char** argv)
 			int64_t p = primes[i];
 			for (int j = 0; j <= degfht; j++) fp[j] = mpz_mod_ui(rt, fpoly[j], p);
 			int degfp = degfht; while (fp[degfp] == 0 || degfp == 0) degfp--;
-			int numS0 = polrootsmod(fp, degfp, stemP0, p);
+			int numS0 = polrootsmod(fp, degfp, S0temp, p);
 			num_S0modp[i] = numS0;
-			for (int j = 0; j < numS0; j++) S0[i*degfht + j] = stemP0[j];
+			for (int j = 0; j < numS0; j++) S0[i*degfht + j] = S0temp[j];
 			for (int j = 0; j <= degght; j++) gp[j] = mpz_mod_ui(rt, gpoly[j], p);
 			int deggp = degght; while (gp[deggp] == 0 || deggp == 0) deggp--;
-			int numS1 = polrootsmod(gp, deggp, stemP1, p);
+			int numS1 = polrootsmod(gp, deggp, S1temp, p);
 			num_S1modp[i] = numS1;
-			for (int j = 0; j < numS1; j++) S1[i*degght + j] = stemP1[j];
+			for (int j = 0; j < numS1; j++) S1[i*degght + j] = S1temp[j];
 			for (int j = 0; j <= degh; j++) hp[j] = mpz_mod_ui(rt, hpoly[j], p);
 			int deghp = degh; while (hp[deghp] == 0 || deghp == 0) deghp--;
 			int nums = polrootsmod(hp, deghp, stemp, p);
@@ -170,16 +170,16 @@ int main(int argc, char** argv)
 			itotal++;
 			if (itotal % itenpc0 == 0) {
 	#pragma omp critical
-				if (verbose) cout << "[" << 100 * itotal / nump + 1 << "%]\tConstructing factor base..." << endl << flush;
+				if (verbose) cout << "[" << 100 * itotal / nump + 1 << "%]\tConstructing factor base..." << endl;
 			}				 
 		}
 
 		delete[] hp;
 		delete[] stemp;
 		delete[] gp;
-		delete[] stemP1;
+		delete[] S1temp;
 		delete[] fp;
-		delete[] stemP0;
+		delete[] S0temp;
 		mpz_clear(rt);
 	}
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC / K;
