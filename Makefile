@@ -15,3 +15,4 @@ all:
 	g++ mpz_poly.cpp L2lu64.cc factorsmall.cc intpoly.cc latsieve2d.cc -o latsieve2d -lgmp -lgmpxx -std=c++11 -fopenmp -O3
 	g++ mpz_poly.cpp L2lu64.cc factorsmall.cc intpoly.cc cflat.cc -o cflat -lgmp -lgmpxx -std=c++11 -fopenmp -O3
 	g++ mpz_poly.cpp L2lu64.cc factorsmall.cc intpoly.cc latsieve4d.cc -o latsieve4d -lgmp -lgmpxx -std=c++11 -fopenmp -O3
+	g++ -o makefbtnfs -lgmp -lgmpxx makefbtnfs.cc intpoly.cc mpz_poly.cpp factorsmall.cc -std=c++11 -fopenmp -O3

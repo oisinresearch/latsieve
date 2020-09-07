@@ -184,7 +184,7 @@ int main(int argc, char** argv)
 	}
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC / K;
 	start = clock();
-	int k0 = 0; int k1 = 0;
+	int k0 = 0; int k1 = 0; int kh = 0;
 	for (int i = 0; i < nump; i++) {
 		int numS0 = num_S0modp[i];
 		if (numS0 > 0) {
