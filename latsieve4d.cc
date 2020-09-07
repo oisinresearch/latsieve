@@ -82,7 +82,7 @@ int main(int argc, char** argv)
 	//cout << (uint64_t)(MASK64) << " " << (uint64_t)(MASK64 >> 64) << endl;
 
 	if (argc != 14) {
-		cout << endl << "Usage: ./latsieve3d inputpoly fbbits factorbasefile B1 B2 B3 qmin qmax th0 th1 lpbbits cofacscalar qside" << endl << endl;
+		cout << endl << "Usage: ./latsieve4d inputpoly fbbits factorbasefile B1 B2 B3 qmin qmax th0 th1 lpbbits cofacscalar qside" << endl << endl;
 		return 0;
 	}
 
