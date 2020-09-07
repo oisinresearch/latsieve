@@ -160,7 +160,7 @@ int main(int argc, char** argv)
 			int numS1 = polrootsmod(gp, deggp, stemP1, p);
 			num_S1modp[i] = numS1;
 			for (int j = 0; j < numS1; j++) S1[i*degght + j] = stemP1[j];
-			for (int j = 0; j <= degh; j++) gp[j] = mpz_mod_ui(rt, gpoly[j], p);
+			for (int j = 0; j <= degh; j++) hp[j] = mpz_mod_ui(rt, hpoly[j], p);
 			int deghp = degh; while (hp[deghp] == 0 || deghp == 0) deghp--;
 			int nums = polrootsmod(hp, deghp, stemp, p);
 			num_smodp[i] = nums;
@@ -200,7 +200,7 @@ int main(int argc, char** argv)
 		}
 		int nums = num_smodp[i];
 		if (nums > 0) {
-			sievep[k1] = primes[i];
+			sievep[kh] = primes[i];
 			for (int j = 0; j < nums; j++) sieves[kh*degh + j] = s[i*degh + j];
 			sievenum_smodp[kh++] = nums;
 		}
