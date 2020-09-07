@@ -36,7 +36,7 @@ void mpz_poly_mul(mpz_poly f, mpz_poly g, mpz_poly h);
 void mpz_poly_realloc(mpz_poly f, int nc);
 void mpz_poly_setcoeff(mpz_poly f, int i, mpz_t z);
 void mpz_poly_setcoeff_ui(mpz_poly f, int i, unsigned int z);
-void mpz_poly_setcoeff_si(mpz_poly f, int i, int z);
+void mpz_poly_setcoeff_si(mpz_poly f, int i, int64_t z);
 void mpz_poly_cleandeg(mpz_poly f, int d);
 static inline int mpz_poly_coeff_sgn(mpz_poly f, int i);
 void mpz_poly_add(mpz_poly f, mpz_poly g, mpz_poly h);
