@@ -54,8 +54,10 @@ inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, 
 inline void getab4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3, int v4,
 				int x, int y, int z, int t, int B1, int B2, int B3, int B4, int* a, int* b);
 inline bool planeintersectsbox(int nx, int ny, int nz, int x, int y, int z, int B1, int B2, int B3);
-inline bool planeintersectsbox4d(int nx, int ny, int nz, int nt, int x, int y, int z, int t,
+inline bool spaceintersectsbox4d(int nx, int ny, int nz, int nt, int x, int y, int z, int t,
 							int B1, int B2, int B3, int B4);
+bool planeintersectsbox4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3, int v4,
+		int w1, int w2, int w3, int w4, int B1, int B2, int B3, int B4);
 inline int minnonneg(int u, int v, int w);
 inline int minnonneg4d(int u, int v, int w, int t);
 inline int minabs(int u, int v, int w);
@@ -81,8 +83,8 @@ int main(int argc, char** argv)
 
 	//cout << (uint64_t)(MASK64) << " " << (uint64_t)(MASK64 >> 64) << endl;
 
-	if (argc != 14) {
-		cout << endl << "Usage: ./latsieve4d inputpoly fbbits factorbasefile B1 B2 B3 qmin qmax th0 th1 lpbbits cofacscalar qside" << endl << endl;
+	if (argc != 15) {
+		cout << endl << "Usage: ./latsieve4d inputpoly fbbits factorbasefile B1 B2 B3 B4 qmin qmax th0 th1 lpbbits cofacscalar qside" << endl << endl;
 		return 0;
 	}
 
@@ -90,7 +92,7 @@ int main(int argc, char** argv)
 	for (int i = 0; i < argc; i++) cout << argv[i] << " ";
 	cout << endl << flush;
 
-	bool verbose = false;
+	bool verbose = false; verbose = true;
 		
 	if (verbose) cout << endl << "Reading input polynomial in file " << argv[1] << "..." << flush;
 	//vector<mpz_class> fpoly;
@@ -237,13 +239,14 @@ int main(int argc, char** argv)
 	if (verbose) cout << "There are " << k1 << " factor base primes on side 1." << endl << flush;
 	fbfile.close();
 	
-	int B[3] = { 9, 9, 8 };
+	int B[4] = { 7, 7, 7, 7 };
 	if (argc >= 5) B[0] = atoi(argv[4]);
 	if (argc >= 6) B[1] = atoi(argv[5]);
 	if (argc >= 7) B[2] = atoi(argv[6]);
-	int B1bits = B[0]; int B2bits = B[1]; int B3bits = B[2];
-	int B1 = 1<<B1bits; int B2 = 1<<B2bits; int B3 = 1<<B3bits;
-	int Mlen = (B1*2*B2*2*B3);	// require positive z coordinate
+	if (argc >= 8) B[3] = atoi(argv[7]);
+	int B1bits = B[0]; int B2bits = B[1]; int B3bits = B[2]; int B4bits = B[3];
+	int B1 = 1<<B1bits; int B2 = 1<<B2bits; int B3 = 1<<B3bits; int B4 = 1<<B4bits;
+	int Mlen = (B1*2*B2*2*B3*2*B4);	// require positive z coordinate
 	Mlen = (int)(2.3f * Mlen);	// upper bound on number of vectors in sieve box
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
@@ -259,31 +262,33 @@ int main(int argc, char** argv)
 
 	int64_t qmin; int64_t qmax; mpz_t qmpz; mpz_init(qmpz);
 	mpz_t* pi = new mpz_t[8]; for (int i = 0; i < 8; i++) mpz_init(pi[i]);
-	int64_t* r = new int64_t[degfht]();
+	int64_t* r = new int64_t[degh]();
+	int64_t* R = new int64_t[degfht]();
 	int64_t* fhqt = new int64_t[degfht+1](); // careful, what if degght > degfht?
 	int64_t* h = new int64_t[degh+1]();
 	mpz_poly f0; mpz_poly f1; mpz_poly A;
-	mpz_poly_init(f0, degfht); mpz_poly_init(f1, degght); mpz_poly_init(A, 3);
+	mpz_poly_init(f0, degfht); mpz_poly_init(f1, degght); mpz_poly_init(A, 4);
 	mpz_poly_set_mpz(f0, fhtpoly, degfht);
 	mpz_poly_set_mpz(f1, ghtpoly, degght);
 	mpz_t N0; mpz_t N1;
 	mpz_init(N0); mpz_init(N1);
 	stringstream stream;
 	mpz_t lpb; mpz_init(lpb);
-	mpz_t factor; mpz_init(factor); mpz_t p1; mpz_t p2; mpz_init(p1); mpz_init(p2); mpz_t t; mpz_init(t); 
-	if (argc >= 8) qmin = strtoll(argv[7], NULL, 10);	// atoi(argv[7]);
-	if (argc >= 9) qmax = strtoll(argv[8], NULL, 10);	// atoi(argv[8]);
+	mpz_t factor; mpz_init(factor); mpz_t p1; mpz_t p2; mpz_init(p1); mpz_init(p2);
+	mpz_t tmp1; mpz_init(tmp1); 
+	if (argc >= 9) qmin = strtoll(argv[8], NULL, 10);	// atoi(argv[7]);
+	if (argc >= 10) qmax = strtoll(argv[9], NULL, 10);	// atoi(argv[8]);
 	uint8_t th0 = 70;
-	if (argc >= 10) th0 = atoi(argv[9]);
+	if (argc >= 11) th0 = atoi(argv[10]);
 	uint8_t th1 = 70;
-	if (argc >= 11) th1 = atoi(argv[10]);
+	if (argc >= 12) th1 = atoi(argv[11]);
 	int lpbits = 29;
-	if (argc >= 12) lpbits = atoi(argv[11]);
+	if (argc >= 13) lpbits = atoi(argv[12]);
 	int cofacS = 1000;
-	if (argc >= 13) cofacS = atoi(argv[12]);
+	if (argc >= 14) cofacS = atoi(argv[13]);
 	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, primes, 669);	// max S = 5000
 	char* str2 = (char*)malloc(20*sizeof(char));
-	int qside = atoi(argv[13]);
+	int qside = atoi(argv[14]);
 
 	int64_t q = qmin;
 	while (q < qmax) {
@@ -297,8 +302,9 @@ int main(int argc, char** argv)
 		int degfhqt = degfht;
 		if (qside == 1) { fhtpolyside = ghtpoly; degfhqt = degght; }
 		for (int i = 0; i <= degfht; i++) fhqt[i] = mpz_mod_ui(r0, fhtpolyside[i], q);
-		int numl = polrootsmod(fhqt, degfhqt, r, q);
-		if (numl == 0 || q > qmax) continue;
+		int numl = polrootsmod(h, degh, r, q);
+		int numll = polrootsmod(fhqt, degfhqt, R, q);
+		if (numl == 0 || numll == 0 || q > qmax) continue;
 		
 		// sieve side 0
 		cout << "# Starting sieve on side 0";
@@ -322,6 +328,7 @@ int main(int argc, char** argv)
 		int B2x2bits = B2bits + 1;
 		int B2x2 = 2*B2;
 		int B1xB2x2bits = B1bits + B2bits + 1;
+		int B1xB2x2xB3x2bits = B1bits + B2bits + 1 + B3bits + 1;
 		rel.clear();
 		for (int i = 0; i < m; i++) {
 			if (H[i] > th0) {
@@ -359,13 +366,15 @@ int main(int argc, char** argv)
 		sort(rel.begin(), rel.end());
 		
 		// compute special-q lattice L 
-		int64_t L[9];
-		numl = polrootsmod(fhqt, degfhqt, r, q);
-		int l = 0;
-		L[0] = q; L[1] = -r[l]; L[2] = 0;
-		L[3] = 0; L[4] = 1;     L[5] = -r[l];
-		L[6] = 0; L[7] = 0;     L[8] = 1;
-		int64L2(L, 3);	// LLL reduce L, time log(q)^2
+		int64_t L[16];
+		numl = polrootsmod(h, degh, r, q);
+		numll = polrootsmod(fhqt, degfhqt, R, q);
+		int l = 0; int ll = 0;
+		L[0]  = q; L[1]  = -r[l]; L[2]  = -R[ll]; L[3]  = 0;
+		L[4]  = 0; L[5]  = 1;     L[6]  = 0;      L[7]  = -R[ll];
+		L[8]  = 0; L[9]  = 0;     L[10] = 1;      L[11] = 0;
+		L[12] = 0; L[13] = 0;     L[14] = 0;      L[15] = 1;
+		int64L2(L, 4);	// LLL reduce L, time log(q)^2
 		
 		// print list of potential relations
 		int R = 0;
@@ -375,12 +384,14 @@ int main(int argc, char** argv)
 				int x = rel[i] % B1;
 				int y = ((rel[i] >> B1bits) % B2x2) - B2;
 				int z =  (rel[i] >> B1xB2x2bits) - B3;
+				int t = (rel[i] >> B1xB2x2xB3x2bits) - B4;
 				if (x != 0 || y != 0 || z != 0) {
-					// compute [a,b,c]
-					//int a = L[0]*x+L[1]*y+L[2]*z;
-					//int b = L[3]*x+L[4]*y+L[5]*z;
-					//int c = L[6]*x+L[7]*y+L[8]*z;
-					//cout << rel[i] << ": " << a << "," << b << "," << c << endl;
+					// compute [a,b,c,d]
+					//int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
+					//int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
+					//int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
+					//int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
+					//cout << rel[i] << ": " << a << "," << b << "," << c << "," << d endl;
 					R++;
 				}
 			}
@@ -400,31 +411,39 @@ int main(int argc, char** argv)
 				int x = rel[i] % B1;
 				int y = ((rel[i] >> B1bits) % B2x2) - B2;
 				int z =  (rel[i] >> B1xB2x2bits) - B3;
+				int t = (rel[i] >> B1xB2x2xB3x2bits) - B4;
 				if (x != 0 || y != 0 || z != 0) {
 					// compute [a,b,c]
-					int a = L[0]*x+L[1]*y+L[2]*z;
-					int b = L[3]*x+L[4]*y+L[5]*z;
-					int c = L[6]*x+L[7]*y+L[8]*z;
+					int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
+					int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
+					int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
+					int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
 	
-					int64_t D = b*(int64_t)b - 4*a*(int64_t)c;
-					if (floor(sqrt(D)+0.5)*floor(sqrt(D)+0.5) == D) {
-						continue;	// a+b*x+c*x^2 is not irreducible over Z
-					}
+					//int64_t D = b*(int64_t)b - 4*a*(int64_t)c;
+					//int64_t D = b*(int64_t)b*c*(int64_t)c - 4*b*(int64_t)b*b*d
+					//    -4*(int64_t)a*c*(int64_t)c*c + 18*(int64_t)a*b*c*d
+					//	-27*(int64_t)a*a*(int64_t)d*d;
+					//if (floor(sqrt(D)+0.5)*floor(sqrt(D)+0.5) == D) {
+					//	continue;	// a+b*x+c*x^2 is not irreducible over Z
+					//}
 
 					int content = gcd(a, b); content = gcd(content, c);
-					a = a/content; b = b/content; c = c/content;
+					content = gcd(content, d);
+					a = a/content; b = b/content; c = c/content; d = d/content;
 
 					//cout << "[a, b, c] = [" << a << ", " << b << ", " << c << "]" << endl << flush;
 					mpz_poly_setcoeff_si(A, 0, a);
 					mpz_poly_setcoeff_si(A, 1, b);
 					mpz_poly_setcoeff_si(A, 2, c);
+					mpz_poly_setcoeff_si(A, 2, d);
 					mpz_poly_resultant(N0, f0, A);
 					mpz_poly_resultant(N1, f1, A);
 					mpz_abs(N0, N0);
 					mpz_abs(N1, N1);
 					//cout << mpz_get_str(NULL, 10, N0) << endl << flush;
 					//cout << mpz_get_str(NULL, 10, N1) << endl << flush;
-					string str = to_string(a) + "," + to_string(b) + "," + to_string(c) + ":";
+					string str = to_string(a) + "," + to_string(b) + "," + to_string(c) + 
+						to_string(d) + ":";
 					
 					// trial division on side 0
 					int p = primes[0]; int k = 0; 
@@ -486,7 +505,7 @@ int main(int argc, char** argv)
 										mpz_set(p1, factor);
 										mpz_divexact(p2, *N, factor);
 										if (mpz_cmpabs(p1, p2) > 0) {
-											 mpz_set(t, p1); mpz_set(p1, p2); mpz_set(p2, t);	// sort
+											 mpz_set(tmp1, p1); mpz_set(p1, p2); mpz_set(p2, tmp1);	// sort
 										}
 										// save remaining algs to array
 										int lnext = l - j; int lt = lnext;
@@ -585,7 +604,7 @@ int main(int argc, char** argv)
 											mpz_set(p1, factor);
 											mpz_divexact(p2, *N, factor);
 											if (mpz_cmpabs(p1, p2) > 0) {
-												 mpz_set(t, p1); mpz_set(p1, p2); mpz_set(p2, t);	// sort
+												 mpz_set(tmp1, p1); mpz_set(p1, p2); mpz_set(p2, tmp1);	// sort
 											}
 											// save remaining algs to array
 											int lnext = l - j; int lt = lnext;
@@ -635,7 +654,7 @@ int main(int argc, char** argv)
 
 	free(str2);
 	mpz_clear(S);
-	mpz_clear(t); mpz_clear(p2); mpz_clear(p1);
+	mpz_clear(tmp1); mpz_clear(p2); mpz_clear(p1);
 	mpz_clear(factor);
 	mpz_clear(lpb);
     mpz_clear(N1); mpz_clear(N0);
@@ -827,10 +846,10 @@ int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q, int 
 				__int128 SK = mod(-S[K+i*degfh_t],p);
 				int64_t T = q*( (SK * modpinvq[i]) % p ) + p*( (Rll * modqinvp[i]) % q ); // CRT
 				if (T >= n) T -= n;
-				L[0]  = n; L[1]  = t_; L[2]  = T; L[3]  = 0;
-				L[4]  = 0; L[5]  = 1;  L[6]  = 0; L[7]  = T;
-				L[8]  = 0; L[9]  = 0;  L[10] = 1; L[11] = 0;
-				L[12] = 0; L[13] = 0;  L[14] = 0; L[15] = 1;
+				L2[0]  = n; L2[1]  = t_; L2[2]  = T; L2[3]  = 0;
+				L2[4]  = 0; L2[5]  = 1;  L2[6]  = 0; L2[7]  = T;
+				L2[8]  = 0; L2[9]  = 0;  L2[10] = 1; L2[11] = 0;
+				L2[12] = 0; L2[13] = 0;  L2[14] = 0; L2[15] = 1;
 				int64L2(L2,4);	// LLL reduce L, time log(n)^2
 				mat4x4prod(qLinv, L2, L3);	// L3 =  qLinv*L2
 				for (int ii = 0; ii < 16; ii++) L3[ii] /= q;
@@ -848,16 +867,16 @@ int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q, int 
 
 				// enumerate lattice vectors (x,y,z,t) in box [0,B[x[-B,B[x[-B,B[x[-B,B[
 				int x = 0; int y = 0; int z = 0; int t = 0;
-				while (planeintersectsbox4d(nx, ny, nz, nt, x-t1, y-t2, z-t3, t-t4, B1, B2, B3, B4)) {
+				while (spaceintersectsbox4d(nx, ny, nz, nt, x-t1, y-t2, z-t3, t-t4, B1, B2, B3, B4)) {
 					x -= t1; y -= t2; z -= t3; t -= t4;
 				}
 				int ts1 = x; int ts2 = y; int ts3 = z; int ts4 = t;
-				while (planeintersectsbox4d(nx, ny, nz, nt, x, y, z, t, B1, B2, B3, B4)) { 
-					while (planeintersectsbox4d(nx, ny, nz, nt, x-w1, y-w2, z-w3, t-w4, B1, B2, B3, B4)) {
+				while (spaceintersectsbox4d(nx, ny, nz, nt, x, y, z, t, B1, B2, B3, B4)) { 
+					while (planeintersectsbox4d(u1, u2, u3, u4, v1, v2, v3, v4, w1-x, w2-y, w3-z, w4-t, B1, B2, B3, B4)) {
 						x -= w1; y -= w2; z -= w3; t -= w4;
 					}
 					int ws1 = x; int ws2 = y; int ws3 = z; int ws4 = t;
-					while (planeintersectsbox4d(nx, ny, nz, nt, x, y, z, t, B1, B2, B3, B4)) {
+					while (planeintersectsbox4d(u1, u2, u3, u4, v1, v2, v3, v4, x, y, z, t, B1, B2, B3, B4)) {
 						int a = 0; int b = 0;
 						getab4d(u1, u2, u3, u4, v1, v2, v3, v4, x, y, z, t, B1, B2, B3, B4, &a, &b);
 						x += a*u1 + b*v1;
@@ -924,6 +943,173 @@ int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q, int 
 	return m;
 }
 
+bool planeintersectsbox4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3, int v4,
+		int w1, int w2, int w3, int w4, int B1, int B2, int B3, int B4)
+{
+	int64_t A[16]; int64_t M[16];
+
+	// vectors
+	U1 = u1-w1; U2 = u2-w2; U3 = u3-w3; U4 = u4-w4;
+	V1 = v1-w1; V2 = v2-w2; V3 = v3-w3; V4 = v4-w4;
+
+	// 3 points determine a face in 4d, updated one at a time, giving a new face
+	int64_t T[3][4] = { { 0, -B2, -B3, -B4 }, { B1, -B2, -B3, -B4},	{ B1, B2, -B3, -B4} };
+	int pos = 2;	// position in cycle of 3 points (FIFO, mod 3)
+	int xyzt = 2;	// component position mod 4
+
+	// compute shortest normal vector (N1,N2,N3,N4) between plane (U,V,w) and 24 faces of 4d
+	// boundary volume, then determine whether 3-space defined by (U x V x N, w) intersects
+	// 4d boundary volume.
+	N1 = 0; N2 = 0; N3 = 0; N4 = 0; int64_t dbest = 1<<63l;
+	for (i = 0; i < 24; i++) {
+		// first construct i-th face of 4d boundary volume
+		F1 = T[1][0]-T[0][0]; F2 = T[1][1]-T[0][1]; F3 = T[1][2]-T[0][2]; F4 = T[1][3]-T[0][3];
+		G1 = T[2][0]-T[0][0]; G2 = T[2][1]-T[0][1]; G3 = T[2][2]-T[0][2]; G4 = T[2][3]-T[0][3];
+		h1 = T[0][0]; h2 = T[0][1]; h3 = T[0][2]; h4 = T[0][3];
+		// find shortest vector between planes (U,V,w) and (F,G,h) in 4d
+		// d^2 = ( (w + x*U + y*V) - (h + r*F + s*G) )^2
+		//  U^2*x + V*U*y - F*U*r - G*U*s + U*w - h*U = 0
+		//  V*U*x + V^2*y - F*V*r - G*V*s + V*w - h*V = 0
+		// -F*U*x - F*V*y + F^2*r + G*F*s - F*w + F*h = 0
+		// -G*U*x - G*V*y + G*F*r + G^2*s - G*w + G*h = 0
+		A[0] = U1*U1 + U2*U2 + U3*U4 + U4*U4;
+		A[1] = V1*U1 + V2*U2 + V3*U3 + V4*U4;
+		A[2] = -(F1*U1 + F2*U2 + F3*U3 + F4*U4);
+		A[3] = -(G1*U1 + G2*U2 + G3*U3 + G4*U4);
+		A[4] = A[1];
+		A[5] = V1*V1 + V2*V2 + V3*V4 + V4*V4;
+		A[6] = -(F1*V1 + F2*V2 + F3*V3 + F4*V4);
+		A[7] = -(G1*V1 + G2*V2 + G3*V3 + G4*V4);
+		A[8] = A[2]; A[9] = A[6];
+		A[10] = F1*F1 + F2*F2 + F3*F4 + F4*F4;
+		A[11] = G1*F1 + G2*F2 + G3*F3 + G4*F4;
+		A[12] = A[3]; A[13] = A[7]; A[14] = A[11];
+		A[15] = G1*G1 + G2*G2 + G3*G3 + G4*G4;
+		int64_t D = fadlev4d(A, M);	// get adjugate M and determinant D of A
+		// compute RHS vector
+		int64_t R1 = U1*(h1-w1) + U2*(h2-w2) + U3*(h3-w3) + U4*(h4-w4);
+		int64_t R2 = V1*(h1-w1) + V2*(h2-w2) + V3*(h3-w3) + V4*(h4-w4);
+		int64_t R3 = F1*(w1-h1) + F2*(w2-h2) + F3*(w3-h3) + F4*(w4-h4);
+		int64_t R4 = G1*(w1-h1) + G2*(w2-h2) + G3*(w3-h3) + G4*(w4-h4);
+		if (D) {
+			// solve linear system
+			int64_t xx = M[0]*R1 + M[1]*R2 + M[2]*R3 + M[3]*R4; // actual x = xx/D
+			int64_t yy = M[4]*R1 + M[5]*R2 + M[6]*R3 + M[7]*R4; // actual y = yy/D
+			int64_t rr = M[8]*R1 + M[9]*R2 + M[10]*R3 + M[11]*R4; // actual r = rr/D
+			int64_t ss = M[12]*R1 + M[13]*R2 + M[14]*R3 + M[15]*R4; // actual s = ss/D
+			int64_t nn1 = D*w1 + xx*U1 + yy*V1; int64_t nn2 = D*w2 + xx*U2 + yy*V2;
+			int64_t nn3 = D*w3 + xx*U3 + yy*V3; int64_t nn4 = D*w4 + xx*U4 + yy*V4;
+			int64_t nn5 = D*h1 + rr*F1 + ss*G1; int64_t nn6 = D*h2 + rr*F2 + ss*G2;
+			int64_t nn7 = D*h3 + rr*F3 + ss*G3; int64_t nn8 = D*h4 + rr*F4 + ss*G4;
+			int64_t N1new = (nn1 - nn5)/D; int64_t N2new = (nn2 - nn6)/D;
+			int64_t N3new = (nn3 - nn7)/D; int64_t N3new = (nn4 - nn8)/D;
+			int64_t d = N1new*N1new + N2new*N2new + N3new*N3new + N4new*N4new;
+			if (d < dbest) {
+				N1 = N1new; N2 = N2new; N3 = N3new; N4 = N4new;
+			}
+		}
+		// update list of points
+		int old = pos;
+		pos = (pos + 1) % 3;
+		T[pos][0] = T[old][0]; T[pos][1] = T[old][1];
+		T[pos][2] = T[old][2]; T[pos][3] = T[old][3];
+		if (xyzt == 0) T[pos][xyzt] = B1 - T[pos][xyzt];
+		else T[pos][xyzt] = -T[pos][xyzt];
+		xyzt = (xyzt + 1) % 4;
+	}
+	// compute normal (cross product) W = U x V x N
+	int W1 = (-N4*V3 + N3*V4)*U2 + ( N4*V2 - N2*V4)*U3 + (-N3*V2 + N2*V3)*U4;
+	int W2 = ( N4*V3 - N3*V4)*U1 + (-N4*V1 + N1*V4)*U3 + ( N3*V1 - N1*V3)*U4;
+	int W3 = (-N4*V2 + N2*V4)*U1 + ( N4*V1 - N1*V4)*U2 + (-N2*V1 + N1*V2)*U4;
+	int W4 = ( N3*V2 - N2*V3)*U1 + (-N3*V1 + N1*V3)*U2 + ( N2*V1 - N1*V2)*U3;
+
+	// determine whether 3-space defined by (W, w) intersects 4d boundary volume.
+	return spaceintersectsbox4d(W1, W2, W3, W4, w1, w2, w3, w4, B1, B2, B3, B4);
+}
+
+
+/* This was a nice idea but is much more complicated than necessary.
+   There exists a miraculously simple algorithm to traverse all the faces
+   of a tesseract.  That is what we actually use.
+bool planeintersectsbox4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3, int v4,
+		int w1, int w2, int w3, int w4, int B1, int B2, int B3, int B4)
+{
+	int64_t A[16]; int64_t M[16];
+
+	// vectors
+	U1 = u1-w1; U2 = u2-w2; U3 = u3-w3; U4 = u4-w4;
+	V1 = v1-w1; V2 = v2-w2; V3 = v3-w3; V4 = v4-w4;
+
+	// boundary point arrays.  We consider 6 groups of 4 faces, each group requires 6 points
+	int64_t T1[8] = {   0,  B1,  B1,  B1,  0,    0,  };
+	int64_t T2[8] = { -B2, -B2,  B2,  B2,  B2, -B2,  };
+	int64_t T3[8] = { -B3, -B3, -B3, -B3, -B3, -B3,  };
+	int64_t T4[8] = { -B4, -B4, -B4,  B4,  B4,  B4,  };
+
+	// compute shortest normal vector (N1,N2,N3,N4) between plane (U,V,w) and 24 faces of 4d
+	// boundary volume, then determine whether 3-space defined by (U x V x N, w) intersects
+	// 4d boundary volume.
+	N1 = 0; N2 = 0; N3 = 0; N4 = 0; int64_t dbest = 1<<63l;
+	for (i = 0; i < 6; i++) {
+		for (j = 0; j < 4; j++) {
+			// first construct (i*j)-th face of 4d boundary volume
+			F1 = T1[j+1]-T1[j]; F2 = T2[j+1]-T2[j]; F3 = T3[j+1]-T3[j]; F4 = T4[j+1]-T4[j];
+			G1 = T1[j+2]-T1[j]; G2 = T2[j+2]-T2[j]; G3 = T3[j+2]-T3[j]; G4 = T4[j+2]-T4[j];
+			h1 = T1[j]; h2 = T2[j]; h3 = T3[j]; h4 = T4[j];
+			// find shortest vector between planes (U,V,w) and (F,G,h) in 4d
+			// d^2 = ( (w + x*U + y*V) - (h + r*F + s*G) )^2
+			//  U^2*x + V*U*y - F*U*r - G*U*s + U*w - h*U = 0
+			//  V*U*x + V^2*y - F*V*r - G*V*s + V*w - h*V = 0
+			// -F*U*x - F*V*y + F^2*r + G*F*s - F*w + F*h = 0
+			// -G*U*x - G*V*y + G*F*r + G^2*s - G*w + G*h = 0
+			A[0] = U1*U1 + U2*U2 + U3*U4 + U4*U4;
+			A[1] = V1*U1 + V2*U2 + V3*U3 + V4*U4;
+			A[2] = -(F1*U1 + F2*U2 + F3*U3 + F4*U4);
+			A[3] = -(G1*U1 + G2*U2 + G3*U3 + G4*U4);
+			A[4] = A[1];
+			A[5] = V1*V1 + V2*V2 + V3*V4 + V4*V4;
+			A[6] = -(F1*V1 + F2*V2 + F3*V3 + F4*V4);
+			A[7] = -(G1*V1 + G2*V2 + G3*V3 + G4*V4);
+			A[8] = A[2]; A[9] = A[6];
+			A[10] = F1*F1 + F2*F2 + F3*F4 + F4*F4;
+			A[11] = G1*F1 + G2*F2 + G3*F3 + G4*F4;
+			A[12] = A[3]; A[13] = A[7]; A[14] = A[11];
+			A[15] = G1*G1 + G2*G2 + G3*G3 + G4*G4;
+			int64_t D = fadlev4d(A, M);	// get adjugate M and determinant D
+			// compute RHS vector
+			int64_t R1 = U1*(h1-w1) + U2*(h2-w2) + U3*(h3-w3) + U4*(h4-w4);
+			int64_t R2 = V1*(h1-w1) + V2*(h2-w2) + V3*(h3-w3) + V4*(h4-w4);
+			int64_t R3 = F1*(w1-h1) + F2*(w2-h2) + F3*(w3-h3) + F4*(w4-h4);
+			int64_t R4 = G1*(w1-h1) + G2*(w2-h2) + G3*(w3-h3) + G4*(w4-h4);
+			if (D) {
+				// solve linear system
+				int64_t xx = M[0]*R1 + M[1]*R2 + M[2]*R3 + M[3]*R4; // actual x = xx/D
+				int64_t yy = M[4]*R1 + M[5]*R2 + M[6]*R3 + M[7]*R4; // actual y = yy/D
+				int64_t rr = M[8]*R1 + M[9]*R2 + M[10]*R3 + M[11]*R4; // actual r = rr/D
+				int64_t ss = M[12]*R1 + M[13]*R2 + M[14]*R3 + M[15]*R4; // actual s = ss/D
+				int64_t nn1 = D*w1 + xx*U1 + yy*V1; int64_t nn2 = D*w2 + xx*U2 + yy*V2;
+				int64_t nn3 = D*w3 + xx*U3 + yy*V3; int64_t nn4 = D*w4 + xx*U4 + yy*V4;
+				int64_t nn5 = D*h1 + rr*F1 + ss*G1; int64_t nn6 = D*h2 + rr*F2 + ss*G2;
+				int64_t nn7 = D*h3 + rr*F3 + ss*G3; int64_t nn8 = D*h4 + rr*F4 + ss*G4;
+				int64_t N1new = (nn1 - nn5)/D; int64_t N2new = (nn2 - nn6)/D;
+				int64_t N3new = (nn3 - nn7)/D; int64_t N3new = (nn4 - nn8)/D;
+				int64_t d = N1new*N1new + N2new*N2new + N3new*N3new + N4new*N4new;
+				if (d < dbest) {
+					N1 = N1new; N2 = N2new; N3 = N3new; N4 = N4new;
+				}
+			}
+		}
+	}
+	// compute normal (cross product) W = U x V x N
+	int W1 = (-N4*V3 + N3*V4)*U2 + ( N4*V2 - N2*V4)*U3 + (-N3*V2 + N2*V3)*U4;
+	int W2 = ( N4*V3 - N3*V4)*U1 + (-N4*V1 + N1*V4)*U3 + ( N3*V1 - N1*V3)*U4;
+	int W3 = (-N4*V2 + N2*V4)*U1 + ( N4*V1 - N1*V4)*U2 + (-N2*V1 + N1*V2)*U4;
+	int W4 = ( N3*V2 - N2*V3)*U1 + (-N3*V1 + N1*V3)*U2 + ( N2*V1 - N1*V2)*U3;
+
+	// determine whether 3-space defined by (W, w) intersects 4d boundary volume.
+	return spaceintersectsbox4d(W1, W2, W3, W4, w1, w2, w3, w4, B1, B2, B3, B4);
+}
+*/
 
 inline int floordiv(int a, int b)
 {
@@ -1069,9 +1255,9 @@ inline int nonzerolcm4d(int u1, int u2, int u3, int u4)
 }
 
 
-// determine if plane with normal (nx, ny, nz, nt) containing point (x,y,z,t) intersects
+// determine if 3-space with normal (nx, ny, nz, nt) containing point (x,y,z,t) intersects
 // box [0,B[x[-B,B[x[-B,B[x[-B,B[
-inline bool planeintersectsbox4d(int nx, int ny, int nz, int nt, int x, int y, int z, int t,
+inline bool spaceintersectsbox4d(int nx, int ny, int nz, int nt, int x, int y, int z, int t,
 							int B1, int B2, int B3, int B4)
 {
 	int d = nx*x + ny*y + nz*z + nt*t;
