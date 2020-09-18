@@ -949,8 +949,9 @@ bool planeintersectsbox4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3
 	int64_t A[16]; int64_t M[16];
 
 	// vectors
-	U1 = u1-w1; U2 = u2-w2; U3 = u3-w3; U4 = u4-w4;
-	V1 = v1-w1; V2 = v2-w2; V3 = v3-w3; V4 = v4-w4;
+	int64_t U1 = u1-w1; int64_t U2 = u2-w2; int64_t U3 = u3-w3; int64_t U4 = u4-w4;
+	int64_t V1 = v1-w1; int64_t V2 = v2-w2; int64_t V3 = v3-w3; int64_t V4 = v4-w4;
+	int64_t F1, F2, F3, F4, G1, G2, G3, G4;
 
 	// 3 points determine a face in 4d, updated one at a time, giving a new face
 	int64_t T[3][4] = { { 0, -B2, -B3, -B4 }, { B1, -B2, -B3, -B4},	{ B1, B2, -B3, -B4} };
@@ -960,12 +961,12 @@ bool planeintersectsbox4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3
 	// compute shortest normal vector (N1,N2,N3,N4) between plane (U,V,w) and 24 faces of 4d
 	// boundary volume, then determine whether 3-space defined by (U x V x N, w) intersects
 	// 4d boundary volume.
-	N1 = 0; N2 = 0; N3 = 0; N4 = 0; int64_t dbest = 1<<63l;
-	for (i = 0; i < 24; i++) {
+	int64_t N1 = 0; int64_t N2 = 0; int64_t N3 = 0; int64_t N4 = 0; int64_t dbest = 1l<<63;
+	for (int i = 0; i < 24; i++) {
 		// first construct i-th face of 4d boundary volume
 		F1 = T[1][0]-T[0][0]; F2 = T[1][1]-T[0][1]; F3 = T[1][2]-T[0][2]; F4 = T[1][3]-T[0][3];
 		G1 = T[2][0]-T[0][0]; G2 = T[2][1]-T[0][1]; G3 = T[2][2]-T[0][2]; G4 = T[2][3]-T[0][3];
-		h1 = T[0][0]; h2 = T[0][1]; h3 = T[0][2]; h4 = T[0][3];
+		int64_t h1 = T[0][0]; int64_t h2 = T[0][1]; int64_t h3 = T[0][2]; int64_t h4 = T[0][3];
 		// find shortest vector between planes (U,V,w) and (F,G,h) in 4d
 		// d^2 = ( (w + x*U + y*V) - (h + r*F + s*G) )^2
 		//  U^2*x + V*U*y - F*U*r - G*U*s + U*w - h*U = 0
@@ -1002,7 +1003,7 @@ bool planeintersectsbox4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3
 			int64_t nn5 = D*h1 + rr*F1 + ss*G1; int64_t nn6 = D*h2 + rr*F2 + ss*G2;
 			int64_t nn7 = D*h3 + rr*F3 + ss*G3; int64_t nn8 = D*h4 + rr*F4 + ss*G4;
 			int64_t N1new = (nn1 - nn5)/D; int64_t N2new = (nn2 - nn6)/D;
-			int64_t N3new = (nn3 - nn7)/D; int64_t N3new = (nn4 - nn8)/D;
+			int64_t N3new = (nn3 - nn7)/D; int64_t N4new = (nn4 - nn8)/D;
 			int64_t d = N1new*N1new + N2new*N2new + N3new*N3new + N4new*N4new;
 			if (d < dbest) {
 				N1 = N1new; N2 = N2new; N3 = N3new; N4 = N4new;
