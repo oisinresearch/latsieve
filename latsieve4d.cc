@@ -872,61 +872,74 @@ int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q, int 
 				}
 				int ts1 = x; int ts2 = y; int ts3 = z; int ts4 = t;
 				while (spaceintersectsbox4d(nx, ny, nz, nt, x, y, z, t, B1, B2, B3, B4)) { 
-					while (planeintersectsbox4d(u1, u2, u3, u4, v1, v2, v3, v4, w1-x, w2-y, w3-z, w4-t, B1, B2, B3, B4)) {
-						x -= w1; y -= w2; z -= w3; t -= w4;
-					}
+					int j1, j2, j3, j4, jmin;
+					// pin vector to start of row
+					int w1B = w1 < 0 ? B1max : 0; int w2B = w2 < 0 ? B2max : -B2;
+					int w3B = w3 < 0 ? B3max : -B3; int w4B = w4 < 0 ? B4max : -B4;
+					j1 = w1 == 0 ? -1 : (x - w1B) / w1;
+					j2 = w2 == 0 ? -1 : (y - w2B) / w2;
+					j3 = w3 == 0 ? -1 : (z - w3B) / w3;
+					j4 = w4 == 0 ? -1 : (t - w4B) / w4;
+					jmin = minnonneg4d(j1, j2, j3, j4);
+					x -= jmin*w1; y -= jmin*w2; z -= jmin*w3; t -= jmin*w4;
 					int ws1 = x; int ws2 = y; int ws3 = z; int ws4 = t;
-					while (planeintersectsbox4d(u1, u2, u3, u4, v1, v2, v3, v4, x, y, z, t, B1, B2, B3, B4)) {
-						int a = 0; int b = 0;
-						getab4d(u1, u2, u3, u4, v1, v2, v3, v4, x, y, z, t, B1, B2, B3, B4, &a, &b);
-						x += a*u1 + b*v1;
-						y += a*u2 + b*v2;
-						z += a*u3 + b*v3;
-						t += a*u4 + b*v4;
-						int s1 = x; int s2 = y; int s3 = z; int s4 = t;
-						// move 'forward' (dir == -1) or 'backward' (dir == 1) in plane
-						for (int dir = -1; dir <= 1; dir += 2) {
-							int j1, j2, j3, j4, jmin;
-							bool inplane = true;
-							while (inplane) {
-								// pin vector to start of row
-								int u1B = u1 < 0 ? B1max : 0; int u2B = u2 < 0 ? B2max : -B2;
-								int u3B = u3 < 0 ? B3max : -B3; int u4B = u4 < 0 ? B4max : -B4;
-								j1 = u1 == 0 ? -1 : (x - u1B) / u1;
-								j2 = u2 == 0 ? -1 : (y - u2B) / u2;
-								j3 = u3 == 0 ? -1 : (z - u3B) / u3;
-								j4 = u4 == 0 ? -1 : (t - u4B) / u4;
-								jmin = minnonneg4d(j1, j2, j3, j4);
-								x -= jmin*u1; y -= jmin*u2; z -= jmin*u3; t -= jmin*u4;
-								if (x >= 0 && x < B1 && y >= -B2 && y < B2
-									  && z >= -B3 && z < B3 && t >= -B4 && t < B4) {
-									int u1B = u1 < 0 ? 0 : B1max; int u2B = u2 < 0 ? -B2 : B2max;
-									int u3B = u3 < 0 ? -B3 : B3max; int u4B = u4 < 0 ? -B4 : B4max;
-									j1 = u1 == 0 ? -1 : (u1B - x) / u1;
-									j2 = u2 == 0 ? -1 : (u2B - y) / u2;
-									j3 = u3 == 0 ? -1 : (u3B - z) / u3;
-									j4 = u4 == 0 ? -1 : (u4B - t) / u4;
+					bool inspace = true;
+					while (inspace) {
+						if (x >= 0 && x < B1 && y >= -B2 && y < B2
+							  && z >= -B3 && z < B3 && t >= -B4 && t < B4) {
+							int a = 0; int b = 0;
+							getab4d(u1, u2, u3, u4, v1, v2, v3, v4, x, y, z, t, B1, B2, B3, B4, &a, &b);
+							x += a*u1 + b*v1;
+							y += a*u2 + b*v2;
+							z += a*u3 + b*v3;
+							t += a*u4 + b*v4;
+							int s1 = x; int s2 = y; int s3 = z; int s4 = t;
+							// move 'forward' (dir == -1) or 'backward' (dir == 1) in plane
+							for (int dir = -1; dir <= 1; dir += 2) {
+								bool inplane = true;
+								while (inplane) {
+									// pVin vector to start of row
+									int u1B = u1 < 0 ? B1max : 0; int u2B = u2 < 0 ? B2max : -B2;
+									int u3B = u3 < 0 ? B3max : -B3; int u4B = u4 < 0 ? B4max : -B4;
+									j1 = u1 == 0 ? -1 : (x - u1B) / u1;
+									j2 = u2 == 0 ? -1 : (y - u2B) / u2;
+									j3 = u3 == 0 ? -1 : (z - u3B) / u3;
+									j4 = u4 == 0 ? -1 : (t - u4B) / u4;
 									jmin = minnonneg4d(j1, j2, j3, j4);
-									for (int j = 0; j <= jmin; j++) {
-										int id = x + ((y + B2) << B1bits) + ((z + B3) << B1xB2x2bits)
-										  + ((t + B4) << B1xB2x2xB3x2bits);
-										M[m++] = (keyval){ id, logp };
-										x += u1; y += u2; z += u3; t += u4;
+									x -= jmin*u1; y -= jmin*u2; z -= jmin*u3; t -= jmin*u4;
+									if (x >= 0 && x < B1 && y >= -B2 && y < B2
+										  && z >= -B3 && z < B3 && t >= -B4 && t < B4) {
+										int u1B = u1 < 0 ? 0 : B1max; int u2B = u2 < 0 ? -B2 : B2max;
+										int u3B = u3 < 0 ? -B3 : B3max; int u4B = u4 < 0 ? -B4 : B4max;
+										j1 = u1 == 0 ? -1 : (u1B - x) / u1;
+										j2 = u2 == 0 ? -1 : (u2B - y) / u2;
+										j3 = u3 == 0 ? -1 : (u3B - z) / u3;
+										j4 = u4 == 0 ? -1 : (u4B - t) / u4;
+										jmin = minnonneg4d(j1, j2, j3, j4);
+										for (int j = 0; j <= jmin; j++) {
+											int id = x + ((y + B2) << B1bits) + ((z + B3) << B1xB2x2bits)
+											  + ((t + B4) << B1xB2x2xB3x2bits);
+											M[m++] = (keyval){ id, logp };
+											x += u1; y += u2; z += u3; t += u4;
+										}
+										// move by '1-transition' vector
+										if (dir == -1) { x += v1; y += v2; z += v3; t += v4; }
+										else		   { x -= v1; y -= v2; z -= v3; t -= v4; }
 									}
-									// move by '1-transition' vector
-									if (dir == -1) { x += v1; y += v2; z += v3; t += v4; }
-									else		   { x -= v1; y -= v2; z -= v3; t -= v4; }
+									else {
+										inplane = false;	
+									}
 								}
-								else {
-									inplane = false;	
-								}
+								x = s1 - v1; y = s2 - v2; z = s3 - v3; t = s4 - v4;
 							}
-							x = s1 - v1; y = s2 - v2; z = s3 - v3; t = s4 - v4;
+							// advance to next w grid plane
+							ws1 += w1; ws2 += w2; ws3 += w3; ws4 += w4; x = ws1; y = ws2; z = ws3; t = ws4;
 						}
-						// advance to next horizontal grid plane
-						ws1 += w1; ws2 += w2; ws3 += w3; ws4 += w4; x = ws1; y = ws2; z = ws3; t = ws4;
+						else {
+							inspace = false;
+						}
 					}
-					// advance to next vertical grid plane
+					// advance to next t grid plane
 					ts1 += t1; ts2 += t2; ts3 += t3; ts4 += t4; x = ts1; y = ts2; z = ts3; t = ts4;
 				}
 			}
@@ -969,20 +982,20 @@ bool planeintersectsbox4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3
 		int64_t h1 = T[0][0]; int64_t h2 = T[0][1]; int64_t h3 = T[0][2]; int64_t h4 = T[0][3];
 		// find shortest vector between planes (U,V,w) and (F,G,h) in 4d
 		// d^2 = ( (w + x*U + y*V) - (h + r*F + s*G) )^2
-		//  U^2*x + V*U*y - F*U*r - G*U*s + U*w - h*U = 0
-		//  V*U*x + V^2*y - F*V*r - G*V*s + V*w - h*V = 0
+		//  U^2*x + V*U*y - F*U*r - G*U*s + U*w - U*h = 0
+		//  V*U*x + V^2*y - F*V*r - G*V*s + V*w - V*h = 0
 		// -F*U*x - F*V*y + F^2*r + G*F*s - F*w + F*h = 0
 		// -G*U*x - G*V*y + G*F*r + G^2*s - G*w + G*h = 0
-		A[0] = U1*U1 + U2*U2 + U3*U4 + U4*U4;
+		A[0] = U1*U1 + U2*U2 + U3*U3 + U4*U4;
 		A[1] = V1*U1 + V2*U2 + V3*U3 + V4*U4;
 		A[2] = -(F1*U1 + F2*U2 + F3*U3 + F4*U4);
 		A[3] = -(G1*U1 + G2*U2 + G3*U3 + G4*U4);
 		A[4] = A[1];
-		A[5] = V1*V1 + V2*V2 + V3*V4 + V4*V4;
+		A[5] = V1*V1 + V2*V2 + V3*V3 + V4*V4;
 		A[6] = -(F1*V1 + F2*V2 + F3*V3 + F4*V4);
 		A[7] = -(G1*V1 + G2*V2 + G3*V3 + G4*V4);
 		A[8] = A[2]; A[9] = A[6];
-		A[10] = F1*F1 + F2*F2 + F3*F4 + F4*F4;
+		A[10] = F1*F1 + F2*F2 + F3*F3 + F4*F4;
 		A[11] = G1*F1 + G2*F2 + G3*F3 + G4*F4;
 		A[12] = A[3]; A[13] = A[7]; A[14] = A[11];
 		A[15] = G1*G1 + G2*G2 + G3*G3 + G4*G4;
