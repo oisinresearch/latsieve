@@ -126,10 +126,13 @@ int main(int argc, char** argv)
 	int64_t* sieveP1 = new int64_t[nump]();
 	int* sievenum_S1modp = new int[nump]();
 	int64_t* s = new int64_t[degh * nump]();
-	int64_t* sieves = new int64_t[degh * nump]();
 	int* num_smodp = new int[nump]();
-	int64_t* sievep = new int64_t[nump]();
-	int* sievenum_smodp = new int[nump]();
+	int64_t* sieves0 = new int64_t[degh * nump]();
+	int64_t* sievep0 = new int64_t[nump]();
+	int64_t* sieves1 = new int64_t[degh * nump]();
+	int64_t* sievep1 = new int64_t[nump]();
+	int* sievenum_s0modp = new int[nump]();
+	int* sievenum_s1modp = new int[nump]();
 	int64_t itenpc0 = nump / 10;
 	int64_t itotal = 0;
 	// compute factor base
@@ -184,32 +187,33 @@ int main(int argc, char** argv)
 	}
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC / K;
 	start = clock();
-	int k0 = 0; int k1 = 0; int kh = 0;
+	int k0 = 0; int k1 = 0;
 	for (int i = 0; i < nump; i++) {
+		int nums = num_smodp[i];
 		int numS0 = num_S0modp[i];
-		if (numS0 > 0) {
+		if (numS0 > 0 && nums > 0) {
 			sieveP0[k0] = primes[i];
 			for (int j = 0; j < numS0; j++) sieveS0[k0*degfht + j] = S0[i*degfht + j];
-			sievenum_S0modp[k0++] = numS0;
+			sievenum_S0modp[k0] = numS0;
+			sievep0[k0] = primes[i];
+			for (int j = 0; j < nums; j++) sieves0[k0*degh + j] = s[i*degh + j];
+			sievenum_s0modp[k0++] = nums;
 		}
 		int numS1 = num_S1modp[i];
-		if (numS1 > 0) {
+		if (numS1 > 0 && nums > 0) {
 			sieveP1[k1] = primes[i];
 			for (int j = 0; j < numS1; j++) sieveS1[k1*degght + j] = S1[i*degght + j];
-			sievenum_S1modp[k1++] = numS1;
-		}
-		int nums = num_smodp[i];
-		if (nums > 0) {
-			sievep[kh] = primes[i];
-			for (int j = 0; j < nums; j++) sieves[kh*degh + j] = s[i*degh + j];
-			sievenum_smodp[kh++] = nums;
+			sievenum_S1modp[k1] = numS1;
+			sievep1[k1] = primes[i];
+			for (int j = 0; j < nums; j++) sieves1[k1*degh + j] = s[i*degh + j];
+			sievenum_s1modp[k1++] = nums;
 		}
 	}
 	timetaken += ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl << flush;
 	if (verbose) cout << "There are " << k0 << " factor base primes on side 0." << endl << flush;
 	if (verbose) cout << "There are " << k1 << " factor base primes on side 1." << endl << flush;
-	if (verbose) cout << "There are " << kh << " factor base primes in tower." << endl << flush;
+	//if (verbose) cout << "There are " << kh << " factor base primes in tower." << endl << flush;
 
 	// write output file
 	FILE* out;
@@ -222,6 +226,13 @@ int main(int argc, char** argv)
             fprintf(out, ",%d", sieveS0[i*degfht + j]);
 		fprintf(out, "\n");
 	}
+	fprintf(out, "%d\n", k0);
+	for (int i = 0; i < k0; i++) {
+		fprintf(out, "%d", sievep0[i]);
+		for (int j = 0; j < sievenum_s0modp[i]; j++)
+            fprintf(out, ",%d", sieves0[i*degh + j]);
+		fprintf(out, "\n");
+	}
 	fprintf(out, "%d\n", k1);
 	for (int i = 0; i < k1; i++) {
 		fprintf(out, "%d", sieveP1[i]);
@@ -229,18 +240,20 @@ int main(int argc, char** argv)
             fprintf(out, ",%d", sieveS1[i*degght + j]);
 		fprintf(out, "\n");
 	}
-	fprintf(out, "%d\n", kh);
-	for (int i = 0; i < kh; i++) {
-		fprintf(out, "%d", sievep[i]);
-		for (int j = 0; j < sievenum_smodp[i]; j++)
-            fprintf(out, ",%d", sieves[i*degh + j]);
+	fprintf(out, "%d\n", k1);
+	for (int i = 0; i < k1; i++) {
+		fprintf(out, "%d", sievep1[i]);
+		for (int j = 0; j < sievenum_s1modp[i]; j++)
+            fprintf(out, ",%d", sieves1[i*degh + j]);
 		fprintf(out, "\n");
 	}
 	fclose(out);
 
 	// free memory
-	delete[] sievenum_smodp;
-	delete[] sievep;
+	delete[] sievenum_s1modp;
+	delete[] sievenum_s0modp;
+	delete[] sievep1;
+	delete[] sievep0;
 	delete[] num_smodp;
 	delete[] s;
 	delete[] sievenum_S1modp;
