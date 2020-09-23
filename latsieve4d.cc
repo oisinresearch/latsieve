@@ -168,13 +168,16 @@ int main(int argc, char** argv)
 	// set up constants
 	std::clock_t start; double timetaken = 0;
 	mpz_t r0; mpz_init(r0);
-	int* sieves = new int[degh * nump](); // poly h is common to both sides
-	int* sievep = new int[nump]();
+	int* sieves0 = new int[degh * nump]();
+	int* sievep0 = new int[nump]();
+	int* sieves1 = new int[degh * nump]();
+	int* sievep1 = new int[nump]();
 	int* sieveP0 = new int[nump]();
 	int* sieveP1 = new int[nump]();
 	int* sieveS0 = new int[degfht * nump]();
 	int* sieveS1 = new int[degght * nump]();
-	int* sievenum_smodp = new int[nump]();
+	int* sievenum_s0modp = new int[nump]();
+	int* sievenum_s1modp = new int[nump]();
 	int* sievenum_S0modp = new int[nump]();
 	int* sievenum_S1modp = new int[nump]();
 	// load factor base
@@ -201,6 +204,22 @@ int main(int argc, char** argv)
 		}
 		sievenum_S0modp[i] = j;
 	}
+	// read kh0
+	getline(fbfile, line);
+	int kh0 = atoi(line.c_str());
+	for (int i = 0; i < kh0; i++) {
+		getline(fbfile, line);
+		stringstream ss(line);
+		string substr;
+		getline(ss, substr, ',');
+		sievep0[i] = atoi(substr.c_str());
+		int j = 0;
+		while( ss.good() ) {
+			getline( ss, substr, ',' );
+			sieves0[i*degh + j++] = atoi(substr.c_str());
+		}
+		sievenum_s0modp[i] = j;
+	}
 	// read k1
 	getline(fbfile, line);
 	int k1 = atoi(line.c_str());
@@ -217,21 +236,21 @@ int main(int argc, char** argv)
 		}
 		sievenum_S1modp[i] = j;
 	}
-	// read kh
+	// read kh1
 	getline(fbfile, line);
-	int kh = atoi(line.c_str());
-	for (int i = 0; i < kh; i++) {
+	int kh1 = atoi(line.c_str());
+	for (int i = 0; i < kh1; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
 		string substr;
 		getline(ss, substr, ',');
-		sievep[i] = atoi(substr.c_str());
+		sievep1[i] = atoi(substr.c_str());
 		int j = 0;
 		while( ss.good() ) {
 			getline( ss, substr, ',' );
-			sieves[i*degh + j++] = atoi(substr.c_str());
+			sieves1[i*degh + j++] = atoi(substr.c_str());
 		}
-		sievenum_smodp[i] = j;
+		sievenum_s1modp[i] = j;
 	}
 	timetaken += ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl << flush;
@@ -247,7 +266,7 @@ int main(int argc, char** argv)
 	int B1bits = B[0]; int B2bits = B[1]; int B3bits = B[2]; int B4bits = B[3];
 	int B1 = 1<<B1bits; int B2 = 1<<B2bits; int B3 = 1<<B3bits; int B4 = 1<<B4bits;
 	int Mlen = (B1*2*B2*2*B3*2*B4);	// require positive z coordinate
-	Mlen = (int)(2.3f * Mlen);	// upper bound on number of vectors in sieve box
+	Mlen = (int)(3.3f * Mlen);	// upper bound on number of vectors in sieve box
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
 	uint8_t* H = new uint8_t[Mlen];	// histogram
@@ -312,8 +331,9 @@ int main(int argc, char** argv)
 		cout << "..." << endl << flush;
 		start = clock();
 		//int m = latsieve3d(fq, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
-		int m = latsieve4d(h, degh, fhqt, degfhqt, q, 0, 0, sievep, k0, sieves, sieveS0, 
-								sievenum_smodp, sievenum_S0modp, M, Mlen, B);
+		int m = 0;
+		m = latsieve4d(h, degh, fhqt, degfhqt, q, 0, 0, sievep0, k0, sieves0, sieveS0, 
+								sievenum_s0modp, sievenum_S0modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 		cout << "# Size of lattice point list is " << m << "." << endl << flush;
@@ -343,8 +363,8 @@ int main(int argc, char** argv)
 		cout << "..." << endl << flush;
 		start = clock();
 		//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-		m = latsieve4d(h, degh, fhqt, degfhqt, q, 0, 0, sievep, k1, sieves, sieveS1, 
-								sievenum_smodp, sievenum_S1modp, M, Mlen, B);
+		m = latsieve4d(h, degh, fhqt, degfhqt, q, 0, 0, sievep1, k1, sieves1, sieveS1, 
+								sievenum_s1modp, sievenum_S1modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 		cout << "# Size of lattice point list is " << m << "." << endl << flush;
@@ -387,11 +407,12 @@ int main(int argc, char** argv)
 				int t = (rel[i] >> B1xB2x2xB3x2bits) - B4;
 				if (x != 0 || y != 0 || z != 0) {
 					// compute [a,b,c,d]
-					//int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
-					//int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
-					//int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
-					//int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
-					//cout << rel[i] << ": " << a << "," << b << "," << c << "," << d endl;
+					int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
+					int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
+					int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
+					int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
+					if (R >= 100000 & R < 100030)
+						cout << rel[i] << ": " << a << "," << b << "," << c << "," << d << endl;
 					R++;
 				}
 			}
@@ -672,9 +693,12 @@ int main(int argc, char** argv)
 	delete[] sievenum_S0modp;
 	delete[] sieveP0;
 	delete[] sieveS0;
-	delete[] sievenum_smodp;
-	delete[] sievep;
-	delete[] sieves;
+	delete[] sievenum_s1modp;
+	delete[] sievenum_s0modp;
+	delete[] sievep1;
+	delete[] sieves1;
+	delete[] sievep0;
+	delete[] sieves0;
 	mpz_clear(r0);
 	delete[] primes;
 	delete[] sieve;
@@ -920,6 +944,9 @@ int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q, int 
 											int id = x + ((y + B2) << B1bits) + ((z + B3) << B1xB2x2bits)
 											  + ((t + B4) << B1xB2x2xB3x2bits);
 											M[m++] = (keyval){ id, logp };
+											if (id == 43368921) {
+												cout << id << ": " << p << endl;
+											}
 											x += u1; y += u2; z += u3; t += u4;
 										}
 										// move by '1-transition' vector
