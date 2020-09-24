@@ -347,6 +347,7 @@ int main(int argc, char** argv)
 		int B1xB2 = B1*B2;
 		int B2x2bits = B2bits + 1;
 		int B2x2 = 2*B2;
+		int B3x2 = 2*B3;
 		int B1xB2x2bits = B1bits + B2bits + 1;
 		int B1xB2x2xB3x2bits = B1bits + B2bits + 1 + B3bits + 1;
 		rel.clear();
@@ -403,7 +404,7 @@ int main(int argc, char** argv)
 			if (rel[i] == rel[i+1] && rel[i] != 0) {
 				int x = rel[i] % B1;
 				int y = ((rel[i] >> B1bits) % B2x2) - B2;
-				int z =  (rel[i] >> B1xB2x2bits) - B3;
+				int z = ((rel[i] >> B1xB2x2bits) % B3x2) - B3;
 				int t = (rel[i] >> B1xB2x2xB3x2bits) - B4;
 				if (x != 0 || y != 0 || z != 0) {
 					// compute [a,b,c,d]
@@ -431,7 +432,7 @@ int main(int argc, char** argv)
 			if (rel[i] == rel[i+1] && rel[i] != 0) {
 				int x = rel[i] % B1;
 				int y = ((rel[i] >> B1bits) % B2x2) - B2;
-				int z =  (rel[i] >> B1xB2x2bits) - B3;
+				int z = ((rel[i] >> B1xB2x2bits) % B3x2) - B3;
 				int t = (rel[i] >> B1xB2x2xB3x2bits) - B4;
 				if (x != 0 || y != 0 || z != 0) {
 					// compute [a,b,c]
@@ -944,8 +945,9 @@ int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q, int 
 											int id = x + ((y + B2) << B1bits) + ((z + B3) << B1xB2x2bits)
 											  + ((t + B4) << B1xB2x2xB3x2bits);
 											M[m++] = (keyval){ id, logp };
-											if (id == 43368921) {
+											if (id == 140329463) {
 												cout << id << ": " << p << endl;
+												cout << x << "," << y << "," << z << "," << t << endl;
 											}
 											x += u1; y += u2; z += u3; t += u4;
 										}
