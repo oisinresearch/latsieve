@@ -849,3 +849,31 @@ void mpz_poly_derivative(mpz_poly df, mpz_poly f)
     mpz_mul_si (df->coeff[i], f->coeff[i + 1], i + 1);
 }
 
+/* Set res=f(x). Assumes res and x are different variables. */
+void mpz_poly_eval(mpz_t res, mpz_poly f, mpz_t x) {
+  int i, d;
+  d = f->deg;
+  if (d == -1) {
+    mpz_set_ui(res, 0);
+    return;
+  }
+  mpz_set(res, f->coeff[d]);
+  for (i = d-1; i>=0; --i) {
+    mpz_mul(res, res, x);
+    mpz_add(res, res, f->coeff[i]);
+  }
+}
+
+/* Set res=f(x) where x is an unsigned long. */
+void mpz_poly_eval_ui (mpz_t res, mpz_poly f, unsigned long x)
+{
+  int d = f->deg;
+
+  mpz_set (res, f->coeff[d]);
+  for (int i = d - 1; i >= 0; i--)
+  {
+    mpz_mul_ui (res, res, x);
+    mpz_add (res, res, f->coeff[i]);
+  }
+}
+

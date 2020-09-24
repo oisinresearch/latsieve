@@ -608,7 +608,7 @@ int latsieve2d(int64_t* f, int degfq, int degfp, int64_t q, int l, int* allp, in
 	qLinv[2] = -L[2];
 	qLinv[3] = L[0];
 
-	int i = 40; int m = 0;
+	int i = 30; int m = 0;
 	cout << "# Starting sieve at prime " << allp[i] << endl;
 	while (i < nump) {
 		int64_t p = allp[i];

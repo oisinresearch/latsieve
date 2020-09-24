@@ -52,6 +52,8 @@ int signValue(mpz_t a, int k, mpz_poly f);
 int sign (mpz_t a);
 void mpz_poly_discriminant(mpz_t disc, mpz_poly f);
 void mpz_poly_derivative(mpz_poly df, mpz_poly f);
+void mpz_poly_eval(mpz_t res, mpz_poly f, mpz_t x);
+void mpz_poly_eval_ui (mpz_t res, mpz_poly f, unsigned long x);
 
 #endif /* MPZ_POLY_H */
 

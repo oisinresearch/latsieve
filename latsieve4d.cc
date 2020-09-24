@@ -13,6 +13,7 @@
 #include "mpz_poly.h"
 #include <sstream>	// stringstream
 #include <stack>	// stack
+#include "mpz_poly_bivariate.h"
 
 using std::cout;
 using std::endl;
@@ -37,9 +38,9 @@ struct keyval {
 
 __int128 MASK64;
 
-int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q, int l, int ll, 
-        int* allp, int nump, int* s, int* S, int* num_smodp, int* num_Smodp, keyval* M,
-		int Mlen, int* B);
+int latsieve4d(mpz_poly_bivariate F, int64_t* h, int degh, int64_t* fh_t, int degfh_t,
+		int64_t q, int l, int ll, int* allp, int nump, int* s, int* S, int* num_smodp,
+		int* num_Smodp, keyval* M, int Mlen, int* B);
 void histogram(keyval*M, uint8_t* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
 void csort(keyval* M, keyval* L, int* H, int len);
@@ -145,6 +146,70 @@ int main(int argc, char** argv)
 		if (verbose) cout << line << endl << flush;
 		read = static_cast<bool>(getline(file, line));
 	}
+	// read bivariate F0 poly
+	mpz_poly_bivariate F0;
+	mpz_poly_bivariate_init(F0, 0);	// init to deg 0 (constant)
+	mpz_poly F0i;
+	mpz_poly_init(F0i, 0); // init to deg 0 (constant)
+	mpz_t F0ij; mpz_init(F0ij);
+	read = true;
+	if (verbose) cout << endl << "Bivariate polynomial F0: (ascending coefficients)" << endl;
+	int inow = 0;
+	while (read && line.substr(0,1) == "f" ) {
+		int u = line.find_first_of("_");
+		string ch = line.substr(1, u-1);
+		int inew = atoi(ch.c_str());
+		ch = line.substr(u+1, line.find_first_of(":")-u-1);
+		int  j = atoi(ch.c_str());
+		if (inew == inow) {
+			line = line.substr(line.find_first_of(" ")+1);
+			mpz_set_str(F0ij, line.c_str(), 10);
+			mpz_poly_setcoeff(F0i, j, F0ij);
+		}
+		else {
+			mpz_poly_bivariate_setcoeff(F0, inow, F0i);
+			inow = inew;
+			F0i->deg = 0;
+			line = line.substr(line.find_first_of(" ")+1);
+			mpz_set_str(F0ij, line.c_str(), 10);
+			mpz_poly_setcoeff(F0i, j, F0ij);
+		}
+		if (verbose) cout << line << endl << flush;
+		read = static_cast<bool>(getline(file, line));
+	}
+	mpz_poly_bivariate_setcoeff(F0, inow, F0i);
+	// read bivariate F1 poly
+	mpz_poly_bivariate F1;
+	mpz_poly_bivariate_init(F1, 0);	// init to deg 0 (constant)
+	mpz_poly F1i;
+	mpz_poly_init(F1i, 0); // init to deg 0 (constant)
+	mpz_t F1ij; mpz_init(F1ij);
+	read = true;
+	if (verbose) cout << endl << "Bivariate polynomial F1: (ascending coefficients)" << endl;
+	inow = 0;
+	while (read && line.substr(0,1) == "g" ) {
+		int u = line.find_first_of("_");
+		string ch = line.substr(1, u-1);
+		int inew = atoi(ch.c_str());
+		ch = line.substr(u+1, line.find_first_of(":")-u-1);
+		int  j = atoi(ch.c_str());
+		if (inew == inow) {
+			line = line.substr(line.find_first_of(" ")+1);
+			mpz_set_str(F1ij, line.c_str(), 10);
+			mpz_poly_setcoeff(F1i, j, F1ij);
+		}
+		else {
+			mpz_poly_bivariate_setcoeff(F1, inow, F1i);
+			inow = inew;
+			F1i->deg = 0;
+			line = line.substr(line.find_first_of(" ")+1);
+			mpz_set_str(F1ij, line.c_str(), 10);
+			mpz_poly_setcoeff(F1i, j, F1ij);
+		}
+		if (verbose) cout << line << endl << flush;
+		read = static_cast<bool>(getline(file, line));
+	}
+	mpz_poly_bivariate_setcoeff(F1, inow, F1i);
 	file.close();
 	//mpz_clear(c);
 	if (verbose) cout << endl << "Complete.  Degree fh_t = " << degfht << ", degree gh_t = " << degght << "." << endl;
@@ -332,7 +397,7 @@ int main(int argc, char** argv)
 		start = clock();
 		//int m = latsieve3d(fq, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
 		int m = 0;
-		m = latsieve4d(h, degh, fhqt, degfhqt, q, 0, 0, sievep0, k0, sieves0, sieveS0, 
+		m = latsieve4d(F0, h, degh, fhqt, degfhqt, q, 0, 0, sievep0, k0, sieves0, sieveS0, 
 								sievenum_s0modp, sievenum_S0modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
@@ -364,7 +429,7 @@ int main(int argc, char** argv)
 		cout << "..." << endl << flush;
 		start = clock();
 		//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-		m = latsieve4d(h, degh, fhqt, degfhqt, q, 0, 0, sievep1, k1, sieves1, sieveS1, 
+		m = latsieve4d(F1, h, degh, fhqt, degfhqt, q, 0, 0, sievep1, k1, sieves1, sieveS1, 
 								sievenum_s1modp, sievenum_S1modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
@@ -703,6 +768,12 @@ int main(int argc, char** argv)
 	mpz_clear(r0);
 	delete[] primes;
 	delete[] sieve;
+	mpz_clear(F1ij);
+	mpz_poly_clear(F1i);
+	mpz_poly_bivariate_clear(F1);
+	mpz_clear(F0ij);
+	mpz_poly_clear(F0i);
+	mpz_poly_bivariate_clear(F0);
 	for (int i = 0; i < 20; i++) {
 		mpz_clear(hpoly[i]);
 		mpz_clear(ghtpoly[i]);
@@ -784,9 +855,9 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 }
 
 
-int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q, int l, int ll, 
-        int* allp, int nump, int* s, int* S, int* num_smodp, int* num_Smodp, keyval* M,
-		int Mlen, int* B)
+int latsieve4d(mpz_poly_bivariate F, int64_t* h, int degh, int64_t* fh_t, int degfh_t,
+		int64_t q, int l, int ll, int* allp, int nump, int* s, int* S, int* num_smodp,
+		int* num_Smodp, keyval* M, int Mlen, int* B)
 {
 	int64_t L[16];
 	int64_t L2[16];
