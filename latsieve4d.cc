@@ -373,6 +373,10 @@ int main(int argc, char** argv)
 	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, primes, 669);	// max S = 5000
 	char* str2 = (char*)malloc(20*sizeof(char));
 	int qside = atoi(argv[14]);
+	mpz_poly Fqh_x; mpz_poly_init(Fqh_x, 0);
+	mpz_poly_bivariate Aq; mpz_poly_bivariate_init(Aq, 0);
+	mpz_poly Aq0; mpz_poly_init(Aq0, 0);
+	mpz_t res; mpz_init(res);
 
 	int64_t q = qmin;
 	while (q < qmax) {
@@ -382,9 +386,11 @@ int main(int argc, char** argv)
 
 		for (int i = 0; i <= degh; i++) h[i] = mpz_mod_ui(r0, hpoly[i], q);
 
+		mpz_poly_bivariate* Fq;
 		mpz_t* fhtpolyside = fhtpoly;
 		int degfhqt = degfht;
-		if (qside == 1) { fhtpolyside = ghtpoly; degfhqt = degght; }
+		Fq = &F0;
+		if (qside == 1) { fhtpolyside = ghtpoly; degfhqt = degght; Fq = &F1; }
 		for (int i = 0; i <= degfht; i++) fhqt[i] = mpz_mod_ui(r0, fhtpolyside[i], q);
 		int numl = polrootsmod(h, degh, r, q);
 		int numll = polrootsmod(fhqt, degfhqt, R, q);
@@ -397,7 +403,18 @@ int main(int argc, char** argv)
 		start = clock();
 		//int m = latsieve3d(fq, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
 		int m = 0;
-		m = latsieve4d(F0, h, degh, fhqt, degfhqt, q, 0, 0, sievep0, k0, sieves0, sieveS0, 
+		// compute which r[l] are valid for given R[ll]
+		int ll = 0; int l = 0;
+		for (int i = 0; i < numl; i++) {
+			//Fqh_x->deg = 0; mpz_poly_setcoeff_ui(Fqh_x, 0, 0);
+			mpz_poly_setcoeff_ui(Aq0, 1, 1);	// Aq0 = x - R[ll]
+			mpz_poly_setcoeff_si(Aq0, 0, -R[ll]);
+			mpz_poly_bivariate_setcoeff(Aq, 0, Aq0);
+			mpz_poly_bivariate_resultant_y(Fqh_x, *Fq, Aq);
+			mpz_poly_eval_ui(res, Fqh_x, r[l]);
+			if (mpz_mod_ui(r0, res, q) == 0) { l = i; break; } 
+		}
+		m = latsieve4d(F0, h, degh, fhqt, degfhqt, q, l, ll, sievep0, k0, sieves0, sieveS0, 
 								sievenum_s0modp, sievenum_S0modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
@@ -429,7 +446,7 @@ int main(int argc, char** argv)
 		cout << "..." << endl << flush;
 		start = clock();
 		//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-		m = latsieve4d(F1, h, degh, fhqt, degfhqt, q, 0, 0, sievep1, k1, sieves1, sieveS1, 
+		m = latsieve4d(F1, h, degh, fhqt, degfhqt, q, l, ll, sievep1, k1, sieves1, sieveS1, 
 								sievenum_s1modp, sievenum_S1modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
@@ -455,7 +472,7 @@ int main(int argc, char** argv)
 		int64_t L[16];
 		numl = polrootsmod(h, degh, r, q);
 		numll = polrootsmod(fhqt, degfhqt, R, q);
-		int l = 0; int ll = 0;
+		//int l = 0; int ll = 0;
 		L[0]  = q; L[1]  = -r[l]; L[2]  = -R[ll]; L[3]  = 0;
 		L[4]  = 0; L[5]  = 1;     L[6]  = 0;      L[7]  = -R[ll];
 		L[8]  = 0; L[9]  = 0;     L[10] = 1;      L[11] = 0;
@@ -740,6 +757,10 @@ int main(int argc, char** argv)
 	}
 
 	free(str2);
+	mpz_clear(res);
+	mpz_poly_clear(Aq0);
+	mpz_poly_bivariate_clear(Aq);
+	mpz_poly_clear(Fqh_x);
 	mpz_clear(S);
 	mpz_clear(tmp1); mpz_clear(p2); mpz_clear(p1);
 	mpz_clear(factor);
