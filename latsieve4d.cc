@@ -409,10 +409,10 @@ int main(int argc, char** argv)
 		int ll = 0; int l = 0;
 		for (int i = 0; i < numl; i++) {
 			//Fqh_x->deg = 0; mpz_poly_setcoeff_ui(Fqh_x, 0, 0);
-			mpz_poly_setcoeff_ui(Aq0, 1, 1);	// Aq0 = x - R[ll]
 			mpz_poly_setcoeff_si(Aq0, 0, -R[ll]);
 			mpz_poly_bivariate_setcoeff(Aq, 0, Aq0);
-			Aq->deg_y = 0;
+			mpz_poly_setcoeff_ui(Aq0, 0, 1);	// Aq = x - R[ll]
+			mpz_poly_bivariate_setcoeff(Aq, 1, Aq0);
 			mpz_poly_bivariate_resultant_y(Fqh_x, *Fq, Aq);
 			mpz_poly_eval_ui(res, Fqh_x, r[l]);
 			if (mpz_mod_ui(r0, res, q) == 0) { l = i; break; } 
@@ -969,18 +969,19 @@ int latsieve4d(mpz_poly_bivariate F, int64_t* h, int degh, int64_t* fh_t, int de
 		//cout << p << "," << m << endl << flush;
 		int64_t n = p*q;
 		uint8_t logp = log2f(p);
-		__int128 rl = mod(-r[l], q);
 		__int128 Rll = mod(-R[ll], q);
+		__int128 rl = mod(-r[l], q);
 		for (int K = 0; K < num_Smodp[i]; K++) {
 			__int128 SK = mod(-S[K+i*degfh_t],p);
 			for (int k = 0; k < num_smodp[i]; k++) {
 				__int128 sk = mod(-s[k+i*degh],p);
 				// determine if sk is a valid root in the tower
-				mpz_poly_setcoeff_ui(Ap0, 1, 1);	// Ap0 = x - SK
-				mpz_poly_setcoeff_si(Ap0, 0, -SK);
+				mpz_poly_setcoeff_si(Ap0, 0, -(p-SK));
 				mpz_poly_bivariate_setcoeff(Ap, 0, Ap0);
+				mpz_poly_setcoeff_ui(Ap0, 0, 1);	// Aq = x - SK
+				mpz_poly_bivariate_setcoeff(Ap, 1, Ap0);
 				mpz_poly_bivariate_resultant_y(Fh_x, F, Ap);
-				mpz_poly_eval_ui(res, Fh_x, sk);
+				mpz_poly_eval_ui(res, Fh_x, p-sk);
 				if (mpz_mod_ui(r0, res, p) != 0) continue; // is s[k] valid?
 				int64_t t_ = q*( (sk * modpinvq[i]) % p ) + p*( (rl * modqinvp[i]) % q ); // CRT
 				if (t_ >= n) t_ -= n;
