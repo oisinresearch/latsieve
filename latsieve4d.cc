@@ -350,6 +350,8 @@ int main(int argc, char** argv)
 	int64_t* R = new int64_t[degfht]();
 	int64_t* fhqt = new int64_t[degfht+1](); // careful, what if degght > degfht?
 	int64_t* h = new int64_t[degh+1]();
+	mpz_poly h0; mpz_poly_init(h0, degh);
+	for (int i = 0; i <= degh; i++) mpz_poly_setcoeff_si(h0, i, h[i]);
 	mpz_poly f0; mpz_poly f1; mpz_poly A;
 	mpz_poly_init(f0, degfht); mpz_poly_init(f1, degght); mpz_poly_init(A, 4);
 	mpz_poly_set_mpz(f0, fhtpoly, degfht);
@@ -410,6 +412,7 @@ int main(int argc, char** argv)
 			mpz_poly_setcoeff_ui(Aq0, 1, 1);	// Aq0 = x - R[ll]
 			mpz_poly_setcoeff_si(Aq0, 0, -R[ll]);
 			mpz_poly_bivariate_setcoeff(Aq, 0, Aq0);
+			Aq->deg_y = 0;
 			mpz_poly_bivariate_resultant_y(Fqh_x, *Fq, Aq);
 			mpz_poly_eval_ui(res, Fqh_x, r[l]);
 			if (mpz_mod_ui(r0, res, q) == 0) { l = i; break; } 
@@ -536,12 +539,17 @@ int main(int argc, char** argv)
 					a = a/content; b = b/content; c = c/content; d = d/content;
 
 					//cout << "[a, b, c] = [" << a << ", " << b << ", " << c << "]" << endl << flush;
-					mpz_poly_setcoeff_si(A, 0, a);
-					mpz_poly_setcoeff_si(A, 1, b);
-					mpz_poly_setcoeff_si(A, 2, c);
-					mpz_poly_setcoeff_si(A, 2, d);
-					mpz_poly_resultant(N0, f0, A);
-					mpz_poly_resultant(N1, f1, A);
+					
+					mpz_poly_setcoeff_si(Aq0, 0, a);
+					mpz_poly_setcoeff_si(Aq0, 1, b);	// Aq0 = x - R[ll]
+					mpz_poly_bivariate_setcoeff(Aq, 0, Aq0);
+					mpz_poly_setcoeff_si(Aq0, 0, c);
+					mpz_poly_setcoeff_si(Aq0, 1, d);	// Aq0 = x - R[ll]
+					mpz_poly_bivariate_setcoeff(Aq, 1, Aq0);
+					mpz_poly_bivariate_resultant_y(Fqh_x, F0, Aq);
+					mpz_poly_resultant(N0, Fqh_x, h0);
+					mpz_poly_bivariate_resultant_y(Fqh_x, F1, Aq);
+					mpz_poly_resultant(N1, Fqh_x, h0);
 					mpz_abs(N0, N0);
 					mpz_abs(N1, N1);
 					//cout << mpz_get_str(NULL, 10, N0) << endl << flush;
@@ -767,7 +775,10 @@ int main(int argc, char** argv)
 	mpz_clear(lpb);
     mpz_clear(N1); mpz_clear(N0);
     mpz_poly_clear(A); mpz_poly_clear(f1); mpz_poly_clear(f0);
+	mpz_poly_clear(h0);
+	delete[] h;
 	delete[] fhqt;
+	delete[] R;
 	delete[] r;
 	for (int i = 0; i < 8; i++) mpz_clear(pi[i]); delete[] pi;
 	mpz_clear(qmpz);
@@ -887,6 +898,11 @@ int latsieve4d(mpz_poly_bivariate F, int64_t* h, int degh, int64_t* fh_t, int de
 	int64_t* R = new int64_t[degfh_t]();
 	int numl = polrootsmod(h, degh, r, q);
 	int numll = polrootsmod(fh_t, degfh_t, R, q);
+	mpz_poly Fh_x; mpz_poly_init(Fh_x, 0);
+	mpz_poly_bivariate Ap; mpz_poly_bivariate_init(Ap, 0);
+	mpz_poly Ap0; mpz_poly_init(Ap0, 0);
+	mpz_t res; mpz_init(res);
+	mpz_t r0; mpz_init(r0);
 	int B1bits = B[0];
 	int B2bits = B[1];
 	int B3bits = B[2];
@@ -955,12 +971,19 @@ int latsieve4d(mpz_poly_bivariate F, int64_t* h, int degh, int64_t* fh_t, int de
 		uint8_t logp = log2f(p);
 		__int128 rl = mod(-r[l], q);
 		__int128 Rll = mod(-R[ll], q);
-		for (int k = 0; k < num_smodp[i]; k++) {
-			__int128 sk = mod(-s[k+i*degh],p);
-			int64_t t_ = q*( (sk * modpinvq[i]) % p ) + p*( (rl * modqinvp[i]) % q ); // CRT
-			if (t_ >= n) t_ -= n;
-			for (int K = 0; K < num_Smodp[i]; K++) {
-				__int128 SK = mod(-S[K+i*degfh_t],p);
+		for (int K = 0; K < num_Smodp[i]; K++) {
+			__int128 SK = mod(-S[K+i*degfh_t],p);
+			for (int k = 0; k < num_smodp[i]; k++) {
+				__int128 sk = mod(-s[k+i*degh],p);
+				// determine if sk is a valid root in the tower
+				mpz_poly_setcoeff_ui(Ap0, 1, 1);	// Ap0 = x - SK
+				mpz_poly_setcoeff_si(Ap0, 0, -SK);
+				mpz_poly_bivariate_setcoeff(Ap, 0, Ap0);
+				mpz_poly_bivariate_resultant_y(Fh_x, F, Ap);
+				mpz_poly_eval_ui(res, Fh_x, sk);
+				if (mpz_mod_ui(r0, res, p) != 0) continue; // is s[k] valid?
+				int64_t t_ = q*( (sk * modpinvq[i]) % p ) + p*( (rl * modqinvp[i]) % q ); // CRT
+				if (t_ >= n) t_ -= n;
 				int64_t T = q*( (SK * modpinvq[i]) % p ) + p*( (Rll * modqinvp[i]) % q ); // CRT
 				if (T >= n) T -= n;
 				L2[0]  = n; L2[1]  = t_; L2[2]  = T; L2[3]  = 0;
@@ -1070,6 +1093,11 @@ int latsieve4d(mpz_poly_bivariate F, int64_t* h, int degh, int64_t* fh_t, int de
 	}
 
 	// clear memory
+	mpz_clear(r0);
+	mpz_clear(res);
+	mpz_poly_clear(Ap0);
+	mpz_poly_bivariate_clear(Ap);
+	mpz_poly_clear(Fh_x);
 	delete[] modqinvp;
 	delete[] modpinvq;
 	delete[] r;
