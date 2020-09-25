@@ -192,9 +192,9 @@ int main(int argc, char** argv)
 	int* sievenum_S1modp = new int[nump]();
 	int64_t* s = new int64_t[degh * nump]();
 	int* num_smodp = new int[nump]();
-	int64_t* sieves0 = new int64_t[degh * nump]();
+	int64_t* sieves0 = new int64_t[degfht * nump]();
 	int64_t* sievep0 = new int64_t[nump]();
-	int64_t* sieves1 = new int64_t[degh * nump]();
+	int64_t* sieves1 = new int64_t[degght * nump]();
 	int64_t* sievep1 = new int64_t[nump]();
 	int* sievenum_s0modp = new int[nump]();
 	int* sievenum_s1modp = new int[nump]();
@@ -202,10 +202,6 @@ int main(int argc, char** argv)
 	int64_t* sj_g = new int64_t[degght * nump]();
 	int64_t itenpc0 = nump / 10;
 	int64_t itotal = 0;
-	mpz_poly Fh_x; mpz_poly_init(Fh_x, 0);
-	mpz_poly_bivariate Ap; mpz_poly_bivariate_init(Ap, 0);
-	mpz_poly Ap0; mpz_poly_init(Ap0, 0);
-	mpz_t res; mpz_init(res);
 	// compute factor base
 	if (verbose) cout << endl << "Constructing factor base with " << K << " threads." << endl << flush;
 	//if (verbose) cout << endl << "[0%]   constructing factor base..." << endl << flush;
@@ -220,6 +216,10 @@ int main(int argc, char** argv)
 		int64_t* gp = new int64_t[degght+1]();
 		int64_t* stemp = new int64_t[degh];
 		int64_t* hp = new int64_t[degh+1]();
+		mpz_poly Fh_x; mpz_poly_init(Fh_x, 0);
+		mpz_poly_bivariate Ap; mpz_poly_bivariate_init(Ap, 0);
+		mpz_poly Ap0; mpz_poly_init(Ap0, 0);
+		mpz_t res; mpz_init(res);
 
 	#pragma omp for
 		for (int64_t i = 0; i < nump; i++) {
@@ -264,7 +264,7 @@ int main(int argc, char** argv)
 				for (int k = 0; k < nums; k++) {
 					mpz_poly_eval_ui(res, Fh_x, stemp[k]);
 					if (mpz_mod_ui(r0, res, p) == 0) {  // is s[k] valid?
-						sj_g[i*degfht + j] = stemp[k];
+						sj_g[i*degght + j] = stemp[k];
 						break;
 					}
 				}
@@ -277,6 +277,10 @@ int main(int argc, char** argv)
 			}				 
 		}
 
+		mpz_clear(res);
+		mpz_poly_clear(Ap0);
+		mpz_poly_bivariate_clear(Ap);
+		mpz_poly_clear(Fh_x);
 		delete[] hp;
 		delete[] stemp;
 		delete[] gp;
@@ -296,7 +300,7 @@ int main(int argc, char** argv)
 			for (int j = 0; j < numS0; j++) sieveS0[k0*degfht + j] = S0[i*degfht + j];
 			sievenum_S0modp[k0] = numS0;
 			sievep0[k0] = primes[i];
-			for (int j = 0; j < nums; j++) sieves0[k0*degh + j] = s[i*degh + j];
+			for (int j = 0; j < numS0; j++) sieves0[k0*degfht + j] = sj_f[i*degfht + j];
 			sievenum_s0modp[k0++] = nums;
 		}
 		int numS1 = num_S1modp[i];
@@ -305,7 +309,7 @@ int main(int argc, char** argv)
 			for (int j = 0; j < numS1; j++) sieveS1[k1*degght + j] = S1[i*degght + j];
 			sievenum_S1modp[k1] = numS1;
 			sievep1[k1] = primes[i];
-			for (int j = 0; j < nums; j++) sieves1[k1*degh + j] = s[i*degh + j];
+			for (int j = 0; j < numS1; j++) sieves1[k1*degght + j] = sj_g[i*degght + j];
 			sievenum_s1modp[k1++] = nums;
 		}
 	}
@@ -330,7 +334,7 @@ int main(int argc, char** argv)
 	for (int i = 0; i < k0; i++) {
 		fprintf(out, "%d", sievep0[i]);
 		for (int j = 0; j < sievenum_S0modp[i]; j++)
-            fprintf(out, ",%d", sj_f[i*degfht + j]);
+            fprintf(out, ",%d", sieves0[i*degfht + j]);
 		fprintf(out, "\n");
 	}
 	fprintf(out, "%d\n", k1);
@@ -344,16 +348,12 @@ int main(int argc, char** argv)
 	for (int i = 0; i < k1; i++) {
 		fprintf(out, "%d", sievep1[i]);
 		for (int j = 0; j < sievenum_S1modp[i]; j++)
-            fprintf(out, ",%d", sj_g[i*degh + j]);
+            fprintf(out, ",%d", sieves1[i*degght + j]);
 		fprintf(out, "\n");
 	}
 	fclose(out);
 
 	// free memory
-	mpz_clear(res);
-	mpz_poly_clear(Ap0);
-	mpz_poly_bivariate_clear(Ap);
-	mpz_poly_clear(Fh_x);
 	delete[] sj_g;
 	delete[] sj_f;
 	delete[] sievenum_s1modp;
