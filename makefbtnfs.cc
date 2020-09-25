@@ -9,6 +9,7 @@
 #include <cstring>	// memset
 #include <omp.h>
 #include "mpz_poly.h"
+#include "mpz_poly_bivariate.h"
 #include <sstream>	// stringstream
 
 using std::cout;
@@ -86,6 +87,70 @@ int main(int argc, char** argv)
 		if (verbose) cout << line << endl << flush;
 		read = static_cast<bool>(getline(file, line));
 	}
+	// read bivariate F0 poly
+	mpz_poly_bivariate F0;
+	mpz_poly_bivariate_init(F0, 0);	// init to deg 0 (constant)
+	mpz_poly F0i;
+	mpz_poly_init(F0i, 0); // init to deg 0 (constant)
+	mpz_t F0ij; mpz_init(F0ij);
+	read = true;
+	if (verbose) cout << endl << "Bivariate polynomial F0: (ascending coefficients)" << endl;
+	int inow = 0;
+	while (read && line.substr(0,1) == "f" ) {
+		int u = line.find_first_of("_");
+		string ch = line.substr(1, u-1);
+		int inew = atoi(ch.c_str());
+		ch = line.substr(u+1, line.find_first_of(":")-u-1);
+		int  j = atoi(ch.c_str());
+		if (inew == inow) {
+			line = line.substr(line.find_first_of(" ")+1);
+			mpz_set_str(F0ij, line.c_str(), 10);
+			mpz_poly_setcoeff(F0i, j, F0ij);
+		}
+		else {
+			mpz_poly_bivariate_setcoeff(F0, inow, F0i);
+			inow = inew;
+			F0i->deg = 0;
+			line = line.substr(line.find_first_of(" ")+1);
+			mpz_set_str(F0ij, line.c_str(), 10);
+			mpz_poly_setcoeff(F0i, j, F0ij);
+		}
+		if (verbose) cout << line << endl << flush;
+		read = static_cast<bool>(getline(file, line));
+	}
+	mpz_poly_bivariate_setcoeff(F0, inow, F0i);
+	// read bivariate F1 poly
+	mpz_poly_bivariate F1;
+	mpz_poly_bivariate_init(F1, 0);	// init to deg 0 (constant)
+	mpz_poly F1i;
+	mpz_poly_init(F1i, 0); // init to deg 0 (constant)
+	mpz_t F1ij; mpz_init(F1ij);
+	read = true;
+	if (verbose) cout << endl << "Bivariate polynomial F1: (ascending coefficients)" << endl;
+	inow = 0;
+	while (read && line.substr(0,1) == "g" ) {
+		int u = line.find_first_of("_");
+		string ch = line.substr(1, u-1);
+		int inew = atoi(ch.c_str());
+		ch = line.substr(u+1, line.find_first_of(":")-u-1);
+		int  j = atoi(ch.c_str());
+		if (inew == inow) {
+			line = line.substr(line.find_first_of(" ")+1);
+			mpz_set_str(F1ij, line.c_str(), 10);
+			mpz_poly_setcoeff(F1i, j, F1ij);
+		}
+		else {
+			mpz_poly_bivariate_setcoeff(F1, inow, F1i);
+			inow = inew;
+			F1i->deg = 0;
+			line = line.substr(line.find_first_of(" ")+1);
+			mpz_set_str(F1ij, line.c_str(), 10);
+			mpz_poly_setcoeff(F1i, j, F1ij);
+		}
+		if (verbose) cout << line << endl << flush;
+		read = static_cast<bool>(getline(file, line));
+	}
+	mpz_poly_bivariate_setcoeff(F1, inow, F1i);
 	file.close();
 	//mpz_clear(c);
 	if (verbose) cout << endl << "Complete.  Degree fh_t = " << degfht << ", degree gh_t = " << degght << "." << endl;
@@ -133,8 +198,14 @@ int main(int argc, char** argv)
 	int64_t* sievep1 = new int64_t[nump]();
 	int* sievenum_s0modp = new int[nump]();
 	int* sievenum_s1modp = new int[nump]();
+	int64_t* sj_f = new int64_t[degfht * nump]();
+	int64_t* sj_g = new int64_t[degght * nump]();
 	int64_t itenpc0 = nump / 10;
 	int64_t itotal = 0;
+	mpz_poly Fh_x; mpz_poly_init(Fh_x, 0);
+	mpz_poly_bivariate Ap; mpz_poly_bivariate_init(Ap, 0);
+	mpz_poly Ap0; mpz_poly_init(Ap0, 0);
+	mpz_t res; mpz_init(res);
 	// compute factor base
 	if (verbose) cout << endl << "Constructing factor base with " << K << " threads." << endl << flush;
 	//if (verbose) cout << endl << "[0%]   constructing factor base..." << endl << flush;
@@ -168,7 +239,36 @@ int main(int argc, char** argv)
 			int nums = polrootsmod(hp, deghp, stemp, p);
 			num_smodp[i] = nums;
 			for (int j = 0; j < nums; j++) s[i*degh + j] = stemp[j];
-
+			// compute roots of h corresponding to roots of f for this p
+			for (int j = 0; j < numS0; j++) {
+				mpz_poly_setcoeff_si(Ap0, 0, -S0temp[j]);
+				mpz_poly_bivariate_setcoeff(Ap, 0, Ap0);
+				mpz_poly_setcoeff_ui(Ap0, 0, 1);	// Aq = x - SK
+				mpz_poly_bivariate_setcoeff(Ap, 1, Ap0);
+				mpz_poly_bivariate_resultant_y(Fh_x, F0, Ap);
+				for (int k = 0; k < nums; k++) {
+					mpz_poly_eval_ui(res, Fh_x, stemp[k]);
+					if (mpz_mod_ui(r0, res, p) == 0) {  // is s[k] valid?
+						sj_f[i*degfht + j] = stemp[k];
+						break;
+					}
+				}
+			}
+			// compute roots of h corresponding to roots of g for this p
+			for (int j = 0; j < numS1; j++) {
+				mpz_poly_setcoeff_si(Ap0, 0, -S1temp[j]);
+				mpz_poly_bivariate_setcoeff(Ap, 0, Ap0);
+				mpz_poly_setcoeff_ui(Ap0, 0, 1);	// Aq = x - SK
+				mpz_poly_bivariate_setcoeff(Ap, 1, Ap0);
+				mpz_poly_bivariate_resultant_y(Fh_x, F1, Ap);
+				for (int k = 0; k < nums; k++) {
+					mpz_poly_eval_ui(res, Fh_x, stemp[k]);
+					if (mpz_mod_ui(r0, res, p) == 0) {  // is s[k] valid?
+						sj_g[i*degfht + j] = stemp[k];
+						break;
+					}
+				}
+			}
 	#pragma omp atomic
 			itotal++;
 			if (itotal % itenpc0 == 0) {
@@ -229,8 +329,8 @@ int main(int argc, char** argv)
 	fprintf(out, "%d\n", k0);
 	for (int i = 0; i < k0; i++) {
 		fprintf(out, "%d", sievep0[i]);
-		for (int j = 0; j < sievenum_s0modp[i]; j++)
-            fprintf(out, ",%d", sieves0[i*degh + j]);
+		for (int j = 0; j < sievenum_S0modp[i]; j++)
+            fprintf(out, ",%d", sj_f[i*degfht + j]);
 		fprintf(out, "\n");
 	}
 	fprintf(out, "%d\n", k1);
@@ -243,13 +343,19 @@ int main(int argc, char** argv)
 	fprintf(out, "%d\n", k1);
 	for (int i = 0; i < k1; i++) {
 		fprintf(out, "%d", sievep1[i]);
-		for (int j = 0; j < sievenum_s1modp[i]; j++)
-            fprintf(out, ",%d", sieves1[i*degh + j]);
+		for (int j = 0; j < sievenum_S1modp[i]; j++)
+            fprintf(out, ",%d", sj_g[i*degh + j]);
 		fprintf(out, "\n");
 	}
 	fclose(out);
 
 	// free memory
+	mpz_clear(res);
+	mpz_poly_clear(Ap0);
+	mpz_poly_bivariate_clear(Ap);
+	mpz_poly_clear(Fh_x);
+	delete[] sj_g;
+	delete[] sj_f;
 	delete[] sievenum_s1modp;
 	delete[] sievenum_s0modp;
 	delete[] sievep1;
@@ -267,6 +373,12 @@ int main(int argc, char** argv)
 	mpz_clear(r0);
 	delete[] primes;
 	delete[] sieve;
+	mpz_clear(F1ij);
+	mpz_poly_clear(F1i);
+	mpz_poly_bivariate_clear(F1);
+	mpz_clear(F0ij);
+	mpz_poly_clear(F0i);
+	mpz_poly_bivariate_clear(F0);
 	for (int i = 0; i < 20; i++) {
 		mpz_clear(hpoly[i]);
 		mpz_clear(gpoly[i]);
