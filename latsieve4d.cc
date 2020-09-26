@@ -39,7 +39,7 @@ struct keyval {
 __int128 MASK64;
 
 int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q,
-		int l, int ll, int* allp, int nump, int* s, int* S, int* num_Smodp,
+		int64_t rl, int64_t Rll, int* allp, int nump, int* s, int* S, int* num_Smodp,
 		keyval* M, int Mlen, int* B);
 void histogram(keyval*M, uint8_t* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
@@ -93,7 +93,7 @@ int main(int argc, char** argv)
 	for (int i = 0; i < argc; i++) cout << argv[i] << " ";
 	cout << endl << flush;
 
-	bool verbose = false; verbose = true;
+	bool verbose = false;
 		
 	if (verbose) cout << endl << "Reading input polynomial in file " << argv[1] << "..." << flush;
 	//vector<mpz_class> fpoly;
@@ -233,9 +233,9 @@ int main(int argc, char** argv)
 	// set up constants
 	std::clock_t start; double timetaken = 0;
 	mpz_t r0; mpz_init(r0);
-	int* sieves0 = new int[degh * nump]();
+	int* sieves0 = new int[degfht * nump]();
 	int* sievep0 = new int[nump]();
-	int* sieves1 = new int[degh * nump]();
+	int* sieves1 = new int[degght * nump]();
 	int* sievep1 = new int[nump]();
 	int* sieveP0 = new int[nump]();
 	int* sieveP1 = new int[nump]();
@@ -281,7 +281,7 @@ int main(int argc, char** argv)
 		int j = 0;
 		while( ss.good() ) {
 			getline( ss, substr, ',' );
-			sieves0[i*degh + j++] = atoi(substr.c_str());
+			sieves0[i*degfht + j++] = atoi(substr.c_str());
 		}
 		//sievenum_s0modp[i] = j;  // commented out since same as sievenum_S0modp[i]
 	}
@@ -313,7 +313,7 @@ int main(int argc, char** argv)
 		int j = 0;
 		while( ss.good() ) {
 			getline( ss, substr, ',' );
-			sieves1[i*degh + j++] = atoi(substr.c_str());
+			sieves1[i*degght + j++] = atoi(substr.c_str());
 		}
 		//sievenum_s1modp[i] = j;  // commented out since same as sievenum_S1modp[i]
 	}
@@ -331,7 +331,7 @@ int main(int argc, char** argv)
 	int B1bits = B[0]; int B2bits = B[1]; int B3bits = B[2]; int B4bits = B[3];
 	int B1 = 1<<B1bits; int B2 = 1<<B2bits; int B3 = 1<<B3bits; int B4 = 1<<B4bits;
 	int Mlen = (B1*2*B2*2*B3*2*B4);	// require positive z coordinate
-	Mlen = (int)(3.3f * Mlen);	// upper bound on number of vectors in sieve box
+	Mlen = (int)(2.3f * Mlen);	// upper bound on number of vectors in sieve box
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
 	uint8_t* H = new uint8_t[Mlen];	// histogram
@@ -351,7 +351,6 @@ int main(int argc, char** argv)
 	int64_t* fhqt = new int64_t[degfht+1](); // careful, what if degght > degfht?
 	int64_t* h = new int64_t[degh+1]();
 	mpz_poly h0; mpz_poly_init(h0, degh);
-	for (int i = 0; i <= degh; i++) mpz_poly_setcoeff_si(h0, i, h[i]);
 	mpz_poly f0; mpz_poly f1; mpz_poly A;
 	mpz_poly_init(f0, degfht); mpz_poly_init(f1, degght); mpz_poly_init(A, 4);
 	mpz_poly_set_mpz(f0, fhtpoly, degfht);
@@ -379,6 +378,7 @@ int main(int argc, char** argv)
 	mpz_poly_bivariate Aq; mpz_poly_bivariate_init(Aq, 0);
 	mpz_poly Aq0; mpz_poly_init(Aq0, 0);
 	mpz_t res; mpz_init(res);
+	for (int i = 0; i <= degh; i++) mpz_poly_setcoeff(h0, i, hpoly[i]);
 
 	int64_t q = qmin;
 	while (q < qmax) {
@@ -391,8 +391,11 @@ int main(int argc, char** argv)
 		mpz_poly_bivariate* Fq;
 		mpz_t* fhtpolyside = fhtpoly;
 		int degfhqt = degfht;
+		int degghqt = degght;
 		Fq = &F0;
-		if (qside == 1) { fhtpolyside = ghtpoly; degfhqt = degght; Fq = &F1; }
+		if (qside == 1) {
+			fhtpolyside = ghtpoly; degfhqt = degght; degghqt = degfht; Fq = &F1;
+		}
 		for (int i = 0; i <= degfht; i++) fhqt[i] = mpz_mod_ui(r0, fhtpolyside[i], q);
 		int numl = polrootsmod(h, degh, r, q);
 		int numll = polrootsmod(fhqt, degfhqt, R, q);
@@ -417,7 +420,7 @@ int main(int argc, char** argv)
 			mpz_poly_eval_ui(res, Fqh_x, r[l]);
 			if (mpz_mod_ui(r0, res, q) == 0) { l = i; break; } 
 		}
-		m = latsieve4d(h, degh, fhqt, degfhqt, q, l, ll, sievep0, k0, sieves0, sieveS0, 
+		m = latsieve4d(h, degh, fhqt, degfhqt, q, r[l], R[ll], sievep0, k0, sieves0, sieveS0, 
 								sievenum_S0modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
@@ -449,7 +452,7 @@ int main(int argc, char** argv)
 		cout << "..." << endl << flush;
 		start = clock();
 		//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-		m = latsieve4d(h, degh, fhqt, degfhqt, q, l, ll, sievep1, k1, sieves1, sieveS1, 
+		m = latsieve4d(h, degh, fhqt, degghqt, q, r[l], R[ll], sievep1, k1, sieves1, sieveS1, 
 								sievenum_S1modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
@@ -491,14 +494,14 @@ int main(int argc, char** argv)
 				int y = ((rel[i] >> B1bits) % B2x2) - B2;
 				int z = ((rel[i] >> B1xB2x2bits) % B3x2) - B3;
 				int t = (rel[i] >> B1xB2x2xB3x2bits) - B4;
-				if (x != 0 || y != 0 || z != 0) {
+				if (x != 0 || y != 0 || z != 0 || t != 0) {
 					// compute [a,b,c,d]
-					int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
-					int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
-					int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
-					int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
-					if (R >= 100000 & R < 100030)
-						cout << rel[i] << ": " << a << "," << b << "," << c << "," << d << endl;
+					//int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
+					//int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
+					//int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
+					//int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
+					//if (R >= 100 & R < 130)
+					//	cout << rel[i] << ": " << a << "," << b << "," << c << "," << d << endl;
 					R++;
 				}
 			}
@@ -511,7 +514,7 @@ int main(int argc, char** argv)
 		stack<mpz_t*> QN; stack<int> Q; int algarr[3]; mpz_t* N;
 		start = clock();
 		R = 0;
-		if (verbose) cout << "Starting cofactorizaion..." << endl << flush;
+		if (verbose) cout << "Starting cofactorization..." << endl << flush;
 		for (int i = 0; i < rel.size()-1; i++)
 		{
 			if (rel[i] == rel[i+1] && rel[i] != 0) {
@@ -519,7 +522,7 @@ int main(int argc, char** argv)
 				int y = ((rel[i] >> B1bits) % B2x2) - B2;
 				int z = ((rel[i] >> B1xB2x2bits) % B3x2) - B3;
 				int t = (rel[i] >> B1xB2x2xB3x2bits) - B4;
-				if (x != 0 || y != 0 || z != 0) {
+				if (x != 0 || y != 0 || z != 0 || t != 0) {
 					// compute [a,b,c]
 					int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
 					int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
@@ -546,16 +549,18 @@ int main(int argc, char** argv)
 					mpz_poly_setcoeff_si(Aq0, 0, c);
 					mpz_poly_setcoeff_si(Aq0, 1, d);	// Aq0 = x - R[ll]
 					mpz_poly_bivariate_setcoeff(Aq, 1, Aq0);
+					// reset Fqh_x, which might need to go from e.g. deg 8 to deg 4
+					Fqh_x->deg = 0;
 					mpz_poly_bivariate_resultant_y(Fqh_x, F0, Aq);
 					mpz_poly_resultant(N0, Fqh_x, h0);
 					mpz_poly_bivariate_resultant_y(Fqh_x, F1, Aq);
 					mpz_poly_resultant(N1, Fqh_x, h0);
 					mpz_abs(N0, N0);
 					mpz_abs(N1, N1);
-					//cout << mpz_get_str(NULL, 10, N0) << endl << flush;
-					//cout << mpz_get_str(NULL, 10, N1) << endl << flush;
-					string str = to_string(a) + "," + to_string(b) + "," + to_string(c) + 
-						to_string(d) + ":";
+					//cout << mpz_get_str(NULL, 10, N0) << endl;
+					//cout << mpz_get_str(NULL, 10, N1) << endl;
+					string str = to_string(a) + "," + to_string(b) + "," + 
+						to_string(c) + "," + to_string(d) + ":";
 					
 					// trial division on side 0
 					int p = primes[0]; int k = 0; 
@@ -888,21 +893,12 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 
 
 int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q,
-		int l, int ll, int* allp, int nump, int* s, int* S, int* num_Smodp,
+		int64_t r, int64_t R, int* allp, int nump, int* s, int* S, int* num_Smodp,
 		keyval* M, int Mlen, int* B)
 {
 	int64_t L[16];
 	int64_t L2[16];
 	int64_t L3[16];
-	int64_t* r = new int64_t[degh]();
-	int64_t* R = new int64_t[degfh_t]();
-	int numl = polrootsmod(h, degh, r, q);
-	int numll = polrootsmod(fh_t, degfh_t, R, q);
-	mpz_poly Fh_x; mpz_poly_init(Fh_x, 0);
-	mpz_poly_bivariate Ap; mpz_poly_bivariate_init(Ap, 0);
-	mpz_poly Ap0; mpz_poly_init(Ap0, 0);
-	mpz_t res; mpz_init(res);
-	mpz_t r0; mpz_init(r0);
 	int B1bits = B[0];
 	int B2bits = B[1];
 	int B3bits = B[2];
@@ -919,7 +915,7 @@ int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q,
 	int B1xB2x2xB3x2bits = B1bits + B2bits + 1 + B3bits + 1;
 
 	// print (q,r) ideal
-	//cout << "special-q (" << q << "," << r[l] << ")" << endl;
+	//cout << "special-q (" << q << "," << rl << ")" << endl;
 
 	// compute modpinvq and modqinvp arrays
 	int64_t* modpinvq = new int64_t[nump];
@@ -931,8 +927,8 @@ int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q,
 		modqinvp[i] = modinv(p, q);
 	}
 
-	L[0]  = q; L[1]  = -r[l]; L[2]  = -R[ll]; L[3]  = 0;
-	L[4]  = 0; L[5]  = 1;     L[6]  = 0;      L[7]  = -R[ll];
+	L[0]  = q; L[1]  = -r; L[2]  = -R; L[3]  = 0;
+	L[4]  = 0; L[5]  = 1;     L[6]  = 0;      L[7]  = -R;
 	L[8]  = 0; L[9]  = 0;     L[10] = 1;      L[11] = 0;
 	L[12] = 0; L[13] = 0;     L[14] = 0;      L[15] = 1;
 
@@ -969,15 +965,15 @@ int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q,
 		//cout << p << "," << m << endl << flush;
 		int64_t n = p*q;
 		uint8_t logp = log2f(p);
-		__int128 Rll = mod(-R[ll], q);
-		__int128 rl = mod(-r[l], q);
+		__int128 Rll = mod(-R, q);
+		__int128 rl = mod(-r, q);
 		for (int k = 0; k < num_Smodp[i]; k++) {
-			__int128 Sk = mod(-S[k+i*degfh_t],p);
-			__int128 sk = mod(-s[k+i*degh],p);
-			int64_t t_ = q*( (sk * modpinvq[i]) % p ) + p*( (rl * modqinvp[i]) % q ); // CRT
-			if (t_ >= n) t_ -= n;
+			__int128 Sk = mod(-S[k+i*degfh_t], p);
+			__int128 sk = mod(-s[k+i*degfh_t], p);
 			int64_t T = q*( (Sk * modpinvq[i]) % p ) + p*( (Rll * modqinvp[i]) % q ); // CRT
 			if (T >= n) T -= n;
+			int64_t t_ = q*( (sk * modpinvq[i]) % p ) + p*( (rl * modqinvp[i]) % q ); // CRT
+			if (t_ >= n) t_ -= n;
 			L2[0]  = n; L2[1]  = t_; L2[2]  = T; L2[3]  = 0;
 			L2[4]  = 0; L2[5]  = 1;  L2[6]  = 0; L2[7]  = T;
 			L2[8]  = 0; L2[9]  = 0;  L2[10] = 1; L2[11] = 0;
@@ -1052,10 +1048,6 @@ int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q,
 										int id = x + ((y + B2) << B1bits) + ((z + B3) << B1xB2x2bits)
 										  + ((t + B4) << B1xB2x2xB3x2bits);
 										M[m++] = (keyval){ id, logp };
-										if (id == 140329463) {
-											cout << id << ": " << p << endl;
-											cout << x << "," << y << "," << z << "," << t << endl;
-										}
 										x += u1; y += u2; z += u3; t += u4;
 									}
 									// move by '1-transition' vector
@@ -1084,14 +1076,8 @@ int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q,
 	}
 
 	// clear memory
-	mpz_clear(r0);
-	mpz_clear(res);
-	mpz_poly_clear(Ap0);
-	mpz_poly_bivariate_clear(Ap);
-	mpz_poly_clear(Fh_x);
 	delete[] modqinvp;
 	delete[] modpinvq;
-	delete[] r;
 
 	return m;
 }
