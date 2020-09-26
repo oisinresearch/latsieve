@@ -38,9 +38,9 @@ struct keyval {
 
 __int128 MASK64;
 
-int latsieve4d(mpz_poly_bivariate F, int64_t* h, int degh, int64_t* fh_t, int degfh_t,
-		int64_t q, int l, int ll, int* allp, int nump, int* s, int* S, int* num_smodp,
-		int* num_Smodp, keyval* M, int Mlen, int* B);
+int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q,
+		int l, int ll, int* allp, int nump, int* s, int* S, int* num_Smodp,
+		keyval* M, int Mlen, int* B);
 void histogram(keyval*M, uint8_t* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
 void csort(keyval* M, keyval* L, int* H, int len);
@@ -241,8 +241,8 @@ int main(int argc, char** argv)
 	int* sieveP1 = new int[nump]();
 	int* sieveS0 = new int[degfht * nump]();
 	int* sieveS1 = new int[degght * nump]();
-	int* sievenum_s0modp = new int[nump]();
-	int* sievenum_s1modp = new int[nump]();
+	//int* sievenum_s0modp = new int[nump]();
+	//int* sievenum_s1modp = new int[nump]();
 	int* sievenum_S0modp = new int[nump]();
 	int* sievenum_S1modp = new int[nump]();
 	// load factor base
@@ -283,7 +283,7 @@ int main(int argc, char** argv)
 			getline( ss, substr, ',' );
 			sieves0[i*degh + j++] = atoi(substr.c_str());
 		}
-		sievenum_s0modp[i] = j;
+		//sievenum_s0modp[i] = j;  // commented out since same as sievenum_S0modp[i]
 	}
 	// read k1
 	getline(fbfile, line);
@@ -315,7 +315,7 @@ int main(int argc, char** argv)
 			getline( ss, substr, ',' );
 			sieves1[i*degh + j++] = atoi(substr.c_str());
 		}
-		sievenum_s1modp[i] = j;
+		//sievenum_s1modp[i] = j;  // commented out since same as sievenum_S1modp[i]
 	}
 	timetaken += ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl << flush;
@@ -417,8 +417,8 @@ int main(int argc, char** argv)
 			mpz_poly_eval_ui(res, Fqh_x, r[l]);
 			if (mpz_mod_ui(r0, res, q) == 0) { l = i; break; } 
 		}
-		m = latsieve4d(F0, h, degh, fhqt, degfhqt, q, l, ll, sievep0, k0, sieves0, sieveS0, 
-								sievenum_s0modp, sievenum_S0modp, M, Mlen, B);
+		m = latsieve4d(h, degh, fhqt, degfhqt, q, l, ll, sievep0, k0, sieves0, sieveS0, 
+								sievenum_S0modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 		cout << "# Size of lattice point list is " << m << "." << endl << flush;
@@ -449,8 +449,8 @@ int main(int argc, char** argv)
 		cout << "..." << endl << flush;
 		start = clock();
 		//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-		m = latsieve4d(F1, h, degh, fhqt, degfhqt, q, l, ll, sievep1, k1, sieves1, sieveS1, 
-								sievenum_s1modp, sievenum_S1modp, M, Mlen, B);
+		m = latsieve4d(h, degh, fhqt, degfhqt, q, l, ll, sievep1, k1, sieves1, sieveS1, 
+								sievenum_S1modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 		cout << "# Size of lattice point list is " << m << "." << endl << flush;
@@ -791,8 +791,8 @@ int main(int argc, char** argv)
 	delete[] sievenum_S0modp;
 	delete[] sieveP0;
 	delete[] sieveS0;
-	delete[] sievenum_s1modp;
-	delete[] sievenum_s0modp;
+	//delete[] sievenum_s1modp;
+	//delete[] sievenum_s0modp;
 	delete[] sievep1;
 	delete[] sieves1;
 	delete[] sievep0;
@@ -887,9 +887,9 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 }
 
 
-int latsieve4d(mpz_poly_bivariate F, int64_t* h, int degh, int64_t* fh_t, int degfh_t,
-		int64_t q, int l, int ll, int* allp, int nump, int* s, int* S, int* num_smodp,
-		int* num_Smodp, keyval* M, int Mlen, int* B)
+int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q,
+		int l, int ll, int* allp, int nump, int* s, int* S, int* num_Smodp,
+		keyval* M, int Mlen, int* B)
 {
 	int64_t L[16];
 	int64_t L2[16];
@@ -971,122 +971,112 @@ int latsieve4d(mpz_poly_bivariate F, int64_t* h, int degh, int64_t* fh_t, int de
 		uint8_t logp = log2f(p);
 		__int128 Rll = mod(-R[ll], q);
 		__int128 rl = mod(-r[l], q);
-		for (int K = 0; K < num_Smodp[i]; K++) {
-			__int128 SK = mod(-S[K+i*degfh_t],p);
-			for (int k = 0; k < num_smodp[i]; k++) {
-				__int128 sk = mod(-s[k+i*degh],p);
-				// determine if sk is a valid root in the tower
-				mpz_poly_setcoeff_si(Ap0, 0, -(p-SK));
-				mpz_poly_bivariate_setcoeff(Ap, 0, Ap0);
-				mpz_poly_setcoeff_ui(Ap0, 0, 1);	// Aq = x - SK
-				mpz_poly_bivariate_setcoeff(Ap, 1, Ap0);
-				mpz_poly_bivariate_resultant_y(Fh_x, F, Ap);
-				mpz_poly_eval_ui(res, Fh_x, p-sk);
-				if (mpz_mod_ui(r0, res, p) != 0) continue; // is s[k] valid?
-				int64_t t_ = q*( (sk * modpinvq[i]) % p ) + p*( (rl * modqinvp[i]) % q ); // CRT
-				if (t_ >= n) t_ -= n;
-				int64_t T = q*( (SK * modpinvq[i]) % p ) + p*( (Rll * modqinvp[i]) % q ); // CRT
-				if (T >= n) T -= n;
-				L2[0]  = n; L2[1]  = t_; L2[2]  = T; L2[3]  = 0;
-				L2[4]  = 0; L2[5]  = 1;  L2[6]  = 0; L2[7]  = T;
-				L2[8]  = 0; L2[9]  = 0;  L2[10] = 1; L2[11] = 0;
-				L2[12] = 0; L2[13] = 0;  L2[14] = 0; L2[15] = 1;
-				int64L2(L2,4);	// LLL reduce L, time log(n)^2
-				mat4x4prod(qLinv, L2, L3);	// L3 =  qLinv*L2
-				for (int ii = 0; ii < 16; ii++) L3[ii] /= q;
-				int64L2(L3,4);
-				int u1 = L3[0]; int u2 = L3[4]; int u3 = L3[8];  int u4 = L3[12];
-				int v1 = L3[1]; int v2 = L3[5]; int v3 = L3[9];  int v4 = L3[13];
-				int w1 = L3[2]; int w2 = L3[6]; int w3 = L3[10]; int w4 = L3[14];
-				int t1 = L3[3]; int t2 = L3[7]; int t3 = L3[11]; int t4 = L3[15];
+		for (int k = 0; k < num_Smodp[i]; k++) {
+			__int128 Sk = mod(-S[k+i*degfh_t],p);
+			__int128 sk = mod(-s[k+i*degh],p);
+			int64_t t_ = q*( (sk * modpinvq[i]) % p ) + p*( (rl * modqinvp[i]) % q ); // CRT
+			if (t_ >= n) t_ -= n;
+			int64_t T = q*( (Sk * modpinvq[i]) % p ) + p*( (Rll * modqinvp[i]) % q ); // CRT
+			if (T >= n) T -= n;
+			L2[0]  = n; L2[1]  = t_; L2[2]  = T; L2[3]  = 0;
+			L2[4]  = 0; L2[5]  = 1;  L2[6]  = 0; L2[7]  = T;
+			L2[8]  = 0; L2[9]  = 0;  L2[10] = 1; L2[11] = 0;
+			L2[12] = 0; L2[13] = 0;  L2[14] = 0; L2[15] = 1;
+			int64L2(L2,4);	// LLL reduce L, time log(n)^2
+			mat4x4prod(qLinv, L2, L3);	// L3 =  qLinv*L2
+			for (int ii = 0; ii < 16; ii++) L3[ii] /= q;
+			int64L2(L3,4);
+			int u1 = L3[0]; int u2 = L3[4]; int u3 = L3[8];  int u4 = L3[12];
+			int v1 = L3[1]; int v2 = L3[5]; int v3 = L3[9];  int v4 = L3[13];
+			int w1 = L3[2]; int w2 = L3[6]; int w3 = L3[10]; int w4 = L3[14];
+			int t1 = L3[3]; int t2 = L3[7]; int t3 = L3[11]; int t4 = L3[15];
 
-				// compute normal (cross product)
-				int nx = (-w4*v3 + w3*v4)*u2 + ( w4*v2 - w2*v4)*u3 + (-w3*v2 + w2*v3)*u4;
-				int ny = ( w4*v3 - w3*v4)*u1 + (-w4*v1 + w1*v4)*u3 + ( w3*v1 - w1*v3)*u4;
-				int nz = (-w4*v2 + w2*v4)*u1 + ( w4*v1 - w1*v4)*u2 + (-w2*v1 + w1*v2)*u4;
-				int nt = ( w3*v2 - w2*v3)*u1 + (-w3*v1 + w1*v3)*u2 + ( w2*v1 - w1*v2)*u3;
+			// compute normal (cross product)
+			int nx = (-w4*v3 + w3*v4)*u2 + ( w4*v2 - w2*v4)*u3 + (-w3*v2 + w2*v3)*u4;
+			int ny = ( w4*v3 - w3*v4)*u1 + (-w4*v1 + w1*v4)*u3 + ( w3*v1 - w1*v3)*u4;
+			int nz = (-w4*v2 + w2*v4)*u1 + ( w4*v1 - w1*v4)*u2 + (-w2*v1 + w1*v2)*u4;
+			int nt = ( w3*v2 - w2*v3)*u1 + (-w3*v1 + w1*v3)*u2 + ( w2*v1 - w1*v2)*u3;
 
-				// enumerate lattice vectors (x,y,z,t) in box [0,B[x[-B,B[x[-B,B[x[-B,B[
-				int x = 0; int y = 0; int z = 0; int t = 0;
-				while (spaceintersectsbox4d(nx, ny, nz, nt, x-t1, y-t2, z-t3, t-t4, B1, B2, B3, B4)) {
-					x -= t1; y -= t2; z -= t3; t -= t4;
-				}
-				int ts1 = x; int ts2 = y; int ts3 = z; int ts4 = t;
-				while (spaceintersectsbox4d(nx, ny, nz, nt, x, y, z, t, B1, B2, B3, B4)) { 
-					int j1, j2, j3, j4, jmin;
-					// pin vector to start of row
-					int w1B = w1 < 0 ? B1max : 0; int w2B = w2 < 0 ? B2max : -B2;
-					int w3B = w3 < 0 ? B3max : -B3; int w4B = w4 < 0 ? B4max : -B4;
-					j1 = w1 == 0 ? -1 : (x - w1B) / w1;
-					j2 = w2 == 0 ? -1 : (y - w2B) / w2;
-					j3 = w3 == 0 ? -1 : (z - w3B) / w3;
-					j4 = w4 == 0 ? -1 : (t - w4B) / w4;
-					jmin = minnonneg4d(j1, j2, j3, j4);
-					x -= jmin*w1; y -= jmin*w2; z -= jmin*w3; t -= jmin*w4;
-					int ws1 = x; int ws2 = y; int ws3 = z; int ws4 = t;
-					bool inspace = true;
-					while (inspace) {
-						if (x >= 0 && x < B1 && y >= -B2 && y < B2
-							  && z >= -B3 && z < B3 && t >= -B4 && t < B4) {
-							int a = 0; int b = 0;
-							getab4d(u1, u2, u3, u4, v1, v2, v3, v4, x, y, z, t, B1, B2, B3, B4, &a, &b);
-							x += a*u1 + b*v1;
-							y += a*u2 + b*v2;
-							z += a*u3 + b*v3;
-							t += a*u4 + b*v4;
-							int s1 = x; int s2 = y; int s3 = z; int s4 = t;
-							// move 'forward' (dir == -1) or 'backward' (dir == 1) in plane
-							for (int dir = -1; dir <= 1; dir += 2) {
-								bool inplane = true;
-								while (inplane) {
-									// pVin vector to start of row
-									int u1B = u1 < 0 ? B1max : 0; int u2B = u2 < 0 ? B2max : -B2;
-									int u3B = u3 < 0 ? B3max : -B3; int u4B = u4 < 0 ? B4max : -B4;
-									j1 = u1 == 0 ? -1 : (x - u1B) / u1;
-									j2 = u2 == 0 ? -1 : (y - u2B) / u2;
-									j3 = u3 == 0 ? -1 : (z - u3B) / u3;
-									j4 = u4 == 0 ? -1 : (t - u4B) / u4;
+			// enumerate lattice vectors (x,y,z,t) in box [0,B[x[-B,B[x[-B,B[x[-B,B[
+			int x = 0; int y = 0; int z = 0; int t = 0;
+			while (spaceintersectsbox4d(nx, ny, nz, nt, x-t1, y-t2, z-t3, t-t4, B1, B2, B3, B4)) {
+				x -= t1; y -= t2; z -= t3; t -= t4;
+			}
+			int ts1 = x; int ts2 = y; int ts3 = z; int ts4 = t;
+			while (spaceintersectsbox4d(nx, ny, nz, nt, x, y, z, t, B1, B2, B3, B4)) { 
+				int j1, j2, j3, j4, jmin;
+				// pin vector to start of row
+				int w1B = w1 < 0 ? B1max : 0; int w2B = w2 < 0 ? B2max : -B2;
+				int w3B = w3 < 0 ? B3max : -B3; int w4B = w4 < 0 ? B4max : -B4;
+				j1 = w1 == 0 ? -1 : (x - w1B) / w1;
+				j2 = w2 == 0 ? -1 : (y - w2B) / w2;
+				j3 = w3 == 0 ? -1 : (z - w3B) / w3;
+				j4 = w4 == 0 ? -1 : (t - w4B) / w4;
+				jmin = minnonneg4d(j1, j2, j3, j4);
+				x -= jmin*w1; y -= jmin*w2; z -= jmin*w3; t -= jmin*w4;
+				int ws1 = x; int ws2 = y; int ws3 = z; int ws4 = t;
+				bool inspace = true;
+				while (inspace) {
+					if (x >= 0 && x < B1 && y >= -B2 && y < B2
+						  && z >= -B3 && z < B3 && t >= -B4 && t < B4) {
+						int a = 0; int b = 0;
+						getab4d(u1, u2, u3, u4, v1, v2, v3, v4, x, y, z, t, B1, B2, B3, B4, &a, &b);
+						x += a*u1 + b*v1;
+						y += a*u2 + b*v2;
+						z += a*u3 + b*v3;
+						t += a*u4 + b*v4;
+						int s1 = x; int s2 = y; int s3 = z; int s4 = t;
+						// move 'forward' (dir == -1) or 'backward' (dir == 1) in plane
+						for (int dir = -1; dir <= 1; dir += 2) {
+							bool inplane = true;
+							while (inplane) {
+								// pVin vector to start of row
+								int u1B = u1 < 0 ? B1max : 0; int u2B = u2 < 0 ? B2max : -B2;
+								int u3B = u3 < 0 ? B3max : -B3; int u4B = u4 < 0 ? B4max : -B4;
+								j1 = u1 == 0 ? -1 : (x - u1B) / u1;
+								j2 = u2 == 0 ? -1 : (y - u2B) / u2;
+								j3 = u3 == 0 ? -1 : (z - u3B) / u3;
+								j4 = u4 == 0 ? -1 : (t - u4B) / u4;
+								jmin = minnonneg4d(j1, j2, j3, j4);
+								x -= jmin*u1; y -= jmin*u2; z -= jmin*u3; t -= jmin*u4;
+								if (x >= 0 && x < B1 && y >= -B2 && y < B2
+									  && z >= -B3 && z < B3 && t >= -B4 && t < B4) {
+									int u1B = u1 < 0 ? 0 : B1max; int u2B = u2 < 0 ? -B2 : B2max;
+									int u3B = u3 < 0 ? -B3 : B3max; int u4B = u4 < 0 ? -B4 : B4max;
+									j1 = u1 == 0 ? -1 : (u1B - x) / u1;
+									j2 = u2 == 0 ? -1 : (u2B - y) / u2;
+									j3 = u3 == 0 ? -1 : (u3B - z) / u3;
+									j4 = u4 == 0 ? -1 : (u4B - t) / u4;
 									jmin = minnonneg4d(j1, j2, j3, j4);
-									x -= jmin*u1; y -= jmin*u2; z -= jmin*u3; t -= jmin*u4;
-									if (x >= 0 && x < B1 && y >= -B2 && y < B2
-										  && z >= -B3 && z < B3 && t >= -B4 && t < B4) {
-										int u1B = u1 < 0 ? 0 : B1max; int u2B = u2 < 0 ? -B2 : B2max;
-										int u3B = u3 < 0 ? -B3 : B3max; int u4B = u4 < 0 ? -B4 : B4max;
-										j1 = u1 == 0 ? -1 : (u1B - x) / u1;
-										j2 = u2 == 0 ? -1 : (u2B - y) / u2;
-										j3 = u3 == 0 ? -1 : (u3B - z) / u3;
-										j4 = u4 == 0 ? -1 : (u4B - t) / u4;
-										jmin = minnonneg4d(j1, j2, j3, j4);
-										for (int j = 0; j <= jmin; j++) {
-											int id = x + ((y + B2) << B1bits) + ((z + B3) << B1xB2x2bits)
-											  + ((t + B4) << B1xB2x2xB3x2bits);
-											M[m++] = (keyval){ id, logp };
-											if (id == 140329463) {
-												cout << id << ": " << p << endl;
-												cout << x << "," << y << "," << z << "," << t << endl;
-											}
-											x += u1; y += u2; z += u3; t += u4;
+									for (int j = 0; j <= jmin; j++) {
+										int id = x + ((y + B2) << B1bits) + ((z + B3) << B1xB2x2bits)
+										  + ((t + B4) << B1xB2x2xB3x2bits);
+										M[m++] = (keyval){ id, logp };
+										if (id == 140329463) {
+											cout << id << ": " << p << endl;
+											cout << x << "," << y << "," << z << "," << t << endl;
 										}
-										// move by '1-transition' vector
-										if (dir == -1) { x += v1; y += v2; z += v3; t += v4; }
-										else		   { x -= v1; y -= v2; z -= v3; t -= v4; }
+										x += u1; y += u2; z += u3; t += u4;
 									}
-									else {
-										inplane = false;	
-									}
+									// move by '1-transition' vector
+									if (dir == -1) { x += v1; y += v2; z += v3; t += v4; }
+									else		   { x -= v1; y -= v2; z -= v3; t -= v4; }
 								}
-								x = s1 - v1; y = s2 - v2; z = s3 - v3; t = s4 - v4;
+								else {
+									inplane = false;	
+								}
 							}
-							// advance to next w grid plane
-							ws1 += w1; ws2 += w2; ws3 += w3; ws4 += w4; x = ws1; y = ws2; z = ws3; t = ws4;
+							x = s1 - v1; y = s2 - v2; z = s3 - v3; t = s4 - v4;
 						}
-						else {
-							inspace = false;
-						}
+						// advance to next w grid plane
+						ws1 += w1; ws2 += w2; ws3 += w3; ws4 += w4; x = ws1; y = ws2; z = ws3; t = ws4;
 					}
-					// advance to next t grid plane
-					ts1 += t1; ts2 += t2; ts3 += t3; ts4 += t4; x = ts1; y = ts2; z = ts3; t = ts4;
+					else {
+						inspace = false;
+					}
 				}
+				// advance to next t grid plane
+				ts1 += t1; ts2 += t2; ts3 += t3; ts4 += t4; x = ts1; y = ts2; z = ts3; t = ts4;
 			}
 		}
 		// advance to next p
