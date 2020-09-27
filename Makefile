@@ -16,3 +16,23 @@ all:
 	g++ mpz_poly.cpp L2lu64.cc factorsmall.cc intpoly.cc cflat.cc -o cflat -lgmp -lgmpxx -std=c++11 -fopenmp -O3
 	g++ mpz_poly.cpp mpz_poly_bivariate.c L2lu64.cc factorsmall.cc intpoly.cc latsieve4d.cc -o latsieve4d -lgmp -lgmpxx -std=c++11 -fopenmp -O3
 	g++ -o makefbtnfs -lgmp -lgmpxx makefbtnfs.cc mpz_poly_bivariate.c intpoly.cc mpz_poly.cpp factorsmall.cc -std=c++11 -fopenmp -O3
+
+clean:
+	rm -f cflat
+	rm -f deduce
+	rm -f deduce_full
+	rm -f deduce_one_side
+	rm -f descend
+	rm -f encode3d
+	rm -f galoisexpand
+	rm -f latsieve2d
+	rm -f latsieve3d
+	rm -f latsieve3dQ
+	rm -f latsieve4d
+	rm -f makefb
+	rm -f makefbtnfs
+	rm -f polroots
+	rm -f presort
+	rm -f rareoutliers
+	rm -f rootsofunity
+	rm -f rotate_full
