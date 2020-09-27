@@ -1026,7 +1026,7 @@ int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q,
 						for (int dir = -1; dir <= 1; dir += 2) {
 							bool inplane = true;
 							while (inplane) {
-								// pVin vector to start of row
+								// pin vector to start of row
 								int u1B = u1 < 0 ? B1max : 0; int u2B = u2 < 0 ? B2max : -B2;
 								int u3B = u3 < 0 ? B3max : -B3; int u4B = u4 < 0 ? B4max : -B4;
 								j1 = u1 == 0 ? -1 : (x - u1B) / u1;
