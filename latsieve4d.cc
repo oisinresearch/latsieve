@@ -347,12 +347,12 @@ int main(int argc, char** argv)
 	int64_t qmin; int64_t qmax; mpz_t qmpz; mpz_init(qmpz);
 	mpz_t* pi = new mpz_t[8]; for (int i = 0; i < 8; i++) mpz_init(pi[i]);
 	int64_t* r = new int64_t[degh]();
-	int64_t* R = new int64_t[degfht]();
-	int64_t* fhqt = new int64_t[degfht+1](); // careful, what if degght > degfht?
+	int64_t* R = new int64_t[(degght>degfht?degght:degfht)]();
+	int64_t* fhqt = new int64_t[(degght>degfht?degght:degfht)+1](); // careful, what if degght > degfht?
 	int64_t* h = new int64_t[degh+1]();
 	mpz_poly h0; mpz_poly_init(h0, degh);
-	mpz_poly f0; mpz_poly f1; mpz_poly A;
-	mpz_poly_init(f0, degfht); mpz_poly_init(f1, degght); mpz_poly_init(A, 4);
+	mpz_poly f0; mpz_poly f1;
+	mpz_poly_init(f0, degfht); mpz_poly_init(f1, degght);
 	mpz_poly_set_mpz(f0, fhtpoly, degfht);
 	mpz_poly_set_mpz(f1, ghtpoly, degght);
 	mpz_t N0; mpz_t N1;
@@ -372,7 +372,7 @@ int main(int argc, char** argv)
 	int cofacS = 1000;
 	if (argc >= 14) cofacS = atoi(argv[13]);
 	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, primes, 669);	// max S = 5000
-	char* str2 = (char*)malloc(20*sizeof(char));
+	char* str2 = (char*)malloc(120*sizeof(char));
 	int qside = atoi(argv[14]);
 	mpz_poly Fqh_x; mpz_poly_init(Fqh_x, 0);
 	mpz_poly_bivariate Aq; mpz_poly_bivariate_init(Aq, 0);
@@ -396,7 +396,10 @@ int main(int argc, char** argv)
 		if (qside == 1) {
 			fhtpolyside = ghtpoly; degfhqt = degght; degghqt = degfht; Fq = &F1;
 		}
-		for (int i = 0; i <= degfht; i++) fhqt[i] = mpz_mod_ui(r0, fhtpolyside[i], q);
+		for (int i = 0; i <= degfht; i++) {
+			fhqt[i] = mpz_mod_ui(r0, fhtpolyside[i], q);
+			cout << fhqt[i] << endl;
+		}
 		int numl = polrootsmod(h, degh, r, q);
 		int numll = polrootsmod(fhqt, degfhqt, R, q);
 		if (numl == 0 || numll == 0 || q > qmax) continue;
@@ -409,17 +412,28 @@ int main(int argc, char** argv)
 		//int m = latsieve3d(fq, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
 		int m = 0;
 		// compute which r[l] are valid for given R[ll]
-		int ll = 0; int l = 0;
+		int ll = 0; int l = -1;
 		for (int i = 0; i < numl; i++) {
-			//Fqh_x->deg = 0; mpz_poly_setcoeff_ui(Fqh_x, 0, 0);
 			mpz_poly_setcoeff_si(Aq0, 0, -R[ll]);
 			mpz_poly_bivariate_setcoeff(Aq, 0, Aq0);
 			mpz_poly_setcoeff_ui(Aq0, 0, 1);	// Aq = x - R[ll]
 			mpz_poly_bivariate_setcoeff(Aq, 1, Aq0);
+			Fqh_x->deg = -1; mpz_poly_cleandeg(Fqh_x, 0);
+			//mpz_poly_setcoeff_ui(Fqh_x, 0, 0);
 			mpz_poly_bivariate_resultant_y(Fqh_x, *Fq, Aq);
-			mpz_poly_eval_ui(res, Fqh_x, r[l]);
-			if (mpz_mod_ui(r0, res, q) == 0) { l = i; break; } 
+			mpz_poly_eval_ui(res, Fqh_x, r[i]);
+			for (int j = 0; j <= Fqh_x->deg; j++) {
+				mpz_get_str(str2, 10, Fqh_x->coeff[j]);
+				cout << str2 << endl;
+			}
+			cout << "fh_t degree = " << Fqh_x->deg << endl;
+			int val = mpz_mod_ui(r0, res, q);
+			cout << "r[i] = " << r[i] << endl;
+			cout << "fh_t(r[i]) = " << val << " (mod q)" << endl;
+			if (val == 0) { l = i; break; } 
 		}
+		cout << r[l] << " " << l << endl;
+		cout << R[l] << " " << ll << endl;
 		m = latsieve4d(h, degh, fhqt, degfhqt, q, r[l], R[ll], sievep0, k0, sieves0, sieveS0, 
 								sievenum_S0modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
@@ -496,10 +510,12 @@ int main(int argc, char** argv)
 				int t = (rel[i] >> B1xB2x2xB3x2bits) - B4;
 				if (x != 0 || y != 0 || z != 0 || t != 0) {
 					// compute [a,b,c,d]
-					//int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
-					//int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
-					//int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
-					//int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
+					int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
+					int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
+					int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
+					int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
+					if (a==615&&b==4029&&c==520&&d==2258) {
+						cout << x << "," << y << "," << z << "," << t << endl; }
 					//if (R >= 100 & R < 130)
 					//	cout << rel[i] << ": " << a << "," << b << "," << c << "," << d << endl;
 					R++;
@@ -779,7 +795,7 @@ int main(int argc, char** argv)
 	mpz_clear(factor);
 	mpz_clear(lpb);
     mpz_clear(N1); mpz_clear(N0);
-    mpz_poly_clear(A); mpz_poly_clear(f1); mpz_poly_clear(f0);
+    mpz_poly_clear(f1); mpz_poly_clear(f0);
 	mpz_poly_clear(h0);
 	delete[] h;
 	delete[] fhqt;
