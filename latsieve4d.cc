@@ -372,7 +372,7 @@ int main(int argc, char** argv)
 	int cofacS = 1000;
 	if (argc >= 14) cofacS = atoi(argv[13]);
 	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, primes, 669);	// max S = 5000
-	char* str2 = (char*)malloc(120*sizeof(char));
+	char* str2 = (char*)malloc(20*sizeof(char));
 	int qside = atoi(argv[14]);
 	mpz_poly Fqh_x; mpz_poly_init(Fqh_x, 0);
 	mpz_poly_bivariate Aq; mpz_poly_bivariate_init(Aq, 0);
@@ -398,7 +398,6 @@ int main(int argc, char** argv)
 		}
 		for (int i = 0; i <= degfht; i++) {
 			fhqt[i] = mpz_mod_ui(r0, fhtpolyside[i], q);
-			cout << fhqt[i] << endl;
 		}
 		int numl = polrootsmod(h, degh, r, q);
 		int numll = polrootsmod(fhqt, degfhqt, R, q);
@@ -420,25 +419,11 @@ int main(int argc, char** argv)
 			mpz_poly_setcoeff_ui(Aq0, 0, 1);	// Aq = x - R[ll]
 			mpz_poly_bivariate_setcoeff(Aq, 1, Aq0);
 			Fqh_x->deg = -1; mpz_poly_cleandeg(Fqh_x, 0);
-			//mpz_poly_setcoeff_ui(Fqh_x, 0, 0);
-			cout << "Fq degree x = " << (*Fq)->deg_x << endl;
-			cout << "Fq degree y = " << (*Fq)->deg_y << endl;
-			cout << "Aq degree x = " << Aq->deg_x << endl;
-			cout << "Aq degree y = " << Aq->deg_y << endl;
 			mpz_poly_bivariate_resultant_y(Fqh_x, *Fq, Aq);
 			mpz_poly_eval_ui(res, Fqh_x, r[i]);
-			for (int j = 0; j <= Fqh_x->deg; j++) {
-				mpz_get_str(str2, 10, Fqh_x->coeff[j]);
-				cout << str2 << endl;
-			}
-			cout << "fh_t degree = " << Fqh_x->deg << endl;
 			int val = mpz_mod_ui(r0, res, q);
-			cout << "r[i] = " << r[i] << endl;
-			cout << "fh_t(r[i]) = " << val << " (mod q)" << endl;
 			if (val == 0) { l = i; break; } 
 		}
-		cout << r[l] << " " << l << endl;
-		cout << R[l] << " " << ll << endl;
 		m = latsieve4d(h, degh, fhqt, degfhqt, q, r[l], R[ll], sievep0, k0, sieves0, sieveS0, 
 								sievenum_S0modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
@@ -515,12 +500,10 @@ int main(int argc, char** argv)
 				int t = (rel[i] >> B1xB2x2xB3x2bits) - B4;
 				if (x != 0 || y != 0 || z != 0 || t != 0) {
 					// compute [a,b,c,d]
-					int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
-					int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
-					int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
-					int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
-					if (a==615&&b==4029&&c==520&&d==2258) {
-						cout << x << "," << y << "," << z << "," << t << endl; }
+					//int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
+					//int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
+					//int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
+					//int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
 					//if (R >= 100 & R < 130)
 					//	cout << rel[i] << ": " << a << "," << b << "," << c << "," << d << endl;
 					R++;
