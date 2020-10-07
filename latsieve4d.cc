@@ -414,12 +414,17 @@ int main(int argc, char** argv)
 		// compute which r[l] are valid for given R[ll]
 		int ll = 0; int l = -1;
 		for (int i = 0; i < numl; i++) {
+			Aq0->deg = -1; mpz_poly_cleandeg(Aq0, 0);
 			mpz_poly_setcoeff_si(Aq0, 0, -R[ll]);
 			mpz_poly_bivariate_setcoeff(Aq, 0, Aq0);
 			mpz_poly_setcoeff_ui(Aq0, 0, 1);	// Aq = x - R[ll]
 			mpz_poly_bivariate_setcoeff(Aq, 1, Aq0);
 			Fqh_x->deg = -1; mpz_poly_cleandeg(Fqh_x, 0);
 			//mpz_poly_setcoeff_ui(Fqh_x, 0, 0);
+			cout << "Fq degree x = " << (*Fq)->deg_x << endl;
+			cout << "Fq degree y = " << (*Fq)->deg_y << endl;
+			cout << "Aq degree x = " << Aq->deg_x << endl;
+			cout << "Aq degree y = " << Aq->deg_y << endl;
 			mpz_poly_bivariate_resultant_y(Fqh_x, *Fq, Aq);
 			mpz_poly_eval_ui(res, Fqh_x, r[i]);
 			for (int j = 0; j <= Fqh_x->deg; j++) {
@@ -566,7 +571,8 @@ int main(int argc, char** argv)
 					mpz_poly_setcoeff_si(Aq0, 1, d);	// Aq0 = x - R[ll]
 					mpz_poly_bivariate_setcoeff(Aq, 1, Aq0);
 					// reset Fqh_x, which might need to go from e.g. deg 8 to deg 4
-					Fqh_x->deg = 0;
+					//Fqh_x->deg = 0;
+					Fqh_x->deg = -1; mpz_poly_cleandeg(Fqh_x, 0);
 					mpz_poly_bivariate_resultant_y(Fqh_x, F0, Aq);
 					mpz_poly_resultant(N0, Fqh_x, h0);
 					mpz_poly_bivariate_resultant_y(Fqh_x, F1, Aq);
