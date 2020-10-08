@@ -37,3 +37,4 @@ clean:
 	rm -f rareoutliers
 	rm -f rootsofunity
 	rm -f rotate_full
+	rm -f galoisexpand4d
