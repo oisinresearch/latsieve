@@ -16,6 +16,7 @@ all:
 	g++ mpz_poly.cpp L2lu64.cc factorsmall.cc intpoly.cc cflat.cc -o cflat -lgmp -lgmpxx -std=c++11 -fopenmp -O3
 	g++ mpz_poly.cpp mpz_poly_bivariate.c L2lu64.cc factorsmall.cc intpoly.cc latsieve4d.cc -o latsieve4d -lgmp -lgmpxx -std=c++11 -fopenmp -O3
 	g++ -o makefbtnfs -lgmp -lgmpxx makefbtnfs.cc mpz_poly_bivariate.c intpoly.cc mpz_poly.cpp factorsmall.cc -std=c++11 -fopenmp -O3
+	g++ galoisexpand4d.cc mpz_poly_bivariate.c mpz_poly.cpp factorsmall.cc intpoly.cc -o galoisexpand4d -lgmp -lgmpxx -std=c++11 -O3
 
 clean:
 	rm -f cflat
