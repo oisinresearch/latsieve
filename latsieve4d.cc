@@ -38,9 +38,8 @@ struct keyval {
 
 __int128 MASK64;
 
-int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q,
-		int64_t rl, int64_t Rll, int* allp, int nump, int* s, int* S, int* num_Smodp,
-		keyval* M, int Mlen, int* B);
+int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t R,
+		int* allp, int nump, int* s, int* S, int* num_Smodp, keyval* M, int Mlen, int* B);
 void histogram(keyval*M, uint8_t* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
 void csort(keyval* M, keyval* L, int* H, int len);
@@ -91,7 +90,7 @@ int main(int argc, char** argv)
 
 	cout << "# ";
 	for (int i = 0; i < argc; i++) cout << argv[i] << " ";
-	cout << endl << flush;
+	cout << endl;
 
 	bool verbose = false;
 		
@@ -424,7 +423,7 @@ int main(int argc, char** argv)
 			int val = mpz_mod_ui(r0, res, q);
 			if (val == 0) { l = i; break; } 
 		}
-		m = latsieve4d(h, degh, fhqt, degfhqt, q, r[l], R[ll], sievep0, k0, sieves0, sieveS0, 
+		m = latsieve4d(h, degh, degfhqt, q, r[l], R[ll], sievep0, k0, sieves0, sieveS0, 
 								sievenum_S0modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
@@ -456,7 +455,7 @@ int main(int argc, char** argv)
 		cout << "..." << endl << flush;
 		start = clock();
 		//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-		m = latsieve4d(h, degh, fhqt, degghqt, q, r[l], R[ll], sievep1, k1, sieves1, sieveS1, 
+		m = latsieve4d(h, degh, degghqt, q, r[l], R[ll], sievep1, k1, sieves1, sieveS1, 
 								sievenum_S1modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
@@ -504,8 +503,9 @@ int main(int argc, char** argv)
 					//int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
 					//int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
 					//int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
-					//if (R >= 100 & R < 130)
+					//if (R >= 100 & R < 110)
 					//	cout << rel[i] << ": " << a << "," << b << "," << c << "," << d << endl;
+					//	cout << "(x,y,z,t): " << x << "," << y << "," << z << "," << t << endl;
 					R++;
 				}
 			}
@@ -897,9 +897,8 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 }
 
 
-int latsieve4d(int64_t* h, int degh, int64_t* fh_t, int degfh_t, int64_t q,
-		int64_t r, int64_t R, int* allp, int nump, int* s, int* S, int* num_Smodp,
-		keyval* M, int Mlen, int* B)
+int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t R,
+		int* allp, int nump, int* s, int* S, int* num_Smodp, keyval* M, int Mlen, int* B)
 {
 	int64_t L[16];
 	int64_t L2[16];
