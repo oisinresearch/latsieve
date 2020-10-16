@@ -225,17 +225,17 @@ int main(int argc, char** argv)
 		for (int64_t i = 0; i < nump; i++) {
 			int64_t p = primes[i];
 			for (int j = 0; j <= degfht; j++) fp[j] = mpz_mod_ui(rt, fpoly[j], p);
-			int degfp = degfht; while (fp[degfp] == 0 || degfp == 0) degfp--;
+			int degfp = degfht; while (fp[degfp] == 0 /*|| degfp == 0 wrong */) degfp--;
 			int numS0 = polrootsmod(fp, degfp, S0temp, p);
 			num_S0modp[i] = numS0;
 			for (int j = 0; j < numS0; j++) S0[i*degfht + j] = S0temp[j];
 			for (int j = 0; j <= degght; j++) gp[j] = mpz_mod_ui(rt, gpoly[j], p);
-			int deggp = degght; while (gp[deggp] == 0 || deggp == 0) deggp--;
+			int deggp = degght; while (gp[deggp] == 0 /*|| deggp == 0 wrong */) deggp--;
 			int numS1 = polrootsmod(gp, deggp, S1temp, p);
 			num_S1modp[i] = numS1;
 			for (int j = 0; j < numS1; j++) S1[i*degght + j] = S1temp[j];
 			for (int j = 0; j <= degh; j++) hp[j] = mpz_mod_ui(rt, hpoly[j], p);
-			int deghp = degh; while (hp[deghp] == 0 || deghp == 0) deghp--;
+			int deghp = degh; while (hp[deghp] == 0 /*|| deghp == 0 wrong */) deghp--;
 			int nums = polrootsmod(hp, deghp, stemp, p);
 			num_smodp[i] = nums;
 			for (int j = 0; j < nums; j++) s[i*degh + j] = stemp[j];
@@ -245,6 +245,7 @@ int main(int argc, char** argv)
 				mpz_poly_bivariate_setcoeff(Ap, 0, Ap0);
 				mpz_poly_setcoeff_ui(Ap0, 0, 1);	// Aq = x - SK
 				mpz_poly_bivariate_setcoeff(Ap, 1, Ap0);
+				Fh_x->deg = -1; mpz_poly_cleandeg(Fh_x, 0);	// reset Fh_x degree
 				mpz_poly_bivariate_resultant_y(Fh_x, F0, Ap);
 				for (int k = 0; k < nums; k++) {
 					mpz_poly_eval_ui(res, Fh_x, stemp[k]);
@@ -260,6 +261,7 @@ int main(int argc, char** argv)
 				mpz_poly_bivariate_setcoeff(Ap, 0, Ap0);
 				mpz_poly_setcoeff_ui(Ap0, 0, 1);	// Aq = x - SK
 				mpz_poly_bivariate_setcoeff(Ap, 1, Ap0);
+				Fh_x->deg = -1; mpz_poly_cleandeg(Fh_x, 0);	// reset Fh_x degree
 				mpz_poly_bivariate_resultant_y(Fh_x, F1, Ap);
 				for (int k = 0; k < nums; k++) {
 					mpz_poly_eval_ui(res, Fh_x, stemp[k]);
