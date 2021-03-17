@@ -120,8 +120,6 @@ int main(int argc, char** argv)
 			}				 
 		}
 
-		delete[] gp;
-		delete[] stemp1;
 		delete[] fp;
 		delete[] stemp0;
 		mpz_clear(rt);
