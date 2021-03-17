@@ -67,7 +67,7 @@ int main(int argc, char** argv)
 
 	//cout << (uint64_t)(MASK64) << " " << (uint64_t)(MASK64 >> 64) << endl;
 
-	if (argc != 13) {
+	if (argc != 11) {
 		cout << endl << "Usage: ./latsieve2dmono inputpoly fbbits factorbasefile B1 B2 qmin qmax th0 lpbbits cofmaxbits" << endl << endl;
 		return 0;
 	}
