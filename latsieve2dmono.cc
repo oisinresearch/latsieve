@@ -68,7 +68,7 @@ int main(int argc, char** argv)
 	//cout << (uint64_t)(MASK64) << " " << (uint64_t)(MASK64 >> 64) << endl;
 
 	if (argc != 13) {
-		cout << endl << "Usage: ./latsieve2dmono inputpoly fbbits factorbasefile B1 qmin qmax th0 lpbbits cofmaxbits" << endl << endl;
+		cout << endl << "Usage: ./latsieve2dmono inputpoly fbbits factorbasefile B1 B2 qmin qmax th0 lpbbits cofmaxbits" << endl << endl;
 		return 0;
 	}
 
@@ -157,11 +157,12 @@ int main(int argc, char** argv)
 
 	int64_t p0max = sievep0[k0-1];
 	
-	int B[1] = { 12 };
+	int B[2] = { 12, 12 };
 	if (argc >= 5) B[0] = atoi(argv[4]);
-	int B1bits = B[0];
-	int B1 = 1<<B1bits;
-	size_t Mlen = (B1);	// require positive x coordinate
+	if (argc >= 6) B[1] = atoi(argv[5]);
+	int B1bits = B[0]; int B2bits = B[1];
+	int B1 = 1<<B1bits; int B2 = 1<<B2bits;
+	size_t Mlen = (B1*2l*B2);	// require positive x coordinate
 	Mlen = 1500000000;
 	//Mlen = (size_t)(2.3f * Mlen);	// upper bound on number of vectors in sieve box
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
@@ -213,7 +214,7 @@ int main(int argc, char** argv)
 		
 		// sieve side 0
 		cout << "# Starting sieve on side 0";
-		if (qside == 0) cout << " for special-q " << q;
+		cout << " for special-q " << q;
 		cout << "..." << endl;
 		start = clock();
 		int m = latsieve2dmono(fq, degfside, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
