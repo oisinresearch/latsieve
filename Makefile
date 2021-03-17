@@ -18,6 +18,7 @@ all:
 	g++ -o makefbtnfs -lgmp -lgmpxx makefbtnfs.cc mpz_poly_bivariate.c intpoly.cc mpz_poly.cpp factorsmall.cc -std=c++11 -fopenmp -O3
 	g++ galoisexpand4d.cc mpz_poly_bivariate.c mpz_poly.cpp factorsmall.cc intpoly.cc -o galoisexpand4d -lgmp -lgmpxx -std=c++11 -O3
 	g++ encode4d.cc -o encode4d -O3
+	g++ -o makefbmono -lgmp -lgmpxx makefbmono.cc intpoly.cc mpz_poly.cpp factorsmall.cc -std=c++11 -fopenmp -O3
 
 clean:
 	rm -f cflat
