@@ -46,6 +46,7 @@ int main(int argc, char** argv)
 	char linebuffer[100];
 	ifstream file(argv[1]);
 	getline(file, line);	// first line contains number n to factor
+	getline(file, line);	// second line contains the skew
 	// read nonlinear poly
 	int degf = -1;
 	if (verbose) cout << endl << "Side 0 polynomial f0 (ascending coefficients)" << endl;

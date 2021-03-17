@@ -37,7 +37,7 @@ struct keyval {
 
 __int128 MASK64;
 
-int latsieve2dmono(int64_t* f, int degfq, int degfp, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
+int latsieve2dmono(int64_t skew, int64_t* f, int degfq, int degfp, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
 		 keyval* M, int Mlen, int* B);
 void histogram(keyval*M, uint8_t* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
@@ -89,6 +89,9 @@ int main(int argc, char** argv)
 	char linebuffer[100];
 	ifstream file(argv[1]);
 	getline(file, line);	// first line contains number n to factor
+	getline(file, line);	// second line contains the skew
+	line = line.substr(line.find_first_of(" ")+1);
+	int64_t skew = strtoll(line.c_str(), NULL, 10); 
 	// read nonlinear poly
 	int degf = -1;
 	if (verbose) cout << endl << "Side 0 polynomial f0 (ascending coefficients)" << endl;
@@ -217,7 +220,7 @@ int main(int argc, char** argv)
 		cout << " for special-q " << q;
 		cout << "..." << endl;
 		start = clock();
-		int m = latsieve2dmono(fq, degfside, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
+		int m = latsieve2dmono(skew, fq, degfside, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl;
 		cout << "# Size of lattice point list is " << m << "." << endl;
@@ -247,8 +250,9 @@ int main(int argc, char** argv)
 		numl = polrootsmod(fq, degfside, r, q);
 		int l = 0;
 		L[0] = q; L[1] = -r[l];
-		L[2] = 0; L[3] = 1;
+		L[2] = 0; L[3] = skew;
 		int64L2(L, 2);	// LLL reduce L, time log(q)^2
+		L[2] /= skew; L[3] /= skew;
 		
 		// print list of potential relations
 		int R = 0;
@@ -444,8 +448,8 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 }
 
 
-int latsieve2dmono(int64_t* f, int degfq, int degfp, int64_t q, int l, int* allp, int nump, 
-			int* s, int* num_smodp, keyval* M, int Mlen, int* B)
+int latsieve2dmono(int64_t skew, int64_t* f, int degfq, int degfp, int64_t q, int l, int* allp,
+			int nump, int* s, int* num_smodp, keyval* M, int Mlen, int* B)
 {
 	int64_t L[4];
 	int64_t L2[4];
@@ -473,9 +477,10 @@ int latsieve2dmono(int64_t* f, int degfq, int degfp, int64_t q, int l, int* allp
 	}
 
 	L[0] = q; L[1] = -r[l];
-	L[2] = 0; L[3] = 1;
+	L[2] = 0; L[3] = skew;
 
 	int64L2(L, 2);	// LLL reduce L, time log(q)^2
+	L[2] /= skew; L[3] /= skew;
 
 	// print special-q lattice
 	//cout << "special-q lattice [" << L[0] << "," << L[1] << "," << L[2] << ";";
@@ -503,8 +508,9 @@ int latsieve2dmono(int64_t* f, int degfq, int degfp, int64_t q, int l, int* allp
 			int64_t t = q*( (sk * modpinvq[i]) % p ) + p*( (rl * modqinvp[i]) % q ); // CRT
 			if (t >= n) t -= n;
 			L2[0] = n; L2[1] = t;
-			L2[2] = 0; L2[3] = 1;
+			L2[2] = 0; L2[3] = skew;
 			int64L2(L2,2);	// LLL reduce L, time log(n)^2
+			L2[2] /= skew; L2[3] /= skew;
 			mat2x2prod(qLinv, L2, L3);	// L3 =  qLinv*L2
             for (int ii = 0; ii < 4; ii++) L3[ii] /= q;
             int64L2(L3,2);
