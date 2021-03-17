@@ -321,7 +321,7 @@ int main(int argc, char** argv)
 							p = sievep0[++k];
 						}
 					}
-					if (mpz_fdiv_ui(N0, q) == 0 && qside == 0) {
+					if (mpz_fdiv_ui(N0, q) == 0) {
 						mpz_divexact_ui(N0, N0, q);
 						stream.str("");
 						stream << hex << q;
@@ -330,7 +330,7 @@ int main(int argc, char** argv)
 					bool isrel = true;
 					bool cofactor = true;
 					if (mpz_cmp_ui(N0, 1) == 0) { cofactor = false; }
-					str += (qside == 0 && p0max < q && cofactor ? "," : "");
+					str += (p0max < q && cofactor ? "," : "");
 					// check cofactor on side 0
 					if (cofactor) {
 						if (mpz_cmpabs_ui(N0, cofmax) > 0) { isrel = false; continue; }
