@@ -192,14 +192,14 @@ int main(int argc, char** argv)
 	stringstream stream;
 	mpz_t lpb; mpz_init(lpb);
 	mpz_t factor; mpz_init(factor); mpz_t p1; mpz_t p2; mpz_init(p1); mpz_init(p2); mpz_t t; mpz_init(t); 
-	if (argc >= 6) qmin = strtoll(argv[5], NULL, 10);	// atoi(argv[7]);
-	if (argc >= 7) qmax = strtoll(argv[6], NULL, 10);	// atoi(argv[8]);
+	if (argc >= 7) qmin = strtoll(argv[6], NULL, 10);	// atoi(argv[7]);
+	if (argc >= 8) qmax = strtoll(argv[7], NULL, 10);	// atoi(argv[8]);
 	uint8_t th0 = 70;
-	if (argc >= 8) th0 = atoi(argv[7]);
+	if (argc >= 9) th0 = atoi(argv[8]);
 	int lpbits = 29;
-	if (argc >= 9) lpbits = atoi(argv[8]);
+	if (argc >= 10) lpbits = atoi(argv[9]);
 	int cofmaxbits = 52;
-	if (argc >= 10) cofmaxbits = atoi(argv[9]);
+	if (argc >= 11) cofmaxbits = atoi(argv[10]);
 	int64_t cofmax = 1l << cofmaxbits;
 	//mpz_t S; mpz_init(S); GetlcmScalar(cofmax, S, primes, 669);	// max S = 5000
 	char* str2 = (char*)malloc(20*sizeof(char));
