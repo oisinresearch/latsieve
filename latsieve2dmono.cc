@@ -37,7 +37,7 @@ struct keyval {
 
 __int128 MASK64;
 
-int latsieve2d(int64_t* f, int degfq, int degfp, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
+int latsieve2dmono(int64_t* f, int degfq, int degfp, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
 		 keyval* M, int Mlen, int* B);
 void histogram(keyval*M, uint8_t* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
@@ -68,7 +68,7 @@ int main(int argc, char** argv)
 	//cout << (uint64_t)(MASK64) << " " << (uint64_t)(MASK64 >> 64) << endl;
 
 	if (argc != 13) {
-		cout << endl << "Usage: ./latsieve3d inputpoly fbbits factorbasefile B1 B2 qmin qmax th0 th1 lpbbits cofmaxbits qside" << endl << endl;
+		cout << endl << "Usage: ./latsieve2dmono inputpoly fbbits factorbasefile B1 qmin qmax th0 lpbbits cofmaxbits" << endl << endl;
 		return 0;
 	}
 
@@ -82,12 +82,8 @@ int main(int argc, char** argv)
 	//vector<mpz_class> fpoly;
 	//vector<mpz_class> gpoly;
 	mpz_t* fpoly = new mpz_t[20];	// max degree of 20.  Not the neatest
-	mpz_t* gpoly = new mpz_t[20];	// max degree of 20.  Not the neatest
-	mpz_t* hpoly = new mpz_t[20];	// max degree of 20.  Not the neatest
 	for (int i = 0; i < 20; i++) {
 		mpz_init(fpoly[i]);
-		mpz_init(gpoly[i]);
-		mpz_init(hpoly[i]);
 	}
 	string line;
 	char linebuffer[100];
@@ -104,22 +100,9 @@ int main(int argc, char** argv)
 		if (verbose) cout << line << endl;
 	}
 	//int degf = fpoly.size();
-	// read other poly
-	int degg = -1;
-	bool read = true;
-	if (verbose) cout << endl << "Side 1 polynomial f1: (ascending coefficients)" << endl;
-	while (read && line.substr(0,1) == "Y" ) {
-		line = line.substr(line.find_first_of(" ")+1);
-		//mpz_set_str(c, line.c_str(), 10);
-		mpz_set_str(gpoly[++degg], line.c_str(), 10);
-		//mpz_get_str(linebuffer, 10, gpoly[degg-1]);
-		if (verbose) cout << line << endl;
-		read = static_cast<bool>(getline(file, line));
-	}
-	//int degg = gpoly.size();
 	file.close();
 	//mpz_clear(c);
-	if (verbose) cout << endl << "Complete.  Degree f0 = " << degf << ", degree f1 = " << degg << "." << endl;
+	if (verbose) cout << endl << "Complete.  Degree f0 = " << degf << "." << endl;
 
 	if (verbose) cout << endl << "Starting sieve of Eratosthenes for small primes..." << endl;
 	int fbbits = 21;
@@ -143,9 +126,6 @@ int main(int argc, char** argv)
 	int* sieves0 = new int[degf * nump]();
 	int* sievep0 = new int[nump]();
 	int* sievenum_s0modp = new int[nump]();
-	int* sieves1 = new int[degg * nump]();
-	int* sievep1 = new int[nump]();
-	int* sievenum_s1modp = new int[nump]();
 	// load factor base
 	if (verbose) cout << endl << "Loading factor base..." << endl;
 	start = clock();
@@ -170,37 +150,18 @@ int main(int argc, char** argv)
 		}
 		sievenum_s0modp[i] = j;
 	}
-	// read k1
-	getline(fbfile, line);
-	int k1 = atoi(line.c_str());
-	for (int i = 0; i < k1; i++) {
-		getline(fbfile, line);
-		stringstream ss(line);
-		string substr;
-		getline(ss, substr, ',');
-		sievep1[i] = atoi(substr.c_str());
-		int j = 0;
-		while( ss.good() ) {
-			getline( ss, substr, ',' );
-			sieves1[i*degg + j++] = atoi(substr.c_str());
-		}
-		sievenum_s1modp[i] = j;
-	}
 	timetaken += ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl;
 	if (verbose) cout << "There are " << k0 << " factor base primes on side 0." << endl;
-	if (verbose) cout << "There are " << k1 << " factor base primes on side 1." << endl;
 	fbfile.close();
 
 	int64_t p0max = sievep0[k0-1];
-	int64_t p1max = sievep1[k1-1];
 	
-	int B[2] = { 12, 12 };
+	int B[1] = { 12 };
 	if (argc >= 5) B[0] = atoi(argv[4]);
-	if (argc >= 6) B[1] = atoi(argv[5]);
-	int B1bits = B[0]; int B2bits = B[1];
-	int B1 = 1<<B1bits; int B2 = 1<<B2bits;
-	size_t Mlen = (B1*2l*B2);	// require positive x coordinate
+	int B1bits = B[0];
+	int B1 = 1<<B1bits;
+	size_t Mlen = (B1);	// require positive x coordinate
 	Mlen = 1500000000;
 	//Mlen = (size_t)(2.3f * Mlen);	// upper bound on number of vectors in sieve box
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
@@ -219,29 +180,25 @@ int main(int argc, char** argv)
 	mpz_t* pi = new mpz_t[8]; for (int i = 0; i < 8; i++) mpz_init(pi[i]);
 	int64_t* r = new int64_t[degf]();
 	int64_t* fq = new int64_t[degf+1]();
-	mpz_poly f0; mpz_poly f1; mpz_poly A;
-	mpz_poly_init(f0, degf); mpz_poly_init(f1, degg); mpz_poly_init(A, 3);
+	mpz_poly f0; mpz_poly A;
+	mpz_poly_init(f0, degf); mpz_poly_init(A, 3);
 	mpz_poly_set_mpz(f0, fpoly, degf);
-	mpz_poly_set_mpz(f1, gpoly, degg);
-	mpz_t N0; mpz_t N1;
-	mpz_init(N0); mpz_init(N1);
+	mpz_t N0;
+	mpz_init(N0);
 	stringstream stream;
 	mpz_t lpb; mpz_init(lpb);
 	mpz_t factor; mpz_init(factor); mpz_t p1; mpz_t p2; mpz_init(p1); mpz_init(p2); mpz_t t; mpz_init(t); 
-	if (argc >= 7) qmin = strtoll(argv[6], NULL, 10);	// atoi(argv[7]);
-	if (argc >= 8) qmax = strtoll(argv[7], NULL, 10);	// atoi(argv[8]);
+	if (argc >= 6) qmin = strtoll(argv[5], NULL, 10);	// atoi(argv[7]);
+	if (argc >= 7) qmax = strtoll(argv[6], NULL, 10);	// atoi(argv[8]);
 	uint8_t th0 = 70;
-	if (argc >= 9) th0 = atoi(argv[8]);
-	uint8_t th1 = 70;
-	if (argc >= 10) th1 = atoi(argv[9]);
+	if (argc >= 8) th0 = atoi(argv[7]);
 	int lpbits = 29;
-	if (argc >= 11) lpbits = atoi(argv[10]);
+	if (argc >= 9) lpbits = atoi(argv[8]);
 	int cofmaxbits = 52;
-	if (argc >= 12) cofmaxbits = atoi(argv[11]);
+	if (argc >= 10) cofmaxbits = atoi(argv[9]);
 	int64_t cofmax = 1l << cofmaxbits;
 	//mpz_t S; mpz_init(S); GetlcmScalar(cofmax, S, primes, 669);	// max S = 5000
 	char* str2 = (char*)malloc(20*sizeof(char));
-	int qside = atoi(argv[12]);
 
 	int64_t q = qmin;
 	while (q < qmax) {
@@ -250,7 +207,6 @@ int main(int argc, char** argv)
 		q = mpz_get_ui(qmpz);
 		mpz_t* fpolyside = fpoly;
 		int degfside = degf;
-		if (qside == 1) { fpolyside = gpoly; degfside = degg; }
 		for (int i = 0; i <= degfside; i++) fq[i] = mpz_mod_ui(r0, fpolyside[i], q);
 		int numl = polrootsmod(fq, degfside, r, q);
 		if (numl == 0 || q > qmax) continue;
@@ -260,7 +216,7 @@ int main(int argc, char** argv)
 		if (qside == 0) cout << " for special-q " << q;
 		cout << "..." << endl;
 		start = clock();
-		int m = latsieve2d(fq, degfside, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
+		int m = latsieve2dmono(fq, degfside, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl;
 		cout << "# Size of lattice point list is " << m << "." << endl;
@@ -282,29 +238,6 @@ int main(int argc, char** argv)
 			}
 		}
 		cout << "# " << R0 << " candidates on side 0." << endl;
-		// sieve side 1
-		cout << "# Starting sieve on side 1";
-		if (qside == 1) cout << " for special-q " << q;
-		cout << "..." << endl;
-		start = clock();
-		m = latsieve2d(fq, degfside, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-		cout << "# Finished! Time taken: " << timetaken << "s" << endl;
-		cout << "# Size of lattice point list is " << m << "." << endl;
-		cout << "# Constructing histogram..." << endl;
-		start = clock();
-		//std::stable_sort(M, M + m, &lattice_sorter);
-		histogram(M, H, m);
-		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-		cout << "# Finished! Time taken: " << timetaken << "s" << endl;
-		int R1 = 0;
-		for (int i = 0; i < m; i++) {
-			if (H[i] > th1) {
-				rel.push_back(i);
-				R1++;
-			}
-		}
-		cout << "# " << R1 << " candidates on side 1." << endl;
 		// sort hits
 		sort(rel.begin(), rel.end());
 		
@@ -360,9 +293,7 @@ int main(int argc, char** argv)
 					mpz_poly_setcoeff_si(A, 0, a);
 					mpz_poly_setcoeff_si(A, 1, b);
 					mpz_poly_resultant(N0, f0, A);
-					mpz_poly_resultant(N1, f1, A);
 					mpz_abs(N0, N0);
-					mpz_abs(N1, N1);
 					//cout << mpz_get_str(NULL, 10, N0) << endl;
 					//cout << mpz_get_str(NULL, 10, N1) << endl;
 					string str = to_string(a) + "," + to_string(b) + ":";
@@ -410,50 +341,6 @@ int main(int argc, char** argv)
 						}
 					}
 					
-					str += ":";
-
-					// trial division on side 1
-					p = primes[0]; k = 0;
-					while (p < sievep1[k1-1]) {
-						int valp = 0;
-						while (mpz_fdiv_ui(N1, p) == 0) {
-							mpz_divexact_ui(N1, N1, p);
-							valp++;
-							stream.str("");
-							stream << hex << p;
-							str += stream.str() + ",";
-						}
-						if (p < 1000) {
-							p = primes[++k];
-							if (p > 1000) {
-								k = 0;
-								while (sievep1[k] < 1000) k++;
-							}
-						}
-						else {
-							p = sievep1[++k];
-						}
-					}
-					if (mpz_fdiv_ui(N1, q) == 0 && qside == 1)  {
-						mpz_divexact_ui(N1, N1, q);
-						stream.str("");
-						stream << hex << q;
-						str += stream.str();
-					}
-					cofactor = true;
-					if (mpz_cmp_ui(N1, 1) == 0) { cofactor = false; }
-					str += (qside == 1 && p1max < q && cofactor ? "," : "");
-					// check cofactor on side 1
-					if (cofactor) {
-						if (mpz_cmpabs_ui(N1, cofmax) > 0) { isrel = false; continue; }
-						if (mpz_probab_prime_p(N0, 30) == 0) {  // cofactor definitely composite
-							str += "pq";
-						}
-						else {	// cofactor prime
-							str += "Q";
-						}
-					}
-
 					if (isrel) { cout << str << endl; R++; }
 				}
 			}
@@ -468,8 +355,8 @@ int main(int argc, char** argv)
 	mpz_clear(t); mpz_clear(p2); mpz_clear(p1);
 	mpz_clear(factor);
 	mpz_clear(lpb);
-    mpz_clear(N1); mpz_clear(N0);
-    mpz_poly_clear(A); mpz_poly_clear(f1); mpz_poly_clear(f0);
+    mpz_clear(N0);
+    mpz_poly_clear(A); mpz_poly_clear(f0);
 	delete[] fq;
 	delete[] r;
 	for (int i = 0; i < 8; i++) mpz_clear(pi[i]); delete[] pi;
@@ -477,9 +364,6 @@ int main(int argc, char** argv)
 	delete[] H;
 	//delete[] L;
 	delete[] M;
-	delete[] sievenum_s1modp;
-	delete[] sievep1;
-	delete[] sieves1;
 	delete[] sievenum_s0modp;
 	delete[] sievep0;
 	delete[] sieves0;
@@ -487,12 +371,8 @@ int main(int argc, char** argv)
 	delete[] primes;
 	delete[] sieve;
 	for (int i = 0; i < 20; i++) {
-		mpz_clear(hpoly[i]);
-		mpz_clear(gpoly[i]);
 		mpz_clear(fpoly[i]);
 	}
-	delete[] hpoly;
-	delete[] gpoly;
 	delete[] fpoly;
 
 	return 0;
@@ -563,8 +443,8 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 }
 
 
-int latsieve2d(int64_t* f, int degfq, int degfp, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
-			 keyval* M, int Mlen, int* B)
+int latsieve2dmono(int64_t* f, int degfq, int degfp, int64_t q, int l, int* allp, int nump, 
+			int* s, int* num_smodp, keyval* M, int Mlen, int* B)
 {
 	int64_t L[4];
 	int64_t L2[4];
