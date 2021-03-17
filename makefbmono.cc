@@ -29,7 +29,7 @@ using std::stringstream;
 int main(int argc, char** argv)
 {
 	if (argc == 1) {
-		cout << "usage: ./makefb polyfile.poly fbb factorbasefile" << endl;
+		cout << "usage: ./makefbmono polyfile.monopoly fbb factorbasefile" << endl;
 		return 0;
 	}
 
@@ -39,12 +39,8 @@ int main(int argc, char** argv)
 	//vector<mpz_class> fpoly;
 	//vector<mpz_class> gpoly;
 	mpz_t* fpoly = new mpz_t[20];	// max degree of 20.  Not the neatest
-	mpz_t* gpoly = new mpz_t[20];	// max degree of 20.  Not the neatest
-	mpz_t* hpoly = new mpz_t[20];	// max degree of 20.  Not the neatest
 	for (int i = 0; i < 20; i++) {
 		mpz_init(fpoly[i]);
-		mpz_init(gpoly[i]);
-		mpz_init(hpoly[i]);
 	}
 	string line;
 	char linebuffer[100];
@@ -60,23 +56,9 @@ int main(int argc, char** argv)
 		//mpz_get_str(linebuffer, 10, fpoly[degf-1]);
 		if (verbose) cout << line << endl << flush;
 	}
-	//int degf = fpoly.size();
-	// read other poly
-	int degg = -1;
-	bool read = true;
-	if (verbose) cout << endl << "Side 1 polynomial f1: (ascending coefficients)" << endl;
-	while (read && line.substr(0,1) == "Y" ) {
-		line = line.substr(line.find_first_of(" ")+1);
-		//mpz_set_str(c, line.c_str(), 10);
-		mpz_set_str(gpoly[++degg], line.c_str(), 10);
-		//mpz_get_str(linebuffer, 10, gpoly[degg-1]);
-		if (verbose) cout << line << endl << flush;
-		read = static_cast<bool>(getline(file, line));
-	}
-	//int degg = gpoly.size();
 	file.close();
 	//mpz_clear(c);
-	if (verbose) cout << endl << "Complete.  Degree f0 = " << degf << ", degree f1 = " << degg << "." << endl;
+	if (verbose) cout << endl << "Complete.  Degree f0 = " << degf << "." << endl;
 
 	if (verbose) cout << endl << "Starting sieve of Eratosthenes for small primes..." << endl << flush;
 	int64_t fbb = 1<<21;
@@ -108,15 +90,10 @@ int main(int argc, char** argv)
 	int* num_s0modp = new int[nump]();
 	int64_t* sievep0 = new int64_t[nump]();
 	int* sievenum_s0modp = new int[nump]();
-	int64_t* s1 = new int64_t[degg * nump]();
-	int64_t* sieves1 = new int64_t[degg * nump]();
-	int* num_s1modp = new int[nump]();
-	int64_t* sievep1 = new int64_t[nump]();
-	int* sievenum_s1modp = new int[nump]();
 	int64_t itenpc0 = nump / 10;
 	int64_t itotal = 0;
 	// compute factor base
-	if (verbose) cout << endl << "Constructing factor base with " << K << " threads." << endl << flush;
+	if (verbose) cout << endl << "Constructing factor base with " << K << " threads." << endl;
 	//if (verbose) cout << endl << "[0%]   constructing factor base..." << endl << flush;
 	start = clock();
 	#pragma omp parallel
@@ -125,8 +102,6 @@ int main(int argc, char** argv)
 		int id = omp_get_thread_num();
 		int64_t* stemp0 = new int64_t[degf];
 		int64_t* fp = new int64_t[degf+1]();
-		int64_t* stemp1 = new int64_t[degg];
-		int64_t* gp = new int64_t[degg+1]();
 
 	#pragma omp for
 		for (int64_t i = 0; i < nump; i++) {
@@ -136,17 +111,12 @@ int main(int argc, char** argv)
 			int nums0 = polrootsmod(fp, degfp, stemp0, p);
 			num_s0modp[i] = nums0;
 			for (int j = 0; j < nums0; j++) s0[i*degf + j] = stemp0[j];
-			for (int j = 0; j <= degg; j++) gp[j] = mpz_mod_ui(rt, gpoly[j], p);
-			int deggp = degg; while (gp[deggp] == 0 || deggp == 0) deggp--;
-			int nums1 = polrootsmod(gp, deggp, stemp1, p);
-			num_s1modp[i] = nums1;
-			for (int j = 0; j < nums1; j++) s1[i*degg + j] = stemp1[j];
 
 	#pragma omp atomic
 			itotal++;
 			if (itotal % itenpc0 == 0) {
 	#pragma omp critical
-				if (verbose) cout << "[" << 100 * itotal / nump + 1 << "%]\tConstructing factor base..." << endl << flush;
+				if (verbose) cout << "[" << 100 * itotal / nump + 1 << "%]\tConstructing factor base..." << endl;
 			}				 
 		}
 
@@ -166,17 +136,10 @@ int main(int argc, char** argv)
 			for (int j = 0; j < nums0; j++) sieves0[k0*degf + j] = s0[i*degf + j];
 			sievenum_s0modp[k0++] = nums0;
 		}
-		int nums1 = num_s1modp[i];
-		if (nums1 > 0) {
-			sievep1[k1] = primes[i];
-			for (int j = 0; j < nums1; j++) sieves1[k1*degg + j] = s1[i*degg + j];
-			sievenum_s1modp[k1++] = nums1;
-		}
 	}
 	timetaken += ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl << flush;
-	if (verbose) cout << "There are " << k0 << " factor base primes on side 0." << endl << flush;
-	if (verbose) cout << "There are " << k1 << " factor base primes on side 1." << endl << flush;
+	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl;
+	if (verbose) cout << "There are " << k0 << " factor base primes on side 0." << endl;
 
 	// write output file
 	FILE* out;
@@ -189,20 +152,9 @@ int main(int argc, char** argv)
             fprintf(out, ",%d", sieves0[i*degf + j]);
 		fprintf(out, "\n");
 	}
-	fprintf(out, "%d\n", k1);
-	for (int i = 0; i < k1; i++) {
-		fprintf(out, "%d", sievep1[i]);
-		for (int j = 0; j < sievenum_s1modp[i]; j++)
-            fprintf(out, ",%d", sieves1[i*degg + j]);
-		fprintf(out, "\n");
-	}
 	fclose(out);
 
 	// free memory	
-	delete[] sievenum_s1modp;
-	delete[] sievep1;
-	delete[] num_s1modp;
-	delete[] s1;
 	delete[] sievenum_s0modp;
 	delete[] sievep0;
 	delete[] num_s0modp;
@@ -211,12 +163,8 @@ int main(int argc, char** argv)
 	delete[] primes;
 	delete[] sieve;
 	for (int i = 0; i < 20; i++) {
-		mpz_clear(hpoly[i]);
-		mpz_clear(gpoly[i]);
 		mpz_clear(fpoly[i]);
 	}
-	delete[] hpoly;
-	delete[] gpoly;
 	delete[] fpoly;
 
 	return 0;
