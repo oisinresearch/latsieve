@@ -255,7 +255,7 @@ int main(int argc, char** argv)
 		
 		// print list of potential relations
 		int R = 0;
-		for (int i = 0; i < rel.size()-1; i++)
+		for (int i = 0; i < (int)(rel.size()-1); i++)
 		{
 			if (rel[i] != 0) {
 				int x = rel[i] % B1;
@@ -280,7 +280,7 @@ int main(int argc, char** argv)
 		start = clock();
 		R = 0;
 		if (verbose) cout << "Starting cofactorizaion..." << endl;
-		for (int i = 0; i < rel.size()-1; i++)
+		for (int i = 0; i < (int)(rel.size()-1); i++)
 		{
 			if (rel[i] != 0) {
 				int x = rel[i] % B1;
