@@ -39,14 +39,14 @@ int main (int argc, char** argv)
         int cbits = c; if (c < 0) { cinfo++; cbits = -cbits; }; while (cbits>>=1) cinfo++;
         int dbits = d; if (d < 0) { dinfo++; dbits = -dbits; }; while (dbits>>=1) dinfo++;
 
-        if (ainfo <= 32 && binfo <= 32 && cinfo <= 32 && dinfo <= 32) {
+        if (ainfo <= 24 && binfo <= 24 && cinfo <= 24 && dinfo <= 24) {
             // 3d
 			//int64_t A = ((a+(1l<<31))<<16) + ((b+(1l<<31))>>16);
             //uint64_t B = (b+(1l<<31))%(1l<<16)+((c+(1l<<31))<<16);
 
 			// 4d
-			uint64_t A = ((a + (1l<<31))<<32) + (b + (1l<<31));
-			uint64_t B = ((c + (1l<<31))<<32) + (d + (1l<<31));
+			uint64_t A = ((a + (1l<<23))<<24) + (b + (1l<<23));
+			uint64_t B = ((c + (1l<<23))<<24) + (d + (1l<<23));
 
             cout << A << "," << B << ":" << line << endl;
         }

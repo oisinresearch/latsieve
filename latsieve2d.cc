@@ -318,18 +318,18 @@ int main(int argc, char** argv)
 		
 		// print list of potential relations
 		int R = 0;
-		for (int i = 0; i < rel.size()-1; i++)
+		for (int i = 0; i < (int)(rel.size()-1); i++)
 		{
 			if (rel[i] == rel[i+1] && rel[i] != 0) {
 				int x = rel[i] % B1;
 				int y = ((rel[i] >> B1bits) % B2x2) - B2;
 				if (x != 0 || y != 0) {
-					/*if (R < 10) {
+					if (R < 10) {
 						// compute [a,b,c]
 						int a = L[0]*x+L[1]*y;
 						int b = L[2]*x+L[3]*y;
 						cout << rel[i] << ": " << a << "," << b << endl;
-					}*/
+					}
 					R++;
 				}
 			}
@@ -343,7 +343,7 @@ int main(int argc, char** argv)
 		start = clock();
 		R = 0;
 		if (verbose) cout << "Starting cofactorizaion..." << endl;
-		for (int i = 0; i < rel.size()-1; i++)
+		for (int i = 0; i < (int)(rel.size()-1); i++)
 		{
 			if (rel[i] == rel[i+1] && rel[i] != 0) {
 				int x = rel[i] % B1;
