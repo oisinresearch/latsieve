@@ -315,8 +315,9 @@ int main(int argc, char** argv)
 		numl = polrootsmod(fq, degfside, r, q);
 		int l = 0;
 		L[0] = q; L[1] = -r[l];
-		L[2] = 0; L[3] = 1;
+		L[2] = 0; L[3] = skew;
 		int64L2(L, 2);	// LLL reduce L, time log(q)^2
+		L[2] /= skew; L[3] /= skew;
 		
 		// print list of potential relations
 		int R = 0;
@@ -330,7 +331,7 @@ int main(int argc, char** argv)
 						// compute [a,b,c]
 						int a = L[0]*x+L[1]*y;
 						int b = L[2]*x+L[3]*y;
-						cout << rel[i] << ": " << a << "," << b << endl;
+						cout << "# debug:       " << rel[i] << ": " << a << "," << b << endl;
 					}
 					R++;
 				}
