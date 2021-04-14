@@ -45,6 +45,7 @@ void csort(keyval* M, keyval* L, int* H, int len);
 inline int floordiv(int a, int b);
 inline int64_t modinv(int64_t x, int64_t m);
 inline int nonzerolcm(int u1, int u2);
+inline int64_t gcd(int64_t a, int64_t b);
 inline int gcd(int a, int b);
 inline __int128 gcd128(__int128 a, __int128 b);
 inline int minnonneg(int u, int v);
@@ -166,7 +167,8 @@ int main(int argc, char** argv)
 	int B1bits = B[0]; int B2bits = B[1];
 	int B1 = 1<<B1bits; int B2 = 1<<B2bits;
 	size_t Mlen = (B1*2l*B2);	// require positive x coordinate
-	Mlen = 1500000000;
+	Mlen = 2000000000;
+	//Mlen = 1500000000;
 	//Mlen = (size_t)(2.3f * Mlen);	// upper bound on number of vectors in sieve box
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
@@ -213,13 +215,16 @@ int main(int argc, char** argv)
 		for (int i = 0; i <= degfside; i++) fq[i] = mpz_mod_ui(r0, fpolyside[i], q);
 		int numl = polrootsmod(fq, degfside, r, q);
 		if (numl == 0 || q > qmax) continue;
+		if (numl == 1 && r[0] == 0) continue;
+		int l = 0;
+		if (numl > 1) l = 1;
 		
 		// sieve side 0
 		cout << "# Starting sieve on side 0";
 		cout << " for special-q " << q;
 		cout << "..." << endl;
 		start = clock();
-		int m = latsieve2dmono(skew, fq, degfside, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
+		int m = latsieve2dmono(skew, fq, degfside, degf, q, l, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl;
 		cout << "# Size of lattice point list is " << m << "." << endl;
@@ -246,26 +251,27 @@ int main(int argc, char** argv)
 		
 		// compute special-q lattice L 
 		int64_t L[4];
-		numl = polrootsmod(fq, degfside, r, q);
-		int l = 0;
 		L[0] = q; L[1] = -r[l];
 		L[2] = 0; L[3] = skew;
 		int64L2(L, 2);	// LLL reduce L, time log(q)^2
 		L[2] /= skew; L[3] /= skew;
+		cout << "#debug: numl = " << numl << endl;
+		cout << "#debug: -r[l] = " << -r[l] << endl;
 		
 		// print list of potential relations
 		int R = 0;
 		for (int i = 0; i < (int)(rel.size()-1); i++)
 		{
 			if (rel[i] != 0) {
-				int x = rel[i] % B1;
-				int y = ((rel[i] >> B1bits) % B2x2) - B2;
+				int64_t x = rel[i] % B1;
+				int64_t y = ((rel[i] >> B1bits) % B2x2) - B2;
 				if (x != 0 || y != 0) {
 					if (R < 5) {
 						// compute [a,b,c]
-						int a = L[0]*x+L[1]*y;
-						int b = L[2]*x+L[3]*y;
-						cout << "#debug: " << rel[i] << ": " << a << "," << b << endl;
+						int64_t a = L[0]*x+L[1]*y;
+						int64_t b = L[2]*x+L[3]*y;
+						cout << "#debug: " << rel[i] << ": " << a << "," << b << ", x=" << x
+							<< ",y=" << y << endl;
 					}
 					R++;
 				}
@@ -283,24 +289,26 @@ int main(int argc, char** argv)
 		for (int i = 0; i < (int)(rel.size()-1); i++)
 		{
 			if (rel[i] != 0) {
-				int x = rel[i] % B1;
-				int y = ((rel[i] >> B1bits) % B2x2) - B2;
+				int64_t x = rel[i] % B1;
+				int64_t y = ((rel[i] >> B1bits) % B2x2) - B2;
 				if (x != 0 || y != 0) {
 					// compute [a,b]
-					int a = L[0]*x+L[1]*y;
-					int b = L[2]*x+L[3]*y;
+					int64_t a = L[0]*x+L[1]*y;
+					int64_t b = L[2]*x+L[3]*y;
 	
-					int content = gcd(a, b);
+					int64_t content = gcd(a, b);
 					a = a/content; b = b/content;
+
+					if (a == 0 && abs(b) == 1) continue;
 
 					//cout << "[a, b] = [" << a << ", " << b << "]" << endl;
 					mpz_poly_setcoeff_si(A, 0, a);
 					mpz_poly_setcoeff_si(A, 1, b);
 					mpz_poly_resultant(N0, f0, A);
 					mpz_abs(N0, N0);
-					//cout << mpz_get_str(NULL, 10, N0) << endl;
-					//cout << mpz_get_str(NULL, 10, N1) << endl;
 					string str = to_string(a) + "," + to_string(b) + ":";
+					//cout << str << mpz_get_str(NULL, 10, N0) << endl;
+					//cout << mpz_get_str(NULL, 10, N1) << endl;
 					
 					// trial division on side 0
 					int p = primes[0]; int k = 0; 
@@ -532,7 +540,7 @@ int latsieve2dmono(int64_t skew, int64_t* f, int degfq, int degfp, int64_t q, in
 
 	L[0] = q; L[1] = -r[l];
 	L[2] = 0; L[3] = skew;
-
+	
 	int64L2(L, 2);	// LLL reduce L, time log(q)^2
 	L[2] /= skew; L[3] /= skew;
 
@@ -631,6 +639,7 @@ int latsieve2dmono(int64_t skew, int64_t* f, int degfq, int degfp, int64_t q, in
 		}
 		// advance to next p
 		i++;
+		if (m > Mlen) { cout << "WARNING! m > Mlen" << endl; exit(1); }
 	}
 
 	// clear memory
@@ -655,6 +664,20 @@ inline int nonzerolcm(int u1, int u2)
 	if (u2 == 0) u2 = 1;
 	int g1 = gcd(u1, u2);
 	return (u1 * u2) / g1;
+}
+
+
+inline int64_t gcd(int64_t a, int64_t b)
+{
+	a = abs(a);
+	b = abs(b);
+	int64_t c;
+	while (b != 0) {
+		c = b;
+		b = a % c;
+		a = c;
+	}
+	return a;
 }
 
 

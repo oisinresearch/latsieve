@@ -109,7 +109,8 @@ int main(int argc, char** argv)
 			int64_t p = primes[i];
 			for (int j = 0; j <= degf; j++) fp[j] = mpz_mod_ui(rt, fpoly[j], p);
 			int degfp = degf; while (fp[degfp] == 0 || degfp == 0) degfp--;
-			int nums0 = polrootsmod(fp, degfp, stemp0, p);
+			int nums0 = 0;
+			if (degfp >= 0) nums0 = polrootsmod(fp, degfp, stemp0, p);
 			num_s0modp[i] = nums0;
 			for (int j = 0; j < nums0; j++) s0[i*degf + j] = stemp0[j];
 
