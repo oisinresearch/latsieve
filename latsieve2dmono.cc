@@ -38,7 +38,7 @@ struct keyval {
 __int128 MASK64;
 
 int latsieve2dmono(int64_t skew, int64_t* f, int degfq, int degfp, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
-		 keyval* M, int Mlen, int* B);
+		 keyval* M, int Mlen, int* B, bool switchab);
 void histogram(keyval*M, uint8_t* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
 void csort(keyval* M, keyval* L, int* H, int len);
@@ -68,8 +68,8 @@ int main(int argc, char** argv)
 
 	//cout << (uint64_t)(MASK64) << " " << (uint64_t)(MASK64 >> 64) << endl;
 
-	if (argc != 11) {
-		cout << endl << "Usage: ./latsieve2dmono inputpoly fbbits factorbasefile B1 B2 qmin qmax th0 lpbbits cofmaxbits" << endl << endl;
+	if (argc != 12) {
+		cout << endl << "Usage: ./latsieve2dmono inputpoly fbbits factorbasefile B1 B2 qmin qmax th0 lpbbits cofmaxbits switchab" << endl << endl;
 		return 0;
 	}
 
@@ -205,6 +205,10 @@ int main(int argc, char** argv)
 	mpz_t S; mpz_init(S); GetlcmScalar(cofmax, S, primes, 669);	// max S = 5000
 	char* str2 = (char*)malloc(20*sizeof(char));
 
+	bool switchab = false; string swstr = "";
+	if (argc >= 12) swstr = string(argv[11]);
+	if (swstr == "switchab") switchab = true;
+
 	int64_t q = qmin;
 	while (q < qmax) {
 		mpz_set_ui(qmpz, q);
@@ -217,14 +221,15 @@ int main(int argc, char** argv)
 		if (numl == 0 || q > qmax) continue;
 		if (numl == 1 && r[0] == 0) continue;
 		int l = 0;
-		if (numl > 1) l = 1;
+		if (r[l] == 0 && numl > 1) l = 1;
 		
 		// sieve side 0
 		cout << "# Starting sieve on side 0";
 		cout << " for special-q " << q;
 		cout << "..." << endl;
 		start = clock();
-		int m = latsieve2dmono(skew, fq, degfside, degf, q, l, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
+		int m = latsieve2dmono(skew, fq, degfside, degf, q, l, sievep0, k0, sieves0,
+			sievenum_s0modp, M, Mlen, B, switchab);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl;
 		cout << "# Size of lattice point list is " << m << "." << endl;
@@ -251,10 +256,21 @@ int main(int argc, char** argv)
 		
 		// compute special-q lattice L 
 		int64_t L[4];
-		L[0] = q; L[1] = -r[l];
-		L[2] = 0; L[3] = skew;
+		if (!switchab) {
+			L[0] = q; L[1] = -r[l];
+			L[2] = 0; L[3] = skew;
+		}
+		else {
+			L[0] = q*skew; L[1] = -r[l]*skew;
+			L[2] = 0; L[3] = 1;
+		}
 		int64L2(L, 2);	// LLL reduce L, time log(q)^2
-		L[2] /= skew; L[3] /= skew;
+		if (!switchab) {
+			L[2] /= skew; L[3] /= skew;
+		}
+		else {
+			L[0] /= skew; L[1] /= skew;
+		}
 		cout << "#debug: numl = " << numl << endl;
 		cout << "#debug: -r[l] = " << -r[l] << endl;
 		
@@ -511,7 +527,7 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 
 
 int latsieve2dmono(int64_t skew, int64_t* f, int degfq, int degfp, int64_t q, int l, int* allp,
-			int nump, int* s, int* num_smodp, keyval* M, int Mlen, int* B)
+			int nump, int* s, int* num_smodp, keyval* M, int Mlen, int* B, bool switchab)
 {
 	int64_t L[4];
 	int64_t L2[4];
@@ -538,11 +554,22 @@ int latsieve2dmono(int64_t skew, int64_t* f, int degfq, int degfp, int64_t q, in
 		modqinvp[i] = modinv(p, q);
 	}
 
-	L[0] = q; L[1] = -r[l];
-	L[2] = 0; L[3] = skew;
+	if (!switchab) {
+		L[0] = q; L[1] = -r[l];
+		L[2] = 0; L[3] = skew;
+	}
+	else {
+		L[0] = q*skew; L[1] = -r[l]*skew;
+		L[2] = 0; L[3] = 1;
+	}
 	
 	int64L2(L, 2);	// LLL reduce L, time log(q)^2
-	L[2] /= skew; L[3] /= skew;
+	if (!switchab) {
+		L[2] /= skew; L[3] /= skew;
+	}
+	else {
+		L[0] /= skew; L[1] /= skew;
+	}
 
 	// print special-q lattice
 	//cout << "special-q lattice [" << L[0] << "," << L[1] << "," << L[2] << ";";
@@ -569,10 +596,21 @@ int latsieve2dmono(int64_t skew, int64_t* f, int degfq, int degfp, int64_t q, in
 			__int128 sk = mod(-s[i*degfp+k],p);
 			int64_t t = q*( (sk * modpinvq[i]) % p ) + p*( (rl * modqinvp[i]) % q ); // CRT
 			if (t >= n) t -= n;
-			L2[0] = n; L2[1] = t;
-			L2[2] = 0; L2[3] = skew;
+			if (!switchab) {
+				L2[0] = n; L2[1] = t;
+				L2[2] = 0; L2[3] = skew;
+			}
+			else {
+				L2[0] = n*skew; L2[1] = t*skew;
+				L2[2] = 0; L2[3] = 1;
+			}
 			int64L2(L2,2);	// LLL reduce L, time log(n)^2
-			L2[2] /= skew; L2[3] /= skew;
+			if (!switchab) {
+				L2[2] /= skew; L2[3] /= skew;
+			}
+			else {
+				L2[0] /= skew; L2[1] /= skew;
+			}
 			mat2x2prod(qLinv, L2, L3);	// L3 =  qLinv*L2
             for (int ii = 0; ii < 4; ii++) L3[ii] /= q;
             int64L2(L3,2);
