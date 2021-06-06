@@ -418,9 +418,9 @@ int main (int argc, char** argv)
 				case 1:
 					a = c0; b = d0; c = a0; d = b0; break;
 				case 2:
-					a = -a0; b = -b0; c = -c0; d = -d0; break;
+					a = -3*a0+b0; b = -a0; c = -3*c0+d0; d = -c0; break;
 				case 3:
-					a = -c0; b = -d0; c = -a0; d = -b0; break;
+					a = -3*c0+d0; b = -c0; c = -3*a0+b0; d = -a0; break;
 			}
 
 			// restore line

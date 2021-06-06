@@ -7,6 +7,7 @@ all:
 	g++ mpz_poly.cpp L2lu64.cc factorsmall.cc intpoly.cc latsieve3d.cc -o latsieve3d -lgmp -lgmpxx -std=c++11 -fopenmp -O3
 	g++ -o makefb -lgmp -lgmpxx makefb.cpp intpoly.cc mpz_poly.cpp factorsmall.cc -std=c++11 -fopenmp -O3
 	g++ rootsofunity.cc -o rootsofunity -O3
+	g++ rootsofunity4d.cc -o rootsofunity4d -O3
 	g++ -o deduce -lgmp -lgmpxx -lm -lpari -lpthread deduce.cc -std=c++11 -g -I/usr/local/include -L/usr/local/lib -O0 -g
 	g++ -o deduce_one_side -lgmp -lgmpxx -lm -lpari -lpthread deduce_one_side.cc -std=c++11 -g -I/usr/local/include -L/usr/local/lib -O0 -g
 	g++ mpz_poly.cpp L2lu64.cc L2lu128.cc factorsmall.cc intpoly.cc latsieve3dQ.cc -o latsieve3dQ -lgmp -lgmpxx -std=c++11 -fopenmp -O3

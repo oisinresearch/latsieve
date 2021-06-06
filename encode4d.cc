@@ -1,5 +1,6 @@
 #include <stdint.h>	// int64_t
 #include <cstdlib>	// atoi
+#include <iomanip>	// hex
 #include <iostream> // cout
 #include <math.h>	// sqrt
 #include <fstream>	// file
@@ -13,6 +14,7 @@ using std::endl;
 using std::flush;
 using std::ifstream;
 using std::string;
+using std::hex;
 
 int main (int argc, char** argv)
 {
@@ -48,7 +50,7 @@ int main (int argc, char** argv)
 			uint64_t A = ((a + (1l<<23))<<24) + (b + (1l<<23));
 			uint64_t B = ((c + (1l<<23))<<24) + (d + (1l<<23));
 
-            cout << A << "," << B << ":" << line << endl;
+            cout << hex << A << "," << hex << B << ":" << line << endl;
         }
         else {
             cout << "#" << a << "," << b << "," << c << "," << d << ":" << line << endl;
