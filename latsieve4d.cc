@@ -329,7 +329,7 @@ int main(int argc, char** argv)
 	if (argc >= 8) B[3] = atoi(argv[7]);
 	int B1bits = B[0]; int B2bits = B[1]; int B3bits = B[2]; int B4bits = B[3];
 	int B1 = 1<<B1bits; int B2 = 1<<B2bits; int B3 = 1<<B3bits; int B4 = 1<<B4bits;
-	int Mlen = (B1*2*B2*2*B3*2*B4);	// require positive z coordinate
+	int Mlen = (B1*2*B2*2*B3*2*B4*2);	// DO NOT! require positive z coordinate
 	Mlen = (int)(2.3f * Mlen);	// upper bound on number of vectors in sieve box
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
@@ -402,6 +402,8 @@ int main(int argc, char** argv)
 		int numll = polrootsmod(fhqt, degfhqt, R, q);
 		if (numl == 0 || numll == 0 || q > qmax) continue;
 		
+		cout << "(numl, numll) = (" << numl << "," << numll << ")" << endl;
+
 		// sieve side 0
 		cout << "# Starting sieve on side 0";
 		if (qside == 0) cout << " for special-q " << q;
@@ -410,269 +412,176 @@ int main(int argc, char** argv)
 		//int m = latsieve3d(fq, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
 		int m = 0;
 		// compute which r[l] are valid for given R[ll]
-		int ll = 0; int l = -1;
-		for (int i = 0; i < numl; i++) {
-			Aq0->deg = -1; mpz_poly_cleandeg(Aq0, 0);
-			mpz_poly_setcoeff_si(Aq0, 0, -R[ll]);
-			mpz_poly_bivariate_setcoeff(Aq, 0, Aq0);
-			mpz_poly_setcoeff_ui(Aq0, 0, 1);	// Aq = x - R[ll]
-			mpz_poly_bivariate_setcoeff(Aq, 1, Aq0);
-			Fqh_x->deg = -1; mpz_poly_cleandeg(Fqh_x, 0);
-			mpz_poly_bivariate_resultant_y(Fqh_x, *Fq, Aq);
-			mpz_poly_eval_ui(res, Fqh_x, r[i]);
-			int val = mpz_mod_ui(r0, res, q);
-			if (val == 0) { l = i; break; } 
-		}
-		m = latsieve4d(h, degh, degfhqt, q, r[l], R[ll], sievep0, k0, sieves0, sieveS0, 
-								sievenum_S0modp, M, Mlen, B);
-		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
-		cout << "# Size of lattice point list is " << m << "." << endl << flush;
-		cout << "# Constructing histogram..." << endl << flush;
-		start = clock();
-		//std::stable_sort(M, M + m, &lattice_sorter);
-		histogram(M, H, m);
-		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
-		int R0 = 0;
-		int B1xB2 = B1*B2;
-		int B2x2bits = B2bits + 1;
-		int B2x2 = 2*B2;
-		int B3x2 = 2*B3;
-		int B1xB2x2bits = B1bits + B2bits + 1;
-		int B1xB2x2xB3x2bits = B1bits + B2bits + 1 + B3bits + 1;
-		rel.clear();
-		for (int i = 0; i < m; i++) {
-			if (H[i] > th0) {
-				rel.push_back(i);
-				R0++;
+		int l = -1;
+		for (int ll = 0; ll < numll; ll++) {
+			for (int i = 0; i < numl; i++) {
+				Aq0->deg = -1; mpz_poly_cleandeg(Aq0, 0);
+				mpz_poly_setcoeff_si(Aq0, 0, -R[ll]);
+				mpz_poly_bivariate_setcoeff(Aq, 0, Aq0);
+				mpz_poly_setcoeff_ui(Aq0, 0, 1);	// Aq = x - R[ll]
+				mpz_poly_bivariate_setcoeff(Aq, 1, Aq0);
+				Fqh_x->deg = -1; mpz_poly_cleandeg(Fqh_x, 0);
+				mpz_poly_bivariate_resultant_y(Fqh_x, *Fq, Aq);
+				mpz_poly_eval_ui(res, Fqh_x, r[i]);
+				int val = mpz_mod_ui(r0, res, q);
+				if (val == 0) { l = i; break; }
 			}
-		}
-		cout << "# " << R0 << " candidates on side 0." << endl << flush;
-		// sieve side 1
-		cout << "# Starting sieve on side 1";
-		if (qside == 1) cout << " for special-q " << q;
-		cout << "..." << endl << flush;
-		start = clock();
-		//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-		m = latsieve4d(h, degh, degghqt, q, r[l], R[ll], sievep1, k1, sieves1, sieveS1, 
-								sievenum_S1modp, M, Mlen, B);
-		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
-		cout << "# Size of lattice point list is " << m << "." << endl << flush;
-		cout << "# Constructing histogram..." << endl << flush;
-		start = clock();
-		//std::stable_sort(M, M + m, &lattice_sorter);
-		histogram(M, H, m);
-		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
-		int R1 = 0;
-		for (int i = 0; i < m; i++) {
-			if (H[i] > th1) {
-				rel.push_back(i);
-				R1++;
-			}
-		}
-		cout << "# " << R1 << " candidates on side 1." << endl << flush;
-		// sort hits
-		sort(rel.begin(), rel.end());
-		
-		// compute special-q lattice L 
-		int64_t L[16];
-		numl = polrootsmod(h, degh, r, q);
-		numll = polrootsmod(fhqt, degfhqt, R, q);
-		//int l = 0; int ll = 0;
-		L[0]  = q; L[1]  = -r[l]; L[2]  = -R[ll]; L[3]  = 0;
-		L[4]  = 0; L[5]  = 1;     L[6]  = 0;      L[7]  = -R[ll];
-		L[8]  = 0; L[9]  = 0;     L[10] = 1;      L[11] = 0;
-		L[12] = 0; L[13] = 0;     L[14] = 0;      L[15] = 1;
-		int64L2(L, 4);	// LLL reduce L, time log(q)^2
-		
-		// print list of potential relations
-		int R = 0;
-		for (int i = 0; i < rel.size()-1; i++)
-		{
-			if (rel[i] == rel[i+1] && rel[i] != 0) {
-				int x = rel[i] % B1;
-				int y = ((rel[i] >> B1bits) % B2x2) - B2;
-				int z = ((rel[i] >> B1xB2x2bits) % B3x2) - B3;
-				int t = (rel[i] >> B1xB2x2xB3x2bits) - B4;
-				if (x != 0 || y != 0 || z != 0 || t != 0) {
-					// compute [a,b,c,d]
-					//int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
-					//int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
-					//int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
-					//int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
-					//if (R >= 100 & R < 110)
-					//	cout << rel[i] << ": " << a << "," << b << "," << c << "," << d << endl;
-					//	cout << "(x,y,z,t): " << x << "," << y << "," << z << "," << t << endl;
-					R++;
+
+			cout << "(q,r) = (" << q << "," << r[l] << ")" << endl;
+			break;
+
+			m = latsieve4d(h, degh, degfhqt, q, r[l], R[ll], sievep0, k0, sieves0, sieveS0, 
+									sievenum_S0modp, M, Mlen, B);
+			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
+			cout << "# Size of lattice point list is " << m << "." << endl << flush;
+			cout << "# Constructing histogram..." << endl << flush;
+			start = clock();
+			//std::stable_sort(M, M + m, &lattice_sorter);
+			histogram(M, H, m);
+			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
+			int R0 = 0;
+			int B1xB2 = B1*B2;
+			int B1x2bits = B1bits + 1;
+			int B2x2bits = B2bits + 1;
+			int B1x2 = 2*B1;
+			int B2x2 = 2*B2;
+			int B3x2 = 2*B3;
+			int B1x2xB2x2bits = B1bits + 1 + B2bits + 1;
+			int B1x2xB2x2xB3x2bits = B1bits + 1 + B2bits + 1 + B3bits + 1;
+			rel.clear();
+			for (int i = 0; i < m; i++) {
+				if (H[i] > th0) {
+					rel.push_back(i);
+					R0++;
 				}
 			}
-		}
-		cout << "# " << R << " potential relations found." << endl << flush;
-	   
-		// compute and factor resultants as much as possible, leave large gcd computation till later.
-		mpz_ui_pow_ui(lpb, 2, lpbits);
-		int BASE = 16;
-		stack<mpz_t*> QN; stack<int> Q; int algarr[3]; mpz_t* N;
-		start = clock();
-		R = 0;
-		if (verbose) cout << "Starting cofactorization..." << endl << flush;
-		for (int i = 0; i < rel.size()-1; i++)
-		{
-			if (rel[i] == rel[i+1] && rel[i] != 0) {
-				int x = rel[i] % B1;
-				int y = ((rel[i] >> B1bits) % B2x2) - B2;
-				int z = ((rel[i] >> B1xB2x2bits) % B3x2) - B3;
-				int t = (rel[i] >> B1xB2x2xB3x2bits) - B4;
-				if (x != 0 || y != 0 || z != 0 || t != 0) {
-					// compute [a,b,c]
-					int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
-					int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
-					int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
-					int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
-	
-					//int64_t D = b*(int64_t)b - 4*a*(int64_t)c;
-					//int64_t D = b*(int64_t)b*c*(int64_t)c - 4*b*(int64_t)b*b*d
-					//    -4*(int64_t)a*c*(int64_t)c*c + 18*(int64_t)a*b*c*d
-					//	-27*(int64_t)a*a*(int64_t)d*d;
-					//if (floor(sqrt(D)+0.5)*floor(sqrt(D)+0.5) == D) {
-					//	continue;	// a+b*x+c*x^2 is not irreducible over Z
-					//}
-
-					int content = gcd(a, b); content = gcd(content, c);
-					content = gcd(content, d);
-					a = a/content; b = b/content; c = c/content; d = d/content;
-
-					//cout << "[a, b, c] = [" << a << ", " << b << ", " << c << "]" << endl << flush;
-					
-					mpz_poly_setcoeff_si(Aq0, 0, a);
-					mpz_poly_setcoeff_si(Aq0, 1, b);	// Aq0 = x - R[ll]
-					mpz_poly_bivariate_setcoeff(Aq, 0, Aq0);
-					mpz_poly_setcoeff_si(Aq0, 0, c);
-					mpz_poly_setcoeff_si(Aq0, 1, d);	// Aq0 = x - R[ll]
-					mpz_poly_bivariate_setcoeff(Aq, 1, Aq0);
-					// reset Fqh_x, which might need to go from e.g. deg 8 to deg 4
-					//Fqh_x->deg = 0;
-					Fqh_x->deg = -1; mpz_poly_cleandeg(Fqh_x, 0);
-					mpz_poly_bivariate_resultant_y(Fqh_x, F0, Aq);
-					mpz_poly_resultant(N0, Fqh_x, h0);
-					mpz_poly_bivariate_resultant_y(Fqh_x, F1, Aq);
-					mpz_poly_resultant(N1, Fqh_x, h0);
-					mpz_abs(N0, N0);
-					mpz_abs(N1, N1);
-					//cout << mpz_get_str(NULL, 10, N0) << endl;
-					//cout << mpz_get_str(NULL, 10, N1) << endl;
-					string str = to_string(a) + "," + to_string(b) + "," + 
-						to_string(c) + "," + to_string(d) + ":";
-					
-					// trial division on side 0
-					int p = primes[0]; int k = 0; 
-					while (p < sieveP0[k0-1]) {
-						int valp = 0;
-						while (mpz_fdiv_ui(N0, p) == 0) {
-							mpz_divexact_ui(N0, N0, p);
-							valp++;
-							stream.str("");
-							stream << hex << p;
-							str += stream.str() + ",";
-						}
-						if (p < 1000) {
-							p = primes[++k];
-							if (p > 1000) {
-								k = 0;
-								while (sieveP0[k] < 1000) k++;
-							}
-						}
-						else {
-							p = sieveP0[++k];
-						}
+			cout << "# " << R0 << " candidates on side 0." << endl << flush;
+			// sieve side 1
+			cout << "# Starting sieve on side 1";
+			if (qside == 1) cout << " for special-q " << q;
+			cout << "..." << endl << flush;
+			start = clock();
+			//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
+			m = latsieve4d(h, degh, degghqt, q, r[l], R[ll], sievep1, k1, sieves1, sieveS1, 
+									sievenum_S1modp, M, Mlen, B);
+			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
+			cout << "# Size of lattice point list is " << m << "." << endl << flush;
+			cout << "# Constructing histogram..." << endl << flush;
+			start = clock();
+			//std::stable_sort(M, M + m, &lattice_sorter);
+			histogram(M, H, m);
+			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
+			int R1 = 0;
+			for (int i = 0; i < m; i++) {
+				if (H[i] > th1) {
+					rel.push_back(i);
+					R1++;
+				}
+			}
+			cout << "# " << R1 << " candidates on side 1." << endl << flush;
+			// sort hits
+			sort(rel.begin(), rel.end());
+			
+			// compute special-q lattice L 
+			int64_t L[16];
+			numl = polrootsmod(h, degh, r, q);
+			numll = polrootsmod(fhqt, degfhqt, R, q);
+			//int l = 0; int ll = 0;
+			L[0]  = q; L[1]  = -r[l]; L[2]  = -R[ll]; L[3]  = 0;
+			L[4]  = 0; L[5]  = 1;     L[6]  = 0;      L[7]  = -R[ll];
+			L[8]  = 0; L[9]  = 0;     L[10] = 1;      L[11] = 0;
+			L[12] = 0; L[13] = 0;     L[14] = 0;      L[15] = 1;
+			int64L2(L, 4);	// LLL reduce L, time log(q)^2
+			
+			// print list of potential relations
+			int R = 0;
+			for (int i = 0; i < rel.size()-1; i++)
+			{
+				if (rel[i] == rel[i+1] && rel[i] != 0) {
+					int x = (rel[i] % B1x2) - B1;
+					int y = ((rel[i] >> B1x2bits) % B2x2) - B2;
+					int z = ((rel[i] >> B1x2xB2x2bits) % B3x2) - B3;
+					int t = (rel[i] >> B1x2xB2x2xB3x2bits) - B4;
+					if (x != 0 || y != 0 || z != 0 || t != 0) {
+						// compute [a,b,c,d]
+						//int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
+						//int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
+						//int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
+						//int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
+						//if (R >= 100 & R < 110)
+						//	cout << rel[i] << ": " << a << "," << b << "," << c << "," << d << endl;
+						//	cout << "(x,y,z,t): " << x << "," << y << "," << z << "," << t << endl;
+						R++;
 					}
-					if (mpz_fdiv_ui(N0, q) == 0 && qside == 0) {
-						mpz_divexact_ui(N0, N0, q);
-						stream.str("");
-						stream << hex << q;
-						str += stream.str();
-					}
-					bool isrel = true;
-					bool cofactor = true;
-					if (mpz_cmp_ui(N0, 1) == 0) { cofactor = false; }
-					str += (qside == 0 && cofactor ? "," : "");
-					// cofactorization on side 0
-					int n = 0; while (!Q.empty()) Q.pop(); while (!QN.empty()) QN.pop();
-					if (cofactor) {
-						if (mpz_probab_prime_p(N0, 30) == 0) {  // cofactor definitely composite
-							
-							QN.push(&N0); Q.push(2); Q.push(1); Q.push(0); Q.push(3);
-							while (!QN.empty()) {
-								mpz_t* N = QN.top(); QN.pop();
-								int l = Q.top(); Q.pop();
-								int j = 0;
-								bool factored = false;
-								while (!factored) {
-									int alg = Q.top(); Q.pop(); j++;
-									switch (alg) {
-										case 0: factored = PollardPm1(*N, S, factor);
-												break;	
-										case 1: factored = EECM(*N, S, factor, 25921, 83521, 19, 9537, 2737);
-												break;	
-										case 2: factored = EECM(*N, S, factor, 1681, 707281, 3, 19642, 19803);
-												break;	
-									}
-									if ( !factored ) {
-										if ( j >= l ) { isrel = false; break; }
-									}
-									else {
-										mpz_set(p1, factor);
-										mpz_divexact(p2, *N, factor);
-										if (mpz_cmpabs(p1, p2) > 0) {
-											 mpz_set(tmp1, p1); mpz_set(p1, p2); mpz_set(p2, tmp1);	// sort
-										}
-										// save remaining algs to array
-										int lnext = l - j; int lt = lnext;
-										while (lt--) { algarr[lt] = Q.top(); Q.pop(); }
-										lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
-										if (mpz_probab_prime_p(p1, 30)) {
-											if (mpz_cmpabs(p1, lpb) > 0) { isrel = false; break; }
-											else { mpz_get_str(str2, BASE, p1); str += str2; str += ","; }
-										}
-										else {
-											if (!lnext) { isrel = false; break; }
-											mpz_set(pi[n], p1);
-											QN.push(&pi[n++]);
-											lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
-										}
-										if (mpz_probab_prime_p(p2, 30)) {
-											if (mpz_cmpabs(p2, lpb) > 0) { isrel = false; break; }
-											else { mpz_get_str(str2, BASE, p2); str += str2; str += QN.empty() ? "" : ","; }
-										}
-										else {
-											if (!lnext) { isrel = false; break; }
-											mpz_set(pi[n], p2);
-											QN.push(&pi[n++]);
-											lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
-										}
-									}
-								}
-								if (!isrel) break;
-							}
-						}
-						else {	// cofactor prime but is it < lpb?
-							if (mpz_cmpabs(N0, lpb) > 0) isrel = false;
-							else { mpz_get_str(str2, BASE, N0); str += str2; }
-						}
-					}
-					
-					str += ":";
+				}
+			}
+			cout << "# " << R << " potential relations found." << endl << flush;
+		   
+			// compute and factor resultants as much as possible, leave large gcd computation till later.
+			mpz_ui_pow_ui(lpb, 2, lpbits);
+			int BASE = 16;
+			stack<mpz_t*> QN; stack<int> Q; int algarr[3]; mpz_t* N;
+			start = clock();
+			R = 0;
+			if (verbose) cout << "Starting cofactorization..." << endl << flush;
+			for (int i = 0; i < rel.size()-1; i++)
+			{
+				if (rel[i] == rel[i+1] && rel[i] != 0) {
+					int x = (rel[i] % B1x2) - B1;
+					int y = ((rel[i] >> B1x2bits) % B2x2) - B2;
+					int z = ((rel[i] >> B1x2xB2x2bits) % B3x2) - B3;
+					int t = (rel[i] >> B1x2xB2x2xB3x2bits) - B4;
+					if (x != 0 || y != 0 || z != 0 || t != 0) {
+						// compute [a,b,c]
+						int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
+						int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
+						int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
+						int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
+		
+						//int64_t D = b*(int64_t)b - 4*a*(int64_t)c;
+						//int64_t D = b*(int64_t)b*c*(int64_t)c - 4*b*(int64_t)b*b*d
+						//    -4*(int64_t)a*c*(int64_t)c*c + 18*(int64_t)a*b*c*d
+						//	-27*(int64_t)a*a*(int64_t)d*d;
+						//if (floor(sqrt(D)+0.5)*floor(sqrt(D)+0.5) == D) {
+						//	continue;	// a+b*x+c*x^2 is not irreducible over Z
+						//}
 
-					// trial division on side 1
-					if (isrel) {
-						p = primes[0]; k = 0;
-						while (p < sieveP1[k1-1]) {
+						int content = gcd(a, b); content = gcd(content, c);
+						content = gcd(content, d);
+						a = a/content; b = b/content; c = c/content; d = d/content;
+
+						//cout << "[a, b, c] = [" << a << ", " << b << ", " << c << "]" << endl << flush;
+						
+						mpz_poly_setcoeff_si(Aq0, 0, a);
+						mpz_poly_setcoeff_si(Aq0, 1, b);	// Aq0 = x - R[ll]
+						mpz_poly_bivariate_setcoeff(Aq, 0, Aq0);
+						mpz_poly_setcoeff_si(Aq0, 0, c);
+						mpz_poly_setcoeff_si(Aq0, 1, d);	// Aq0 = x - R[ll]
+						mpz_poly_bivariate_setcoeff(Aq, 1, Aq0);
+						// reset Fqh_x, which might need to go from e.g. deg 8 to deg 4
+						//Fqh_x->deg = 0;
+						Fqh_x->deg = -1; mpz_poly_cleandeg(Fqh_x, 0);
+						mpz_poly_bivariate_resultant_y(Fqh_x, F0, Aq);
+						mpz_poly_resultant(N0, Fqh_x, h0);
+						mpz_poly_bivariate_resultant_y(Fqh_x, F1, Aq);
+						mpz_poly_resultant(N1, Fqh_x, h0);
+						mpz_abs(N0, N0);
+						mpz_abs(N1, N1);
+						//cout << mpz_get_str(NULL, 10, N0) << endl;
+						//cout << mpz_get_str(NULL, 10, N1) << endl;
+						string str = to_string(a) + "," + to_string(b) + "," + 
+							to_string(c) + "," + to_string(d) + ":";
+						
+						// trial division on side 0
+						int p = primes[0]; int k = 0; 
+						while (p < sieveP0[k0-1]) {
 							int valp = 0;
-							while (mpz_fdiv_ui(N1, p) == 0) {
-								mpz_divexact_ui(N1, N1, p);
+							while (mpz_fdiv_ui(N0, p) == 0) {
+								mpz_divexact_ui(N0, N0, p);
 								valp++;
 								stream.str("");
 								stream << hex << p;
@@ -682,28 +591,29 @@ int main(int argc, char** argv)
 								p = primes[++k];
 								if (p > 1000) {
 									k = 0;
-									while (sieveP1[k] < 1000) k++;
+									while (sieveP0[k] < 1000) k++;
 								}
 							}
 							else {
-								p = sieveP1[++k];
+								p = sieveP0[++k];
 							}
 						}
-						if (mpz_fdiv_ui(N1, q) == 0 && qside == 1)  {
-							mpz_divexact_ui(N1, N1, q);
+						if (mpz_fdiv_ui(N0, q) == 0 && qside == 0) {
+							mpz_divexact_ui(N0, N0, q);
 							stream.str("");
 							stream << hex << q;
 							str += stream.str();
 						}
+						bool isrel = true;
 						bool cofactor = true;
-						if (mpz_cmp_ui(N1, 1) == 0) { cofactor = false; }
-						str += (qside == 1 && cofactor ? "," : "");
-						// cofactorization on side 1
-						n = 0; while (!Q.empty()) Q.pop(); while (!QN.empty()) QN.pop();
+						if (mpz_cmp_ui(N0, 1) == 0) { cofactor = false; }
+						str += (qside == 0 && cofactor ? "," : "");
+						// cofactorization on side 0
+						int n = 0; while (!Q.empty()) Q.pop(); while (!QN.empty()) QN.pop();
 						if (cofactor) {
-							if (mpz_probab_prime_p(N1, 30) == 0) {  // cofactor definitely composite
+							if (mpz_probab_prime_p(N0, 30) == 0) {  // cofactor definitely composite
 								
-								QN.push(&N1); Q.push(2); Q.push(1); Q.push(0); Q.push(3);
+								QN.push(&N0); Q.push(2); Q.push(1); Q.push(0); Q.push(3);
 								while (!QN.empty()) {
 									mpz_t* N = QN.top(); QN.pop();
 									int l = Q.top(); Q.pop();
@@ -758,20 +668,120 @@ int main(int argc, char** argv)
 								}
 							}
 							else {	// cofactor prime but is it < lpb?
-								if (mpz_cmpabs(N1, lpb) > 0) isrel = false;
-								else { mpz_get_str(str2, BASE, N1); str += str2; }
+								if (mpz_cmpabs(N0, lpb) > 0) isrel = false;
+								else { mpz_get_str(str2, BASE, N0); str += str2; }
 							}
 						}
+						
+						str += ":";
 
-						if (isrel) { cout << str << endl << flush; R++; }
+						// trial division on side 1
+						if (isrel) {
+							p = primes[0]; k = 0;
+							while (p < sieveP1[k1-1]) {
+								int valp = 0;
+								while (mpz_fdiv_ui(N1, p) == 0) {
+									mpz_divexact_ui(N1, N1, p);
+									valp++;
+									stream.str("");
+									stream << hex << p;
+									str += stream.str() + ",";
+								}
+								if (p < 1000) {
+									p = primes[++k];
+									if (p > 1000) {
+										k = 0;
+										while (sieveP1[k] < 1000) k++;
+									}
+								}
+								else {
+									p = sieveP1[++k];
+								}
+							}
+							if (mpz_fdiv_ui(N1, q) == 0 && qside == 1)  {
+								mpz_divexact_ui(N1, N1, q);
+								stream.str("");
+								stream << hex << q;
+								str += stream.str();
+							}
+							bool cofactor = true;
+							if (mpz_cmp_ui(N1, 1) == 0) { cofactor = false; }
+							str += (qside == 1 && cofactor ? "," : "");
+							// cofactorization on side 1
+							n = 0; while (!Q.empty()) Q.pop(); while (!QN.empty()) QN.pop();
+							if (cofactor) {
+								if (mpz_probab_prime_p(N1, 30) == 0) {  // cofactor definitely composite
+									
+									QN.push(&N1); Q.push(2); Q.push(1); Q.push(0); Q.push(3);
+									while (!QN.empty()) {
+										mpz_t* N = QN.top(); QN.pop();
+										int l = Q.top(); Q.pop();
+										int j = 0;
+										bool factored = false;
+										while (!factored) {
+											int alg = Q.top(); Q.pop(); j++;
+											switch (alg) {
+												case 0: factored = PollardPm1(*N, S, factor);
+														break;	
+												case 1: factored = EECM(*N, S, factor, 25921, 83521, 19, 9537, 2737);
+														break;	
+												case 2: factored = EECM(*N, S, factor, 1681, 707281, 3, 19642, 19803);
+														break;	
+											}
+											if ( !factored ) {
+												if ( j >= l ) { isrel = false; break; }
+											}
+											else {
+												mpz_set(p1, factor);
+												mpz_divexact(p2, *N, factor);
+												if (mpz_cmpabs(p1, p2) > 0) {
+													 mpz_set(tmp1, p1); mpz_set(p1, p2); mpz_set(p2, tmp1);	// sort
+												}
+												// save remaining algs to array
+												int lnext = l - j; int lt = lnext;
+												while (lt--) { algarr[lt] = Q.top(); Q.pop(); }
+												lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
+												if (mpz_probab_prime_p(p1, 30)) {
+													if (mpz_cmpabs(p1, lpb) > 0) { isrel = false; break; }
+													else { mpz_get_str(str2, BASE, p1); str += str2; str += ","; }
+												}
+												else {
+													if (!lnext) { isrel = false; break; }
+													mpz_set(pi[n], p1);
+													QN.push(&pi[n++]);
+													lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
+												}
+												if (mpz_probab_prime_p(p2, 30)) {
+													if (mpz_cmpabs(p2, lpb) > 0) { isrel = false; break; }
+													else { mpz_get_str(str2, BASE, p2); str += str2; str += QN.empty() ? "" : ","; }
+												}
+												else {
+													if (!lnext) { isrel = false; break; }
+													mpz_set(pi[n], p2);
+													QN.push(&pi[n++]);
+													lt = lnext; if (lt) { while (lt--) Q.push(algarr[lnext-1-lt]); Q.push(lnext); }
+												}
+											}
+										}
+										if (!isrel) break;
+									}
+								}
+								else {	// cofactor prime but is it < lpb?
+									if (mpz_cmpabs(N1, lpb) > 0) isrel = false;
+									else { mpz_get_str(str2, BASE, N1); str += str2; }
+								}
+							}
+
+							if (isrel) { cout << str << endl << flush; R++; }
+						}
 					}
 				}
 			}
+			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+			cout << "# Finished! Cofactorization took " << timetaken << "s" << endl << flush;
+			cout << "# " << R << " actual relations found." << endl << flush;
+			//cout << "lpb = " << mpz_get_str(NULL, 10, lpb) << endl << flush;
 		}
-		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-		cout << "# Finished! Cofactorization took " << timetaken << "s" << endl << flush;
-		cout << "# " << R << " actual relations found." << endl << flush;
-		//cout << "lpb = " << mpz_get_str(NULL, 10, lpb) << endl << flush;
 	}
 
 	free(str2);
@@ -915,8 +925,9 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t 
 	int B2max = B2 - 1;
 	int B3max = B3 - 1;
 	int B4max = B4 - 1;
-	int B1xB2x2bits = B1bits + B2bits + 1;
-	int B1xB2x2xB3x2bits = B1bits + B2bits + 1 + B3bits + 1;
+	int B1x2bits = B1bits + 1;
+	int B1x2xB2x2bits = B1bits + 1 + B2bits + 1;
+	int B1x2xB2x2xB3x2bits = B1bits + 1 + B2bits + 1 + B3bits + 1;
 
 	// print (q,r) ideal
 	//cout << "special-q (" << q << "," << rl << ")" << endl;
@@ -932,9 +943,9 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t 
 	}
 
 	L[0]  = q; L[1]  = -r; L[2]  = -R; L[3]  = 0;
-	L[4]  = 0; L[5]  = 1;     L[6]  = 0;      L[7]  = -R;
-	L[8]  = 0; L[9]  = 0;     L[10] = 1;      L[11] = 0;
-	L[12] = 0; L[13] = 0;     L[14] = 0;      L[15] = 1;
+	L[4]  = 0; L[5]  = 1;  L[6]  = 0;  L[7]  = -R;
+	L[8]  = 0; L[9]  = 0;  L[10] = 1;  L[11] = 0;
+	L[12] = 0; L[13] = 0;  L[14] = 0;  L[15] = 1;
 
 	int64L2(L, 4);	// LLL reduce L, time log(q)^2
 
@@ -997,7 +1008,7 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t 
 			int nz = (-w4*v2 + w2*v4)*u1 + ( w4*v1 - w1*v4)*u2 + (-w2*v1 + w1*v2)*u4;
 			int nt = ( w3*v2 - w2*v3)*u1 + (-w3*v1 + w1*v3)*u2 + ( w2*v1 - w1*v2)*u3;
 
-			// enumerate lattice vectors (x,y,z,t) in box [0,B[x[-B,B[x[-B,B[x[-B,B[
+			// enumerate lattice vectors (x,y,z,t) in box [-B,B[x[-B,B[x[-B,B[x[-B,B[
 			int x = 0; int y = 0; int z = 0; int t = 0;
 			while (spaceintersectsbox4d(nx, ny, nz, nt, x-t1, y-t2, z-t3, t-t4, B1, B2, B3, B4)) {
 				x -= t1; y -= t2; z -= t3; t -= t4;
@@ -1006,7 +1017,7 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t 
 			while (spaceintersectsbox4d(nx, ny, nz, nt, x, y, z, t, B1, B2, B3, B4)) { 
 				int j1, j2, j3, j4, jmin;
 				// pin vector to start of row
-				int w1B = w1 < 0 ? B1max : 0; int w2B = w2 < 0 ? B2max : -B2;
+				int w1B = w1 < 0 ? B1max : -B1; int w2B = w2 < 0 ? B2max : -B2;
 				int w3B = w3 < 0 ? B3max : -B3; int w4B = w4 < 0 ? B4max : -B4;
 				j1 = w1 == 0 ? -1 : (x - w1B) / w1;
 				j2 = w2 == 0 ? -1 : (y - w2B) / w2;
@@ -1017,7 +1028,7 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t 
 				int ws1 = x; int ws2 = y; int ws3 = z; int ws4 = t;
 				bool inspace = true;
 				while (inspace) {
-					if (x >= 0 && x < B1 && y >= -B2 && y < B2
+					if (x >= -B1 && x < B1 && y >= -B2 && y < B2
 						  && z >= -B3 && z < B3 && t >= -B4 && t < B4) {
 						int a = 0; int b = 0;
 						getab4d(u1, u2, u3, u4, v1, v2, v3, v4, x, y, z, t, B1, B2, B3, B4, &a, &b);
@@ -1031,7 +1042,7 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t 
 							bool inplane = true;
 							while (inplane) {
 								// pin vector to start of row
-								int u1B = u1 < 0 ? B1max : 0; int u2B = u2 < 0 ? B2max : -B2;
+								int u1B = u1 < 0 ? B1max : -B1; int u2B = u2 < 0 ? B2max : -B2;
 								int u3B = u3 < 0 ? B3max : -B3; int u4B = u4 < 0 ? B4max : -B4;
 								j1 = u1 == 0 ? -1 : (x - u1B) / u1;
 								j2 = u2 == 0 ? -1 : (y - u2B) / u2;
@@ -1039,9 +1050,9 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t 
 								j4 = u4 == 0 ? -1 : (t - u4B) / u4;
 								jmin = minnonneg4d(j1, j2, j3, j4);
 								x -= jmin*u1; y -= jmin*u2; z -= jmin*u3; t -= jmin*u4;
-								if (x >= 0 && x < B1 && y >= -B2 && y < B2
+								if (x >= -B1 && x < B1 && y >= -B2 && y < B2
 									  && z >= -B3 && z < B3 && t >= -B4 && t < B4) {
-									int u1B = u1 < 0 ? 0 : B1max; int u2B = u2 < 0 ? -B2 : B2max;
+									int u1B = u1 < 0 ? -B1 : B1max; int u2B = u2 < 0 ? -B2 : B2max;
 									int u3B = u3 < 0 ? -B3 : B3max; int u4B = u4 < 0 ? -B4 : B4max;
 									j1 = u1 == 0 ? -1 : (u1B - x) / u1;
 									j2 = u2 == 0 ? -1 : (u2B - y) / u2;
@@ -1049,8 +1060,8 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t 
 									j4 = u4 == 0 ? -1 : (u4B - t) / u4;
 									jmin = minnonneg4d(j1, j2, j3, j4);
 									for (int j = 0; j <= jmin; j++) {
-										int id = x + ((y + B2) << B1bits) + ((z + B3) << B1xB2x2bits)
-										  + ((t + B4) << B1xB2x2xB3x2bits);
+										int id = (x + B1) + ((y + B2) << B1x2bits) + ((z + B3) << B1x2xB2x2bits)
+										  + ((t + B4) << B1x2xB2x2xB3x2bits);
 										M[m++] = (keyval){ id, logp };
 										x += u1; y += u2; z += u3; t += u4;
 									}
@@ -1097,7 +1108,7 @@ bool planeintersectsbox4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3
 	int64_t F1, F2, F3, F4, G1, G2, G3, G4;
 
 	// 3 points determine a face in 4d, updated one at a time, giving a new face
-	int64_t T[3][4] = { { 0, -B2, -B3, -B4 }, { B1, -B2, -B3, -B4},	{ B1, B2, -B3, -B4} };
+	int64_t T[3][4] = { { -B1, -B2, -B3, -B4 }, { B1, -B2, -B3, -B4},	{ B1, B2, -B3, -B4} };
 	int pos = 2;	// position in cycle of 3 points (FIFO, mod 3)
 	int xyzt = 2;	// component position mod 4
 
@@ -1311,13 +1322,13 @@ inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, 
 
 
 // Integer programming to get (a,b) such that (x,y,z,t) + a*(u1,u2,u3,u4) + b*(v1,v2,3v,v4)
-// within [0,B[x[-B,B[x[-B,B[x[-B,B[
+// within [-B,B[x[-B,B[x[-B,B[x[-B,B[
 inline void getab4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3, int v4,
 				int x, int y, int z, int t, int B1, int B2, int B3, int B4, int* a, int* b)
 {
 	int U[8] = { u1, u2, u3, u4, -u1, -u2, -u3, -u4 };
 	int V[8] = { v1, v2, v3, v4, -v1, -v2, -v3, -v4 };
-	int C[8] = { B1-x-1, B2-y-1, B3-z-1, B4-t-1, x, B2+y, B3+z, B4+t };
+	int C[8] = { B1-x-1, B2-y-1, B3-z-1, B4-t-1, B1+x, B2+y, B3+z, B4+t };
 	*a = B1; *b = B1;
 
 	int L = abs(nonzerolcm4d(u1, u2, u3, u4));
@@ -1400,33 +1411,33 @@ inline int nonzerolcm4d(int u1, int u2, int u3, int u4)
 
 
 // determine if 3-space with normal (nx, ny, nz, nt) containing point (x,y,z,t) intersects
-// box [0,B[x[-B,B[x[-B,B[x[-B,B[
+// box [-B,B[x[-B,B[x[-B,B[x[-B,B[
 inline bool spaceintersectsbox4d(int nx, int ny, int nz, int nt, int x, int y, int z, int t,
 							int B1, int B2, int B3, int B4)
 {
 	int d = nx*x + ny*y + nz*z + nt*t;
 
-	/* nxB0 = 0 */     int nxB1 = nx*(B1-1);
+	int nxB0 = -nx*B1; int nxB1 = nx*(B1-1);
 	int nyB0 = -ny*B2; int nyB1 = ny*(B2-1);
 	int nzB0 = -nz*B3; int nzB1 = nz*(B3-1);
 	int ntB0 = -nt*B4; int ntB1 = nt*(B4-1);
 
-	int s0 = ( /*nxB0 +*/ nyB0 + nzB0 + ntB0 - d ) > 0;
-	int s1 = ( nxB1   +   nyB0 + nzB0 + ntB0 - d ) > 0;
-	int s2 = ( /*nxB0 +*/ nyB1 + nzB0 + ntB0 - d ) > 0;
-	int s3 = ( nxB1   +   nyB1 + nzB0 + ntB0 - d ) > 0;
-	int s4 = ( /*nxB0 +*/ nyB0 + nzB1 + ntB0 - d ) > 0;
-	int s5 = ( nxB1   +   nyB0 + nzB1 + ntB0 - d ) > 0;
-	int s6 = ( /*nxB0 +*/ nyB1 + nzB1 + ntB0 - d ) > 0;
-	int s7 = ( nxB1   +   nyB1 + nzB1 + ntB0 - d ) > 0;
-	int s8 = ( /*nxB0 +*/ nyB0 + nzB0 + ntB1 - d ) > 0;
-	int s9 = ( nxB1   +   nyB0 + nzB0 + ntB1 - d ) > 0;
-	int sa = ( /*nxB0 +*/ nyB1 + nzB0 + ntB1 - d ) > 0;
-	int sb = ( nxB1   +   nyB1 + nzB0 + ntB1 - d ) > 0;
-	int sc = ( /*nxB0 +*/ nyB0 + nzB1 + ntB1 - d ) > 0;
-	int sd = ( nxB1   +   nyB0 + nzB1 + ntB1 - d ) > 0;
-	int se = ( /*nxB0 +*/ nyB1 + nzB1 + ntB1 - d ) > 0;
-	int sf = ( nxB1   +   nyB1 + nzB1 + ntB1 - d ) > 0;
+	int s0 = ( nxB0 + nyB0 + nzB0 + ntB0 - d ) > 0;
+	int s1 = ( nxB1 + nyB0 + nzB0 + ntB0 - d ) > 0;
+	int s2 = ( nxB0 + nyB1 + nzB0 + ntB0 - d ) > 0;
+	int s3 = ( nxB1 + nyB1 + nzB0 + ntB0 - d ) > 0;
+	int s4 = ( nxB0 + nyB0 + nzB1 + ntB0 - d ) > 0;
+	int s5 = ( nxB1 + nyB0 + nzB1 + ntB0 - d ) > 0;
+	int s6 = ( nxB0 + nyB1 + nzB1 + ntB0 - d ) > 0;
+	int s7 = ( nxB1 + nyB1 + nzB1 + ntB0 - d ) > 0;
+	int s8 = ( nxB0 + nyB0 + nzB0 + ntB1 - d ) > 0;
+	int s9 = ( nxB1 + nyB0 + nzB0 + ntB1 - d ) > 0;
+	int sa = ( nxB0 + nyB1 + nzB0 + ntB1 - d ) > 0;
+	int sb = ( nxB1 + nyB1 + nzB0 + ntB1 - d ) > 0;
+	int sc = ( nxB0 + nyB0 + nzB1 + ntB1 - d ) > 0;
+	int sd = ( nxB1 + nyB0 + nzB1 + ntB1 - d ) > 0;
+	int se = ( nxB0 + nyB1 + nzB1 + ntB1 - d ) > 0;
+	int sf = ( nxB1 + nyB1 + nzB1 + ntB1 - d ) > 0;
 
 	int mask = s0 + (s1<<1) + (s2<<2) + (s3<<3) + (s4<<4) + (s5<<5) + (s6<<6) + (s7<<7) +
 	           (s8<<8) + (s9<<9) + (sa<<10) + (sb<<11) +
