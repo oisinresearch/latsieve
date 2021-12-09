@@ -340,7 +340,10 @@ int main (int argc, char** argv)
 		string N0str = line.substr(0, line.find(separator1));
 		while (N0str.length()) {
 			string pstr = N0str.substr(0, N0str.find(separator2));
-			if (pstr.length()) {
+			if (pstr.length() == 0) {
+				N0str.erase(0, 1);
+			}
+			else {
 				mpz_set_str(p, pstr.c_str(), BASE);
 				assert(mpz_divisible_p(N0, p));
 				mpz_divexact(N0, N0, p);
@@ -354,7 +357,9 @@ int main (int argc, char** argv)
 					}
 					else { // make sure large prime is good
 						int pt = mpz_get_ui(p);
-						for (int i = 0; i <= degfht; i++) fmodp[i] = mod(fi64[i], pt);
+						//for (int i = 0; i <= degfht; i++) fmodp[i] = mod(fi64[i], pt);
+						for (int i = 0; i <= degfht; i++)
+							fmodp[i] = mpz_mod_ui(r0, fhtpoly[i], pt);
 						int nr = polrootsmod(fmodp, degfht, froots, pt);
 						if (nr == 0) {
 							isrel = false;
@@ -376,7 +381,10 @@ int main (int argc, char** argv)
 		string N1str = line.substr(0, line.find(separator1));
 		while (N1str.length()) {
 			string pstr = N1str.substr(0, N1str.find(separator2));
-			if (pstr.length()) {
+			if (pstr.length() == 0) {
+				N1str.erase(0, 1);
+			}
+			else {
 				mpz_set_str(p, pstr.c_str(), BASE);
 				assert(mpz_divisible_p(N1, p));
 				mpz_divexact(N1, N1, p);
@@ -390,7 +398,9 @@ int main (int argc, char** argv)
 					}
 					else { // make sure large prime is good
 						int pt = mpz_get_ui(p);
-						for (int i = 0; i <= degght; i++) gmodp[i] = mod(gi64[i], pt);
+						//for (int i = 0; i <= degght; i++) gmodp[i] = mod(gi64[i], pt);
+						for (int i = 0; i <= degght; i++)
+							gmodp[i] = mpz_mod_ui(r0, ghtpoly[i], pt);
 						int nr = polrootsmod(gmodp, degght, groots, pt);
 						if (nr == 0) {
 							isrel = false;
@@ -413,14 +423,14 @@ int main (int argc, char** argv)
 		
 		// compute Galois conjugates
 		int a0 = a; int b0 = b; int c0 = c; int d0 = d;
-		for (int g = 1; g < 4; g++) {
+		for (int g = 1; g <= 1; g++) {
 			switch(g) {
 				case 1:
 					a = c0; b = d0; c = a0; d = b0; break;
-				case 2:
-					a = -3*a0+b0; b = -a0; c = -3*c0+d0; d = -c0; break;
-				case 3:
-					a = -3*c0+d0; b = -c0; c = -3*a0+b0; d = -a0; break;
+				//case 2:
+				//	a = -3*a0+b0; b = -a0; c = -3*c0+d0; d = -c0; break;
+				//case 3:
+				//	a = -3*c0+d0; b = -c0; c = -3*a0+b0; d = -a0; break;
 			}
 
 			// restore line
@@ -450,7 +460,10 @@ int main (int argc, char** argv)
 			string N0str = line.substr(0, line.find(separator1));
 			while (N0str.length()) {
 				string pstr = N0str.substr(0, N0str.find(separator2));
-				if (pstr.length()) {
+				if (pstr.length() == 0) {
+					N0str.erase(0, 1);
+				}
+				else {
 					mpz_set_str(p, pstr.c_str(), BASE);
 					if (mpz_divisible_p(N0, p)) {
 						mpz_divexact(N0, N0, p);
@@ -480,7 +493,10 @@ int main (int argc, char** argv)
 			string N1str = line.substr(0, line.find(separator1));
 			while (N1str.length()) {
 				string pstr = N1str.substr(0, N1str.find(separator2));
-				if (pstr.length()) {
+				if (pstr.length() == 0) {
+					N1str.erase(0, 1);
+				}
+				else {
 					mpz_set_str(p, pstr.c_str(), BASE);
 					if (mpz_divisible_p(N1, p)) {
 						mpz_divexact(N1, N1, p);
@@ -514,6 +530,18 @@ int main (int argc, char** argv)
 	mpz_clear(p);
 	mpz_clear(N1); mpz_clear(N0);
     mpz_poly_clear(A); mpz_poly_clear(f1); mpz_poly_clear(f0);
+	delete[] sievenum_S1modp;
+	delete[] sievenum_S0modp;
+	//delete[] sievenum_s1modp;
+	//delete[] sievenum_s0modp;
+	delete[] sieveS1;
+	delete[] sieveS0;
+	delete[] sieveP1;
+	delete[] sieveP0;
+	delete[] sievep1;
+	delete[] sieves1;
+	delete[] sievep0;
+	delete[] sieves0;
 	delete[] primes;
 	delete[] sieve;
 	delete[] groots;
