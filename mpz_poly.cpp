@@ -1845,8 +1845,7 @@ int mpz_poly_factor(mpz_poly_factor_list lf, mpz_poly f, mpz_t p, gmp_randstate_
 }
 
 /* a <- b cmod c with -c/2 <= a < c/2 */
-void
-mpz_ndiv_r (mpz_t a, mpz_t b, mpz_t c)
+void mpz_ndiv_r (mpz_t a, mpz_t b, mpz_t c)
 {
   mpz_mod (a, b, c); /* now 0 <= a < c */
 
@@ -2318,5 +2317,78 @@ int mpz_poly_valuation(mpz_poly f)
     assert(f->deg >= 0);
     for( ; n < f->deg  && mpz_cmp_ui(f->coeff[n], 0) == 0 ; n++) ;
     return n;
+}
+
+/* computes d = gcd(f, g) = u*f + v*g mod p, with p in mpz_t */
+/* Coefficients of f and g need not be reduced mod p.
+ * Coefficients of d, u, v are reduced mod p */
+void mpz_poly_xgcd_mpz (mpz_poly d, mpz_poly f, mpz_poly g, mpz_poly u, mpz_poly v, mpz_t p)
+{
+  mpz_poly q, tmp;
+  mpz_poly gg;
+
+  if (f->deg < g->deg) {
+      mpz_poly_xgcd_mpz(d, g, f, v, u, p);
+      return;
+  }
+  mpz_poly_init(gg, g->alloc);
+  mpz_poly_set(d, f);
+  mpz_poly_set(gg, g);
+  mpz_poly_mod_mpz(d, d, p);
+  mpz_poly_mod_mpz(gg, gg, p);
+
+  mpz_poly uu, vv;
+  mpz_poly_init (uu, 0);
+  mpz_poly_init (vv, 0);
+
+  mpz_poly_set_xi(u, 0);
+  mpz_poly_set_zero(uu);
+
+  mpz_poly_set_xi(vv, 0);
+  mpz_poly_set_zero(v);
+
+  mpz_poly_init(q, d->deg);
+  mpz_poly_init(tmp, d->deg + gg->deg);
+
+  while (gg->deg >= 0)
+    {
+
+      /* q, r := f div g mod p */
+      mpz_poly_div_qr (q, d, d, gg, p);
+
+      /* u := u - q * uu mod p */
+      mpz_poly_mul(tmp, q, uu);
+      mpz_poly_sub_mod_mpz(u, u, tmp, p);
+      mpz_poly_swap (u, uu);
+
+      /* v := v - q * vv mod p */
+      mpz_poly_mul(tmp, q, vv);
+      mpz_poly_sub_mod_mpz(v, v, tmp, p);
+      mpz_poly_swap (v, vv);
+
+      /* now deg(f) < deg(g): swap f and g */
+      mpz_poly_swap (d, gg);
+    }
+
+  /* make monic */
+  mpz_t inv;
+  if (mpz_cmp_ui(d->coeff[d->deg], 1) != 0)
+    {
+      mpz_init(inv);
+      mpz_invert(inv, d->coeff[0], p);
+      mpz_poly_mul_mpz(d, d, inv);
+      mpz_poly_mod_mpz(d, d, p);
+      mpz_poly_mul_mpz(u, u, inv);
+      mpz_poly_mod_mpz(u, u, p);
+      mpz_poly_mul_mpz(v, v, inv);
+      mpz_poly_mod_mpz(v, v, p);
+      mpz_clear(inv);
+    }
+
+  mpz_poly_clear(gg);
+  mpz_poly_clear(uu);
+  mpz_poly_clear(vv);
+  mpz_poly_clear(q);
+  mpz_poly_clear(tmp);
 }
 
