@@ -223,6 +223,15 @@ void mpz_poly_bivariate_setcoeff(mpz_poly_bivariate f, int i,
   }
 }
 
+// set f = g
+void mpz_poly_bivariate_set(mpz_poly_bivariate f, mpz_poly_bivariate g)
+{
+	mpz_poly_bivariate_realloc(f, g->deg + 1);
+	for (int i = 0; i <= g->deg; i++) {
+		mpz_poly_bivariate_setcoeff(f, i, g);
+	}
+}
+
 void mpz_poly_bivariate_fprintf(FILE * fp, mpz_poly_bivariate f)
 {
   if (f->deg_y == -1) {
