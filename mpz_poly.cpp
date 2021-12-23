@@ -2319,6 +2319,24 @@ int mpz_poly_valuation(mpz_poly f)
     return n;
 }
 
+/* computes 1 = u*f + v*h mod p, with p in int64_t, p > 0 */
+/* Coefficients of f and h need not be reduced mod p.
+ * Coefficients of u, v are reduced mod p */
+void mpz_poly_inv_F_q (mpz_poly f, mpz_poly u, mpz_poly h, int64_t p0)
+{
+	mpz_poly d, v;
+	mpz_poly_init(d, 0);
+	mpz_poly_init(v, 0);
+	mpz_t p; mpz_init(p);
+	assert(q > 0);
+	mpz_set_si(p, p0);
+	
+	mpz_poly_xgcd(d, f, h, u, v, p);
+
+	mpz_poly_clear(v);
+	mpz_poly_clear(d);
+}
+
 /* computes d = gcd(f, g) = u*f + v*g mod p, with p in mpz_t */
 /* Coefficients of f and g need not be reduced mod p.
  * Coefficients of d, u, v are reduced mod p */
