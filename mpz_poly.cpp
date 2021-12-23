@@ -1974,6 +1974,21 @@ void mpz_poly_pow_mod_f_mod_mpz (mpz_poly Q, mpz_poly P,
     }
 }
 
+
+/* Q = P1*P2 mod f, mod m
+   f is the original algebraic polynomial (non monic but small coefficients)
+   Coefficients of P1 and P2 need not be reduced mod m.
+   Coefficients of Q are reduced mod m. */
+void mpz_poly_mul_mod_f_mod_ui (mpz_poly Q, mpz_poly P1, mpz_poly P2,
+			    mpz_poly f, int64_t m0)
+{
+	mpz_t m; mpz_init_set_ui(m, m0);
+	
+	mpz_poly_mul_mod_f_mod_mpz(Q, P1, P2, f, m, NULL);
+
+	mpz_clear(m);
+}
+
 /* Q = P1*P2 mod f, mod m
    f is the original algebraic polynomial (non monic but small coefficients)
    Coefficients of P1 and P2 need not be reduced mod m.

@@ -99,6 +99,8 @@ int mpz_poly_is_irreducible(mpz_poly f, mpz_t p);
 void mpz_ndiv_r (mpz_t a, mpz_t b, mpz_t c);
 
 void mpz_poly_pow_mod_f_mod_mpz (mpz_poly Q, mpz_poly P, mpz_poly f, mpz_t a, mpz_t p);
+void mpz_poly_mul_mod_f_mod_ui (mpz_poly Q, mpz_poly P1, mpz_poly P2,
+			    mpz_poly f, int64_t m0);
 void mpz_poly_mul_mod_f_mod_mpz (mpz_poly Q, mpz_poly P1, mpz_poly P2, mpz_poly f,
 	mpz_t m, mpz_t invf);
 void mpz_poly_mul_mod_f (mpz_poly Q, mpz_poly P1, mpz_poly P2, mpz_poly f);
