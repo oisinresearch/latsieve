@@ -1,57 +1,175 @@
 #include "mpz_poly_Fq.h"
 
-void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, int df0,
-	mpz_poly h, int dh, int64_t q)
+void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, mpz_poly h, int64_t q,
+	vector<mpz_poly_bivariate*> factors)
 {
 	// compute r = (q^2 - 1)/2
 	int64_t r = (q*q - 1)/2;
 
-	// compute random poly of degree df0 - 1
 	mpz_poly_bivariate A;
 	mpz_poly_bivariate_init(A, 0);
+	mpz_poly_bivariate Q;
+	mpz_poly_bivariate_init(Q, 0);
+	mpz_poly_bivariate R;
+	mpz_poly_bivariate_init(R, 0);
 	mpz_poly A_i;
 	mpz_poly_init(A_i, 0);
-	for (int i = 0; i < df0-1; i++) {
-		for (int j = 0; j < dh; j++) {
-			mpz_poly_setcoeff_ui(A_i, j, rand() % q);
-		}
-	}
-	int dA = df0 - 1;
-
-	int L = 0;
-	int64_t s = r;
-	while (s>>=1) L++;	// number of bits in r 
-
 	mpz_poly_bivariate B;
-	mpz_poly_bivariate_init(B);
-	mpz_poly_bivariate_set(B, A, dA);
+	mpz_poly_bivariate_init(B, 0);
+	mpz_poly_bivariate_set(B, A, 0);
+	mzp_poly B_0; mpz_poly_init(B_0, 0);
 
-	// using square and multiply, compute B = A^r - 1 mod f0, q, h
-	for (int i = 2; i <= L; i++) {	
-		// square
-		mpz_poly_bivariate_mul(B, B, B);
-		// reduce mod f0, q, h
-		mpz_poly_Fq_mod(B, B, f0, q, h);
-		if (r & (1<<(L - i)) == 1) {
-			// multiply
-			mpz_poly_bivariate_mul(B, B, A);
-			// reduce mod f0, q, h
-			mpz_poly_Fq_mod(B, B, f0, q, h);
+	stack<mpz_poly_bivariate*> composites;
+
+	composites.push(&f0);
+
+	while (!composites.empty()) {
+		mpz_poly_bivariate* f = composites.top(); composites.pop();
+
+		// compute random poly of degree *f->deg - 1
+		for (int i = 0; i < *f->deg - 1; i++) {
+			for (int j = 0; j < h->deg; j++) {
+				mpz_poly_setcoeff_ui(A_i, j, rand() % q);
+			}
+		}
+
+		int L = 0;
+		int64_t s = r;
+		while (s>>=1) L++;	// number of bits in r 
+
+		// using square and multiply, compute B = A^r - 1 mod *f, q, h
+		for (int i = 2; i <= L; i++) {	
+			// square
+			mpz_poly_bivariate_mul(B, B, B);
+			// reduce mod *f, q, h
+			mpz_poly_Fq_divrem(Q, R, B, *f, q, h);
+			mpz_poly_bivariate_set(B, R);
+			if (r & (1<<(L - i)) == 1) {
+				// multiply
+				mpz_poly_bivariate_mul(B, B, A);
+				// reduce mod *f, q, h
+				mpz_poly_Fq_divrem(Q, R, B, *f, q, h);
+				mpz_poly_bivariate_set(B, R);
+			}
+		}
+		for (i = 0; i < h->deg; i++) {
+			mpz_poly_setcoeff(B_0, i, B->coeff[0]->coeff[i]);
+		}
+		int64_t B_0_0 = (mpz_get_ui(B_0->coeff[0]) - 1) % q;
+		mpz_poly_setcoeff(B_0, 0, B_0_0);
+		mpz_poly_bivariate_setcoeff(B, 0, B_0);
+
+		// compute gcd(B, *f) mod q, h
+		mpz_poly_Fq_gcd(G, B, *f, q, h);
+		
+		if (0 < G->deg && G->deg < *f->deg) {
+			// we have a successful split
+			mpz_poly_Fq_divrem(Q, R, *f, G, q, h);
+			// check if we have target degree d
+			if (G->deg == d) {
+				factors.push_back(&G);
+			}
+			else if (G->deg > 0) {
+				composites.push(&G);
+			}
+			if (Q->deg == d) {
+				factors.push_back(&Q);
+			}
+			else if (Q->deg > 0) {
+				composites.push(&Q);
+			}			
 		}
 	}
-	mzp_poly B_0; mpz_poly_init(B_0);
-	for (i = 0; i < dh; i++) {
-		mpz_poly_setcoeff(B_0, i, B->coeff[0]->coeff[i]);
-	}
-	int64_t B_0_0 = (mpz_get_ui(B_0->coeff[0]) - 1) % q;
-	mpz_poly_setcoeff(B_0, 0, B_0_0);
-	mpz_poly_bivariate_setcoeff(B, 0, B_0);
-
-	// compute gcd(B, f0) mod q, h
 
 	mpz_poly_clear(B_0);
 	mpz_poly_bivariate_clear(B);
 	mpz_poly_clear(A_i);
+	mpz_poly_bivariate_clear(R);
+	mpz_poly_bivariate_clear(Q);
+	mpz_poly_bivariate_clear(A);
+}
+
+// Euclidean division in F_q[x] where F_q = F_p[x]/<h>.
+// As described in Cohen 3.13 Division of Polynomials
+void mpz_poly_Fq_divrem(mpz_poly_bivariate Q, mpz_poly_bivariate R,
+	mpz_poly_bivariate A, mpz_poly_bivariate B, int64_t q, mpz_poly h)
+{
+	mpz_poly LR; mpz_poly_init(LR, 0);
+	mpz_poly LB; mpz_poly_init(LB, 0);
+	mpz_poly t; mpz_poly_init(t, 0);
+	mpz_poly_bivariate T; mpz_poly_bivariate_init(T, 0);
+	mpz_poly_set(LB, B->coeff[B->deg]);
+	mpz_poly ILB; mpz_poly_init(ILB, 0);
+	mpz_poly_inv_Fq(LB, h, ILB, q); // ILB = 1/LB mod h, q
+
+	mpz_poly_bivariate_set(R, A);
+	mpz_poly_bivariate_setzero(Q);
+	mpz_poly_bivariate_setzero(S);
+
+	while (R->deg >= B->deg) {
+		mpz_poly_set(LR, R->coeff[R->deg]);
+		mpz_poly_mul_mod_f_mod_ui(t, LR, ILB, h, q);
+		mpz_poly_bivariate_setzero(S);
+		int d = R->deg - B->deg;
+		mpz_poly_bivariate_setcoeff(S, t, d);
+		mpz_poly_bivariate_cleandeg(S, d);
+		mpz_poly_bivariate_add(Q, Q, S);
+		//mpz_poly_bivariate_mul(T, S, B);	// not fully necessary
+		mpz_poly_Fq_mul_Fq_shift(T, B, S->coeff[d], d);
+		mpz_poly_bivariate_sub(R, R, T);
+	}
+
+	mpz_poly_clear(ILB);
+	mpz_poly_bivariate_clear(T);
+	mpz_poly_clear(t);
+	mpz_poly_clear(LB);
+	mpz_poly_clear(LR);
+}
+
+void mpz_poly_Fq_mul_Fq_shift(mpz_poly_bivariate T, mpz_bivariate_poly B, mpz_poly s, int d,
+	int64_t q, mpz_poly h)
+{
+	mpz_poly B_i; mpz_poly_init(B_i);
+	mpz_poly_bivariate_setzero(T);
+	for (int i = 0; i <= B->deg; i++) {
+		mpz_poly_set(B_i, B->coeff[i]);
+		mpz_poly_cleandeg(B_i, B->coeff[i]->deg);
+		mpz_poly_mul_mod_f_mod_ui(B_i, B_i, s, h, q);
+		mpz_poly_bivariate_setcoeff(T, B_i, i + d);		
+	}
+	mpz_poly_clear(B_i)
+}
+
+void mpz_poly_Fq_mod(mpz_poly_bivariate R, mpz_poly_bivariate A, mpz_poly_bivariate B,
+	int64_t q, mpz_poly h)
+{
+	mpz_poly_bivariate Q; mpz_poly_bivariate_init(Q, 0);
+	mpz_poly_Fq_divrem(Q, R, A, B, q, h);
+	mpz_poly_bivariate_clear(Q);
+}
+
+// See Cohen Algorithm 3.2.1 (Polynomial GCD)
+void mpz_poly_Fq_gcd(mpz_poly_bivariate G, mpz_poly_bivariate u, mpz_poly_bivariate v,
+	int64_t q, mpz_poly h)
+{
+	mpz_poly_bivariate A; mpz_poly_bivariate_init(A, 0);
+	mpz_poly_bivariate B; mpz_poly_bivariate_init(B, 0);
+	mpz_poly_bivariate Q; mpz_poly_bivariate_init(Q, 0);
+	mpz_poly_bivariate R; mpz_poly_bivariate_init(R, 0);
+
+	mpz_poly_bivariate_set(A, u);
+	mpz_poly_bivariate_set(B, v);
+
+	while (!mpz_poly_bivariate_iszero(B)) {
+		mpz_poly_Fq_divrem(Q, R, A, B, q, h);
+		mpz_poly_bivariate_set(A, B);
+		mpz_poly_bivariate_set(B, R);
+	}
+
+	mpz_poly_bivariate_set(G, A);
+	mpz_poly_bivariate_clear(R);
+	mpz_poly_bivariate_clear(Q);
+	mpz_poly_bivariate_clear(B);
 	mpz_poly_bivariate_clear(A);
 }
 

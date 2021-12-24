@@ -232,6 +232,11 @@ void mpz_poly_bivariate_set(mpz_poly_bivariate f, mpz_poly_bivariate g)
 	}
 }
 
+void mpz_poly_bivariate_setzero(mpz_poly_bivariate f)
+{
+	mpz_poly_bivariate_cleandeg(f, 0);
+}
+
 void mpz_poly_bivariate_fprintf(FILE * fp, mpz_poly_bivariate f)
 {
   if (f->deg_y == -1) {

@@ -2337,7 +2337,7 @@ int mpz_poly_valuation(mpz_poly f)
 /* computes 1 = u*f + v*h mod p, with p in int64_t, p > 0 */
 /* Coefficients of f and h need not be reduced mod p.
  * Coefficients of u, v are reduced mod p */
-void mpz_poly_inv_F_q (mpz_poly f, mpz_poly u, mpz_poly h, int64_t p0)
+void mpz_poly_inv_Fq (mpz_poly f, mpz_poly u, mpz_poly h, int64_t p0)
 {
 	mpz_poly d, v;
 	mpz_poly_init(d, 0);

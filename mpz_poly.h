@@ -119,7 +119,7 @@ size_t mpz_poly_size (mpz_poly f);
 void mpz_poly_div_xi(mpz_poly g, mpz_poly f, int i);
 void mpz_poly_mul_xi (mpz_poly g, mpz_poly f, int i);
 int mpz_poly_valuation(mpz_poly f);
-void mpz_poly_inv_F_q (mpz_poly f, mpz_poly u, mpz_poly h, int64_t p0);
+void mpz_poly_inv_Fq (mpz_poly f, mpz_poly u, mpz_poly h, int64_t p0);
 void mpz_poly_xgcd_mpz (mpz_poly d, mpz_poly f, mpz_poly g, mpz_poly u, mpz_poly v, mpz_t p);
 #endif /* MPZ_POLY_H */
 
