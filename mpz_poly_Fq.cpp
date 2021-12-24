@@ -1,7 +1,7 @@
 #include "mpz_poly_Fq.h"
 
 void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, mpz_poly h, int64_t q,
-	vector<mpz_poly_bivariate*> factors)
+	mpz_poly_bivariate* factors)
 {
 	// compute r = (q^2 - 1)/2
 	int64_t r = (q*q - 1)/2;
@@ -12,6 +12,8 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, mpz_poly h, int64_t q,
 	mpz_poly_bivariate_init(Q, 0);
 	mpz_poly_bivariate R;
 	mpz_poly_bivariate_init(R, 0);
+	mpz_poly_bivariate G;
+	mpz_poly_bivariate_init(G, 0);
 	mpz_poly A_i;
 	mpz_poly_init(A_i, 0);
 	mpz_poly_bivariate B;
@@ -19,6 +21,7 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, mpz_poly h, int64_t q,
 	mpz_poly_bivariate_set(B, A, 0);
 	mzp_poly B_0; mpz_poly_init(B_0, 0);
 
+	int m = 0;
 	stack<mpz_poly_bivariate*> composites;
 	composites.push(&f0);
 
@@ -67,14 +70,14 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, mpz_poly h, int64_t q,
 			// check if we have target degree d
 			if (G->deg == d) {
 				mpz_poly_Fq_makemonic(G, q, h);
-				factors.push_back(&G);
+				mpz_poly_bivariate_set(factors[m++], G);
 			}
 			else if (G->deg > 0) {
 				composites.push(&G);
 			}
 			if (Q->deg == d) {
 				mpz_poly_Fq_makemonic(G, q, h);
-				factors.push_back(&Q);
+				mpz_poly_bivariate_set(factors[m++], Q);
 			}
 			else if (Q->deg > 0) {
 				composites.push(&Q);
@@ -85,6 +88,7 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, mpz_poly h, int64_t q,
 	mpz_poly_clear(B_0);
 	mpz_poly_bivariate_clear(B);
 	mpz_poly_clear(A_i);
+	mpz_poly_bivariate_clear(G);
 	mpz_poly_bivariate_clear(R);
 	mpz_poly_bivariate_clear(Q);
 	mpz_poly_bivariate_clear(A);
