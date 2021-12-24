@@ -20,7 +20,6 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, mpz_poly h, int64_t q,
 	mzp_poly B_0; mpz_poly_init(B_0, 0);
 
 	stack<mpz_poly_bivariate*> composites;
-
 	composites.push(&f0);
 
 	while (!composites.empty()) {
@@ -40,13 +39,13 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, mpz_poly h, int64_t q,
 		// using square and multiply, compute B = A^r - 1 mod *f, q, h
 		for (int i = 2; i <= L; i++) {	
 			// square
-			mpz_poly_bivariate_mul(B, B, B);
+			mpz_poly_Fq_mul(B, B, B, q, h);
 			// reduce mod *f, q, h
 			mpz_poly_Fq_divrem(Q, R, B, *f, q, h);
 			mpz_poly_bivariate_set(B, R);
 			if (r & (1<<(L - i)) == 1) {
 				// multiply
-				mpz_poly_bivariate_mul(B, B, A);
+				mpz_poly_Fq_mul(B, B, A, q, h);
 				// reduce mod *f, q, h
 				mpz_poly_Fq_divrem(Q, R, B, *f, q, h);
 				mpz_poly_bivariate_set(B, R);
@@ -111,12 +110,12 @@ void mpz_poly_Fq_divrem(mpz_poly_bivariate Q, mpz_poly_bivariate R,
 		mpz_poly_mul_mod_f_mod_ui(t, LR, ILB, h, q);
 		mpz_poly_bivariate_setzero(S);
 		int d = R->deg - B->deg;
-		mpz_poly_bivariate_setcoeff(S, t, d);
+		mpz_poly_bivariate_setcoeff(S, d, t);
 		mpz_poly_bivariate_cleandeg(S, d);
-		mpz_poly_bivariate_add(Q, Q, S);
-		//mpz_poly_bivariate_mul(T, S, B);	// not fully necessary
+		mpz_poly_Fq_add(Q, Q, S, q, h);
+		//mpz_poly_Fq_mul(T, S, B, q, h);	// not fully necessary
 		mpz_poly_Fq_mul_Fq_shift(T, B, S->coeff[d], d);
-		mpz_poly_bivariate_sub(R, R, T);
+		mpz_poly_Fq_sub(R, R, T, q, h);
 	}
 
 	mpz_poly_clear(ILB);
@@ -135,7 +134,7 @@ void mpz_poly_Fq_mul_Fq_shift(mpz_poly_bivariate T, mpz_bivariate_poly B, mpz_po
 		mpz_poly_set(B_i, B->coeff[i]);
 		mpz_poly_cleandeg(B_i, B->coeff[i]->deg);
 		mpz_poly_mul_mod_f_mod_ui(B_i, B_i, s, h, q);
-		mpz_poly_bivariate_setcoeff(T, B_i, i + d);		
+		mpz_poly_bivariate_setcoeff(T, i + d, B_i);		
 	}
 	mpz_poly_clear(B_i)
 }
@@ -171,5 +170,72 @@ void mpz_poly_Fq_gcd(mpz_poly_bivariate G, mpz_poly_bivariate u, mpz_poly_bivari
 	mpz_poly_bivariate_clear(Q);
 	mpz_poly_bivariate_clear(B);
 	mpz_poly_bivariate_clear(A);
+}
+
+/* Compute f=u*v mod q, h, where u has degree r, and v has degree s. */
+int mpz_poly_Fq_mul(mpz_poly_bivariate f, mpz_poly_bivariate u, mpz_poly bivariate v,
+	int64_t q, mpz_poly h)
+{
+	mpz_poly T; mpz_poly_init(T, 0);
+	mpz_poly_bivariate A; mpz_poly_bivariate_init(A, 0);
+	mpz_poly_bivariate B; mpz_poly_bivariate_init(B, 0);
+	mpz_poly_bivariate_set(A, u);
+	mpz_poly_bivariate_set(B, v);
+	int r = A->deg; int s = B->deg;
+
+	mpz_poly_realloc(f, r + s + 1);
+	for (int i = 0; i <= r + s; i++)
+		mpz_poly_bivariate_setcoeff_ui(f, i, 0);
+	for (int i = 0; i <= r; ++i) {
+		for (int j = 0; j <= s; ++j) {
+			mpz_poly_mul_mod_f_mod_ui(T, A->coeff[i], B->coeff[j], h, q);
+			mpz_poly_Fq_add(F->coeff[i+j], F->coeff[i+j], T, q, h);
+		}
+	}
+	mpz_poly_bivariate_clear(B);
+	mpz_poly_bivariate_clear(A);
+	mpz_poly_clear(T);
+	return r + s;
+}
+
+// Compute f = u + v mod q, h
+void mpz_poly_Fq_add(mpz_poly_bivariate f, mpz_poly_bivariate u, mpz_poly bivariate v,
+	int64_t q, mpz_poly h)
+{
+	int r = A->deg; int s = B->deg; int t = min(r, s);
+
+	mpz_poly_realloc(f, max(r, s) + 1);
+
+	for (int i = 0; i <= t; i++) {
+		for (int j = 0; j < h->deg; j++) {
+			f->coeff[i]->coeff[j] = (u->coeff[i] + v->coeff[i]) % q;
+		}
+	}
+	for (int i = t + 1; i <= max(r, s) + 1; i++) {
+		for (int j = 0; j < h->deg; j++) {
+			f->coeff[i]->coeff[j] = r > s ? u->coeff[i]->coeff[j] : v->coeff[i]->coeff[j];
+		}
+	}
+}
+
+// Compute f = u - v mod q, h
+void mpz_poly_Fq_sub(mpz_poly_bivariate f, mpz_poly_bivariate u, mpz_poly bivariate v,
+	int64_t q, mpz_poly h)
+{
+	int r = A->deg; int s = B->deg; int t = min(r, s);
+
+	mpz_poly_realloc(f, max(r, s) + 1);
+
+	for (int i = 0; i <= t; i++) {
+		for (int j = 0; j < h->deg; j++) {
+			f->coeff[i]->coeff[j] = (u->coeff[i] - v->coeff[i]) % q;
+		}
+	}
+	for (int i = t + 1; i <= max(r, s) + 1; i++) {
+		for (int j = 0; j < h->deg; j++) {
+			f->coeff[i]->coeff[j] = r > s ? u->coeff[i]->coeff[j] :
+				(-v->coeff[i]->coeff[j]) % q;
+		}
+	}
 }
 
