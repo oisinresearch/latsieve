@@ -66,12 +66,14 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, mpz_poly h, int64_t q,
 			mpz_poly_Fq_divrem(Q, R, *f, G, q, h);
 			// check if we have target degree d
 			if (G->deg == d) {
+				mpz_poly_Fq_makemonic(G, q, h);
 				factors.push_back(&G);
 			}
 			else if (G->deg > 0) {
 				composites.push(&G);
 			}
 			if (Q->deg == d) {
+				mpz_poly_Fq_makemonic(G, q, h);
 				factors.push_back(&Q);
 			}
 			else if (Q->deg > 0) {
@@ -99,7 +101,7 @@ void mpz_poly_Fq_divrem(mpz_poly_bivariate Q, mpz_poly_bivariate R,
 	mpz_poly_bivariate T; mpz_poly_bivariate_init(T, 0);
 	mpz_poly_set(LB, B->coeff[B->deg]);
 	mpz_poly ILB; mpz_poly_init(ILB, 0);
-	mpz_poly_inv_Fq(LB, h, ILB, q); // ILB = 1/LB mod h, q
+	mpz_poly_Fq_inv(LB, ILB, q, h); // ILB = 1/LB mod h, q
 
 	mpz_poly_bivariate_set(R, A);
 	mpz_poly_bivariate_setzero(Q);
@@ -237,5 +239,28 @@ void mpz_poly_Fq_sub(mpz_poly_bivariate f, mpz_poly_bivariate u, mpz_poly bivari
 				(-v->coeff[i]->coeff[j]) % q;
 		}
 	}
+}
+
+void mpz_poly_Fq_makemonic(mpz_poly_bivariate G, int64_t q, mpz_poly h)
+{
+	mpz_poly T; mpz_poly_init(T, 0);
+	mpz_poly_Fq_inv(T, G->coeff[G->deg], q, h);
+	for (int i = 0; i <= G->deg; i++) {
+		mpz_poly_mul_mod_f_mod_ui(G->coeff[i], G->coeff[i], T, h, q);
+	}
+	mpz_poly_clear(T);
+}
+
+// Note A should be nonzero
+void mpz_poly_Fq_inv(mpz_poly T, mpz_poly A, int64_t q, mpz_poly_h)
+{
+	mpz_poly d; mpz_poly_init(d, 0);
+	mpz_t p; mpz_init_set_ui(p, q);
+	mpz_poly v; mpz_poly_init(v, 0);
+	/* computes 1 = gcd(A, h) = T*A + v*h mod p, with p in mpz_t */
+	mpz_poly_xgcd_mpz(d, A, h, T, v, p);
+	mpz_poly_clear(v);
+	mpz_clear(p);
+	mpz_poly_clear(d);
 }
 
