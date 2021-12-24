@@ -223,6 +223,18 @@ void mpz_poly_bivariate_setcoeff(mpz_poly_bivariate f, int i,
   }
 }
 
+void mpz_poly_bivariate_setcoeff_ui(mpz_poly_bivariate f, int i,
+    uint64_t z)
+{
+  mpz_poly_bivariate_realloc(f, i + 1);
+  mpz_poly_setcoeff_ui(f->coeff[i], 0, z);
+  if (i >= f->deg_y) {
+    mpz_poly_bivariate_cleandeg(f, i);
+  } else {
+    f->deg_x = 0;
+  }
+}
+
 // set f = g
 void mpz_poly_bivariate_set(mpz_poly_bivariate f, mpz_poly_bivariate g)
 {
@@ -378,3 +390,4 @@ void mpz_poly_bivariate_resultant_x(mpz_poly resultant,
   free(resultants);
   free(y);
 }
+

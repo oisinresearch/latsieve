@@ -54,6 +54,11 @@ void mpz_poly_bivariate_cleandeg(mpz_poly_bivariate f, int deg_y);
 void mpz_poly_bivariate_setcoeff(mpz_poly_bivariate f, int i,
     mpz_poly z);
 /*
+ * Set the ith coefficient of f to an unisigned int constant polynomial.
+ */
+void mpz_poly_bivariate_setcoeff_ui(mpz_poly_bivariate f, int i,
+    uint64_t z)
+/*
  * Print f in a file.
  */
 void mpz_poly_bivariate_fprintf(FILE * fp, mpz_poly_bivariate f);
