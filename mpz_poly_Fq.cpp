@@ -1,6 +1,8 @@
 #include "mpz_poly_Fq.h"
+#include "mpz_poly_bivariate.h"
+#include <gmp.h>
 
-void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, mpz_poly h, int64_t q,
+void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, int64_t q, mpz_poly h,
 	mpz_poly_bivariate* factors)
 {
 	// compute r = (q^2 - 1)/2
@@ -29,16 +31,18 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, mpz_poly h, int64_t q,
 		mpz_poly_bivariate* f = composites.top(); composites.pop();
 
 		// compute random poly of degree *f->deg - 1
-		for (int i = 0; i < *f->deg - 1; i++) {
+		mpz_poly_bivariate_setzero(A);
+		for (int i = 0; i <= *f->deg - 1; i++) {
 			for (int j = 0; j < h->deg; j++) {
-				mpz_poly_setcoeff_ui(A_i, j, rand() % q);
+				mpz_poly_setcoeff_ui(A->coeff[i], j, rand() % q);
 			}
 		}
 
 		int L = 0;
 		int64_t s = r;
 		while (s>>=1) L++;	// number of bits in r 
-
+	
+		mpz_poly_bivariate_set(B, A);
 		// using square and multiply, compute B = A^r - 1 mod *f, q, h
 		for (int i = 2; i <= L; i++) {	
 			// square
@@ -76,7 +80,7 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, mpz_poly h, int64_t q,
 				composites.push(&G);
 			}
 			if (Q->deg == d) {
-				mpz_poly_Fq_makemonic(G, q, h);
+				mpz_poly_Fq_makemonic(Q, q, h);
 				mpz_poly_bivariate_set(factors[m++], Q);
 			}
 			else if (Q->deg > 0) {
@@ -94,7 +98,7 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, mpz_poly h, int64_t q,
 	mpz_poly_bivariate_clear(A);
 }
 
-// Euclidean division in F_q[x] where F_q = F_p[x]/<h>.
+// Euclidean division in F_q[x] where F_q = F_p[y]/<h>.
 // As described in Cohen 3.13 Division of Polynomials
 void mpz_poly_Fq_divrem(mpz_poly_bivariate Q, mpz_poly_bivariate R,
 	mpz_poly_bivariate A, mpz_poly_bivariate B, int64_t q, mpz_poly h)
@@ -265,6 +269,24 @@ void mpz_poly_Fq_inv(mpz_poly T, mpz_poly A, int64_t q, mpz_poly_h)
 	mpz_poly_xgcd_mpz(d, A, h, T, v, p);
 	mpz_poly_clear(v);
 	mpz_clear(p);
+	mpz_poly_clear(d);
+}
+
+/* computes 1 = u*f + v*h mod p, with p in int64_t, p > 0 */
+/* Coefficients of f and h need not be reduced mod p.
+ * Coefficients of u, v are reduced mod p */
+void mpz_poly_inv_Fq (mpz_poly f, mpz_poly u, mpz_poly h, int64_t p0)
+{
+	mpz_poly d, v;
+	mpz_poly_init(d, 0);
+	mpz_poly_init(v, 0);
+	mpz_t p; mpz_init(p);
+	assert(q > 0);
+	mpz_set_si(p, p0);
+	
+	mpz_poly_xgcd_mpz(d, f, h, u, v, p);
+
+	mpz_poly_clear(v);
 	mpz_poly_clear(d);
 }
 

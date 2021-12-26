@@ -14,6 +14,7 @@
 #include <sstream>	// stringstream
 #include <stack>	// stack
 #include "mpz_poly_bivariate.h"
+#include "mpz_poly_Fq.h"
 
 using std::cout;
 using std::endl;
