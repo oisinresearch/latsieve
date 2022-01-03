@@ -20,5 +20,9 @@ void mpz_poly_Fq_sub(mpz_poly_bivariate f, mpz_poly_bivariate u, mpz_poly_bivari
 void mpz_poly_Fq_makemonic(mpz_poly_bivariate G, int64_t q, mpz_poly h);
 void mpz_poly_Fq_inv(mpz_poly T, mpz_poly A, int64_t q, mpz_poly h);
 void mpz_poly_inv_Fq (mpz_poly f, mpz_poly u, mpz_poly h, int64_t p0);
+void mpz_poly_Fq_gcd(mpz_poly_bivariate G, mpz_poly_bivariate u, mpz_poly_bivariate v,
+	int64_t q, mpz_poly h);
+int64_t min(int64_t a, int64_t b);
+int64_t max(int64_t a, int64_t b);
 #endif /* MPZ_POLY_FQ_H */
 

@@ -85,6 +85,9 @@ void mpz_poly_bivariate_resultant_y(mpz_poly resultant,
 void mpz_poly_bivariate_resultant_x(mpz_poly resultant,
     mpz_poly_bivariate f, mpz_poly_bivariate g);
 
+void mpz_poly_bivariate_set(mpz_poly_bivariate f, mpz_poly_bivariate g);
+void mpz_poly_bivariate_setzero(mpz_poly_bivariate f);
+bool mpz_poly_bivariate_iszero(mpz_poly_bivariate f);
 
 #ifdef __cplusplus
 }

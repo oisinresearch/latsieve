@@ -53,29 +53,29 @@ int main(int argc, char** argv)
 	ifstream file(argv[1]);
 	getline(file, line);	// first line contains number n to factor
 	// read nonlinear poly
-	int degfht = -1;
-	if (verbose) cout << endl << "Side 0 polynomial fh_t (ascending coefficients)" << endl;
-	while (getline(file, line) && line.substr(0,3) == "fht" ) {
+	int degfhy = -1;
+	if (verbose) cout << endl << "Side 0 polynomial fh_y (ascending coefficients)" << endl;
+	while (getline(file, line) && line.substr(0,3) == "fhy" ) {
 		line = line.substr(line.find_first_of(" ")+1);
 		//mpz_set_str(c, line.c_str(), 10);
-		mpz_set_str(fpoly[++degfht], line.c_str(), 10);
-		//mpz_get_str(linebuffer, 10, fpoly[degfht-1]);
+		mpz_set_str(fpoly[++degfhy], line.c_str(), 10);
+		//mpz_get_str(linebuffer, 10, fpoly[degfhy-1]);
 		if (verbose) cout << line << endl << flush;
 	}
-	//int degfht = fpoly.size();
+	//int degfhy = fpoly.size();
 	// read other poly
-	int degght = -1;
+	int degghy = -1;
 	bool read = true;
-	if (verbose) cout << endl << "Side 1 polynomial gh_t: (ascending coefficients)" << endl;
-	while (read && line.substr(0,3) == "ght" ) {
+	if (verbose) cout << endl << "Side 1 polynomial gh_y: (ascending coefficients)" << endl;
+	while (read && line.substr(0,3) == "ghy" ) {
 		line = line.substr(line.find_first_of(" ")+1);
 		//mpz_set_str(c, line.c_str(), 10);
-		mpz_set_str(gpoly[++degght], line.c_str(), 10);
-		//mpz_get_str(linebuffer, 10, gpoly[degght-1]);
+		mpz_set_str(gpoly[++degghy], line.c_str(), 10);
+		//mpz_get_str(linebuffer, 10, gpoly[degghy-1]);
 		if (verbose) cout << line << endl << flush;
 		read = static_cast<bool>(getline(file, line));
 	}
-	//int degght = gpoly.size();
+	//int degghy = gpoly.size();
 	// read other poly
 	int degh = -1;
 	read = true;
@@ -156,11 +156,11 @@ int main(int argc, char** argv)
 	//mpz_clear(c);
 	mpz_poly h0; mpz_poly_init(h0, degh);
 	mpz_poly f0; mpz_poly f1;
-	mpz_poly_init(f0, degfht); mpz_poly_init(f1, degght);
+	mpz_poly_init(f0, degfhy); mpz_poly_init(f1, degghy);
 	mpz_poly_set_mpz(h0, hpoly, degh);
-	mpz_poly_set_mpz(f0, fpoly, degfht);
-	mpz_poly_set_mpz(f1, gpoly, degght);
-	if (verbose) cout << endl << "Complete.  Degree fh_t = " << degfht << ", degree gh_t = " << degght << "." << endl;
+	mpz_poly_set_mpz(f0, fpoly, degfhy);
+	mpz_poly_set_mpz(f1, gpoly, degghy);
+	if (verbose) cout << endl << "Complete.  Degree fh_y = " << degfhy << ", degree gh_y = " << degghy << "." << endl;
 
 	if (verbose) cout << endl << "Starting sieve of Eratosthenes for small primes..." << endl << flush;
 	int64_t fbb = 1<<21;
@@ -210,14 +210,137 @@ int main(int argc, char** argv)
 	{
 		int id = omp_get_thread_num();
 
+		mpz_poly_factor_list lf;
+		mpz_poly_factor_list_init(lf);
+		mpz_poly_factor_list lh;
+		mpz_poly_factor_list_init(lh);
+		mpz_poly_factor_list l3;
+		mpz_poly_factor_list_init(l3);
+		mpz_poly hlin; mpz_poly_init(hlin, 0);
+		mpz_poly_bivariate Hlin; mpz_poly_bivariate_init(Hlin, 0);
+		mpz_poly f0hlin; mpz_poly_init(f0hlin, 0);
+		mpz_poly_bivariate* factors0 = new mpz_poly_bivariate[f0->deg / 2];
+		mpz_poly_bivariate* factors1 = new mpz_poly_bivariate[f1->deg / 2];
+		for (int i = 0; i < f0->deg / 2; i++) mpz_poly_bivariate_init(factors0[i], 0);
+		for (int i = 0; i < f1->deg / 2; i++) mpz_poly_bivariate_init(factors1[i], 0);
+
 	#pragma omp for
 		for (int64_t i = 0; i < nump; i++) {
 			int64_t q0 = primes[i];
 			mpz_t q; mpz_init_set_ui(q, q0);
 			// determine which type of special-q we have, first factor f mod q
-			mpz_poly_factor_list lf;
-			mpz_poly_factor(lf, h0, q, rstate);
+			mpz_poly_factor(lf, f0, q, rstate);
+			bool allf4 = true;
+			for (int j = 0; j < lf->size; j++)
+				if (lf->factors[j]->f->deg != 4) {
+					allf4 = false;
+					break;
+				}
+			bool allf2 = true;
+			if (allf4) allf2 = false;
+			else
+				for (int j = 0; j < lf->size; j++)
+					if (lf->factors[j]->f->deg != 2) {
+						allf2 = false;
+						break;
+					}
+			bool allf1 = true;
+			if (allf4 || allf2) allf1 = false;
+			else
+				for (int j = 0; j < lf->size; j++)
+					if (lf->factors[j]->f->deg != 1) {
+						allf1 = false;
+						break;
+					}
+			mpz_poly_factor(lh, h0, q, rstate);
+			bool allh1 = true;
+			for (int j = 0; j < lh->size; j++)
+				if (lh->factors[j]->f->deg != 1) {
+					allh1 = false;
+					break;
+				}
 
+			// categorize special-q by allf4, allf2, allh1
+			if (allf4) // q inert, 0 roots
+				q0sieve0.push_back(q0);
+			else if ((allf2 && allh1) || (!allf4 && !allf2 && !allf1)) { // 1 root 
+				if (allf2 && allh1) {
+					for (int j = 0; j < lh->size; j++) {
+						int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
+						q1sieve0.push_back(q0);
+						q1sieve0.push_back(m);
+					}
+				}
+				else {	// some degree 1 ideals, some degree 2 ideal(s)
+					for (int j = 0; j < lh->size; j++) {
+						int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
+						mpz_poly_setcoeff_ui(hlin, 0, m);
+						mpz_poly_setcoeff_ui(hlin, 1, 1);
+						mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
+						mpz_poly_bivariate_resultant_y(f0hlin, F0, Hlin);
+						// now factor f0hlin mod q
+						mpz_poly_factor(l3, f0hlin, q, rstate);
+						if (l3->factors[0]->f->deg == 2) {	// smallest degree is 2
+							q1sieve0.push_back(q0);
+							q1sieve0.push_back(m);
+						}
+						mpz_poly_factor_list_flush(l3);
+					}
+				}
+			}
+			else if (allf1 || (!allf4 && !allf2 && !allf1)) { // 1 root of f and 1 root of h
+				for (int j = 0; j < lf->size; j++) {
+					if (lf->factors[j]->f->deg == 1) {
+						int64_t R = mpz_get_ui(lf->factors[j]->f->coeff[0]);
+						// find corresponding root r of h
+						for (int k = 0; k < lh->size; k++) {
+							int64_t r = mpz_get_ui(lh->factors[k]->f->coeff[0]);
+							mpz_poly_setcoeff_ui(hlin, 0, r);
+							mpz_poly_setcoeff_ui(hlin, 1, 1);
+							mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
+							mpz_poly_bivariate_resultant_y(f0hlin, F0, Hlin);
+							// now factor f0hlin mod q
+							mpz_poly_factor(l3, f0hlin, q, rstate);
+							bool foundR = false;
+							for (int l = 0; l < l3->size; l++) {
+								int64_t Rtest = mpz_get_ui(l3->factors[l]->f->coeff[0]);
+								if (R == Rtest) {
+									foundR = true;
+									// now we have R, r
+									q2sieve0.push_back(q0);
+									q2sieve0.push_back(r);
+									q2sieve0.push_back(R);
+									break;
+								}
+							}
+							mpz_poly_factor_list_flush(l3);
+							if (foundR) break;
+						}
+					}
+				}
+			}
+			else { // mpz_poly_Fq_factor, 4 values
+				mpz_poly_Fq_factor_edf(2, F0, q0, h0, factors0);
+				for (int j = 0; j < f0->deg / 2; j++) {
+					int64_t a0 = mpz_get_ui(factors0[0]->coeff[0]->coeff[0]);
+					int64_t a1 = mpz_get_ui(factors0[0]->coeff[0]->coeff[1]);
+					// rel1 = x + a1*y + a0
+					// rel2 = rel1*y + rel1
+					int64_t h0_0 = mpz_get_ui(h0->coeff[0]);
+					int64_t h0_1 = mpz_get_ui(h0->coeff[1]);
+					int64_t b0 = a0 + (-h0_0*a1);
+					int64_t b1 = a0 + (-h0_1 + 1);
+					// Note:  The above only works for monic, quadratic h0
+					q4sieve0.push_back(q0);
+					q4sieve0.push_back(a0);
+					q4sieve0.push_back(a1);
+					q4sieve0.push_back(b0);
+					q4sieve0.push_back(b1);
+				}
+			}
+
+			mpz_poly_factor_list_flush(lf);
+			mpz_poly_factor_list_flush(lh);
 	#pragma omp atomic
 			itotal++;
 			if (itotal % itenpc0 == 0) {
@@ -299,6 +422,7 @@ int main(int argc, char** argv)
 	fclose(out);
 
 	// free memory
+	gmp_randclear(rstate);
 	delete[] primes;
 	delete[] sieve;
 	mpz_clear(F1ij);

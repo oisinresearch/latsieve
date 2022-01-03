@@ -392,3 +392,8 @@ void mpz_poly_bivariate_resultant_x(mpz_poly resultant,
   free(y);
 }
 
+bool mpz_poly_bivariate_iszero(mpz_poly_bivariate f)
+{
+	return (f->deg_y == -1);	// what about f->deg_y == 0 and const coeff = 0?
+}
+

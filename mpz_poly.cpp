@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <iostream> // cout
 #include <cassert> // assert
+#include <cstdint>
 
 using std::cout;
 using std::endl;
@@ -195,6 +196,15 @@ void mpz_poly_getcoeff(mpz_t res, int i, mpz_poly f)
         mpz_set_ui (res, 0);
     else
         mpz_set (res, f->coeff[i]);
+}
+
+/* Get coefficient for the i-th term.  Note: f->coeff[i] must be an int64_t or equivalent. */
+int64_t mpz_poly_getcoeff_si(mpz_poly f, int i)
+{
+    if (i > f->deg)
+    	return 0;
+    else
+        return mpz_get_ui(f->coeff[i]);
 }
 
 /* x^i is often useful */

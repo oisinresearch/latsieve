@@ -1,4 +1,5 @@
 #include <gmp.h>
+#include <cstdint>
 
 #ifndef MPZ_POLY_H
 #define MPZ_POLY_H
@@ -26,6 +27,7 @@ void mpz_poly_clear(mpz_poly f);
 mpz_t* mpz_poly_lc(mpz_poly f);
 void mpz_poly_set(mpz_poly f, mpz_poly g);
 void mpz_poly_getcoeff(mpz_t res, int i, mpz_poly f);
+int64_t mpz_poly_getcoeff_si(mpz_poly f, int i);
 void mpz_poly_set_xi(mpz_poly f, int i);
 void mpz_poly_set_mpz(mpz_poly f, mpz_t* g, int degg);
 void mpz_poly_content(mpz_t* c, mpz_poly F);
