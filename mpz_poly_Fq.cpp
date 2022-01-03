@@ -34,6 +34,7 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, int64_t q, mpz_poly h,
 	composites.push(f0);
 
 	while (!composites.empty()) {
+		// std::stack doesn't like mpz_poly_bivariate so we give it mpz_poly_bivariate_struct_t
 		mpz_poly_bivariate_struct_t* f = composites.top(); composites.pop();
 
 		// compute random poly of degree f->deg - 1

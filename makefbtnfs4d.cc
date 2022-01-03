@@ -223,10 +223,17 @@ int main(int argc, char** argv)
 		mpz_poly_bivariate* factors1 = new mpz_poly_bivariate[f1->deg / 2];
 		for (int i = 0; i < f0->deg / 2; i++) mpz_poly_bivariate_init(factors0[i], 0);
 		for (int i = 0; i < f1->deg / 2; i++) mpz_poly_bivariate_init(factors1[i], 0);
+		// compute discriminants of f0 and f1
+		mpz_t Df0; mpz_init(Df0); mpz_t Df1; mpz_init(Df1);
+		mpz_poly_discriminant(Df0, f0);
+		mpz_poly_discriminant(Df1, f1);
 
 	#pragma omp for
 		for (int64_t i = 0; i < nump; i++) {
 			int64_t q0 = primes[i];
+			// skip q0 if it is ramified in Q[x]/<f0>
+			if (mpz_mod_ui(NULL, Df0, q0) == 0)
+				continue;
 			mpz_t q; mpz_init_set_ui(q, q0);
 			// determine which type of special-q we have, first factor f mod q
 			mpz_poly_factor(lf, f0, q, rstate);
