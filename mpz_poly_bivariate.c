@@ -190,7 +190,7 @@ void mpz_poly_bivariate_cleandeg(mpz_poly_bivariate f, int deg_y)
   }
   while ((deg_y >= 0) && f->coeff[deg_y]->deg == -1) {
     deg_y--;
-    mpz_poly_cleandeg(f->coeff[deg_y], f->coeff[deg_y]->deg);
+	if (deg_y >= 0) mpz_poly_cleandeg(f->coeff[deg_y], f->coeff[deg_y]->deg);
   }
   f->deg_y = deg_y;
   for (int i = 0; i < deg_y; i++) {
@@ -242,12 +242,16 @@ void mpz_poly_bivariate_set(mpz_poly_bivariate f, mpz_poly_bivariate g)
 	for (int i = 0; i <= g->deg_y; i++) {
 		mpz_poly_bivariate_setcoeff(f, i, g->coeff[i]);
 	}
-	mpz_poly_bivariate_cleandeg(f, 0);
+	mpz_poly_bivariate_cleandeg(f, g->deg_y);
 }
 
 void mpz_poly_bivariate_setzero(mpz_poly_bivariate f)
 {
-	mpz_poly_bivariate_cleandeg(f, 0);
+	//mpz_poly zero; mpz_poly_init(zero, 0); mpz_poly_set_zero(zero);
+	//mpz_poly_bivariate_setcoeff(f, 0, zero);
+	f->deg_y = -1;
+	//mpz_poly_bivariate_cleandeg(f, 0);
+	//mpz_poly_clear(zero);
 }
 
 void mpz_poly_bivariate_fprintf(FILE * fp, mpz_poly_bivariate f)
@@ -395,5 +399,24 @@ void mpz_poly_bivariate_resultant_x(mpz_poly resultant,
 bool mpz_poly_bivariate_iszero(mpz_poly_bivariate f)
 {
 	return (f->deg_y == -1);	// what about f->deg_y == 0 and const coeff = 0?
+}
+
+void mpz_poly_bivariate_mod_ui(mpz_poly_bivariate R, mpz_poly_bivariate A, uint64_t m)
+{
+	mpz_poly_bivariate_realloc(R, A->deg_y + 1);
+	for (int i = 0; i <= A->deg_y; ++i)
+		mpz_poly_mod_ui(R->coeff[i], A->coeff[i], m);
+
+	mpz_poly_bivariate_cleandeg(R, A->deg_y);
+}
+
+void mpz_poly_bivariate_fixifzero(mpz_poly_bivariate f)
+{
+	bool iszero = true;
+	for (int i = 0; i <= f->deg_y; i++)
+		if (f->coeff[i]->deg != -1) {
+			iszero = false;
+		}
+	if (iszero) f->deg_y = -1;
 }
 

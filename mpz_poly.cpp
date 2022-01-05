@@ -204,7 +204,7 @@ int64_t mpz_poly_getcoeff_si(mpz_poly f, int i)
     if (i > f->deg)
     	return 0;
     else
-        return mpz_get_ui(f->coeff[i]);
+        return mpz_get_si(f->coeff[i]);
 }
 
 /* x^i is often useful */
@@ -1146,6 +1146,20 @@ int mpz_poly_mod_mpz (mpz_poly R, mpz_poly A, mpz_t m)
   mpz_poly_realloc(R, A->deg + 1);
   for (int i = 0; i <= A->deg; ++i)
     mpz_mod (R->coeff[i], A->coeff[i], m);
+
+  mpz_poly_cleandeg(R, A->deg);
+  return R->deg;
+}
+
+/* Coefficients of A need not be reduced mod m
+ * Coefficients of R are reduced mod m
+ */
+int mpz_poly_mod_ui(mpz_poly R, mpz_poly A, uint64_t m)
+{
+  /* reduce lower coefficients */
+  mpz_poly_realloc(R, A->deg + 1);
+  for (int i = 0; i <= A->deg; ++i)
+    mpz_mod_ui(R->coeff[i], A->coeff[i], m);
 
   mpz_poly_cleandeg(R, A->deg);
   return R->deg;

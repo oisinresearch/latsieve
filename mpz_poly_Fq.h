@@ -24,5 +24,6 @@ void mpz_poly_Fq_gcd(mpz_poly_bivariate G, mpz_poly_bivariate u, mpz_poly_bivari
 	int64_t q, mpz_poly h);
 int64_t min(int64_t a, int64_t b);
 int64_t max(int64_t a, int64_t b);
+void polyprintf(mpz_poly_bivariate f);
 #endif /* MPZ_POLY_FQ_H */
 

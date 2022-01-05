@@ -225,6 +225,7 @@ int main(int argc, char** argv)
 		for (int i = 0; i < f1->deg / 2; i++) mpz_poly_bivariate_init(factors1[i], 0);
 		// compute discriminants of f0 and f1
 		mpz_t Df0; mpz_init(Df0); mpz_t Df1; mpz_init(Df1);
+		mpz_t dummy; mpz_init(dummy);
 		mpz_poly_discriminant(Df0, f0);
 		mpz_poly_discriminant(Df1, f1);
 
@@ -232,7 +233,7 @@ int main(int argc, char** argv)
 		for (int64_t i = 0; i < nump; i++) {
 			int64_t q0 = primes[i];
 			// skip q0 if it is ramified in Q[x]/<f0>
-			if (mpz_mod_ui(NULL, Df0, q0) == 0)
+			if (mpz_mod_ui(dummy, Df0, q0) == 0)
 				continue;
 			mpz_t q; mpz_init_set_ui(q, q0);
 			// determine which type of special-q we have, first factor f mod q
@@ -270,32 +271,28 @@ int main(int argc, char** argv)
 			// categorize special-q by allf4, allf2, allh1
 			if (allf4) // q inert, 0 roots
 				q0sieve0.push_back(q0);
-			else if ((allf2 && allh1) || (!allf4 && !allf2 && !allf1)) { // 1 root 
-				if (allf2 && allh1) {
-					for (int j = 0; j < lh->size; j++) {
-						int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
+			else if (allf2 && allh1)  { // 1 root 
+				for (int j = 0; j < lh->size; j++) {
+					int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
+					q1sieve0.push_back(q0);
+					q1sieve0.push_back(m);
+				}
+			}
+			else if (!allf4 && !allf2) {
+				for (int j = 0; j < lh->size; j++) {
+					int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
+					mpz_poly_setcoeff_ui(hlin, 0, m);
+					mpz_poly_setcoeff_ui(hlin, 1, 1);
+					mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
+					mpz_poly_bivariate_resultant_x(f0hlin, F0, Hlin);
+					// now factor f0hlin mod q
+					mpz_poly_factor(l3, f0hlin, q, rstate);
+					if (l3->factors[0]->f->deg == 2) {	// smallest degree is 2
 						q1sieve0.push_back(q0);
 						q1sieve0.push_back(m);
 					}
+					mpz_poly_factor_list_flush(l3);
 				}
-				else {	// some degree 1 ideals, some degree 2 ideal(s)
-					for (int j = 0; j < lh->size; j++) {
-						int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
-						mpz_poly_setcoeff_ui(hlin, 0, m);
-						mpz_poly_setcoeff_ui(hlin, 1, 1);
-						mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
-						mpz_poly_bivariate_resultant_y(f0hlin, F0, Hlin);
-						// now factor f0hlin mod q
-						mpz_poly_factor(l3, f0hlin, q, rstate);
-						if (l3->factors[0]->f->deg == 2) {	// smallest degree is 2
-							q1sieve0.push_back(q0);
-							q1sieve0.push_back(m);
-						}
-						mpz_poly_factor_list_flush(l3);
-					}
-				}
-			}
-			else if (allf1 || (!allf4 && !allf2 && !allf1)) { // 1 root of f and 1 root of h
 				for (int j = 0; j < lf->size; j++) {
 					if (lf->factors[j]->f->deg == 1) {
 						int64_t R = mpz_get_ui(lf->factors[j]->f->coeff[0]);
@@ -305,7 +302,7 @@ int main(int argc, char** argv)
 							mpz_poly_setcoeff_ui(hlin, 0, r);
 							mpz_poly_setcoeff_ui(hlin, 1, 1);
 							mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
-							mpz_poly_bivariate_resultant_y(f0hlin, F0, Hlin);
+							mpz_poly_bivariate_resultant_x(f0hlin, F0, Hlin);
 							// now factor f0hlin mod q
 							mpz_poly_factor(l3, f0hlin, q, rstate);
 							bool foundR = false;
@@ -327,16 +324,16 @@ int main(int argc, char** argv)
 				}
 			}
 			else { // mpz_poly_Fq_factor, 4 values
-				mpz_poly_Fq_factor_edf(2, F0, q0, h0, factors0);
+				mpz_poly_Fq_factor_edf(1, F0, q0, h0, factors0);
 				for (int j = 0; j < f0->deg / 2; j++) {
 					int64_t a0 = mpz_get_ui(factors0[0]->coeff[0]->coeff[0]);
 					int64_t a1 = mpz_get_ui(factors0[0]->coeff[0]->coeff[1]);
 					// rel1 = x + a1*y + a0
 					// rel2 = rel1*y + rel1
-					int64_t h0_0 = mpz_get_ui(h0->coeff[0]);
-					int64_t h0_1 = mpz_get_ui(h0->coeff[1]);
+					int64_t h0_0 = mpz_get_si(h0->coeff[0]);
+					int64_t h0_1 = mpz_get_si(h0->coeff[1]);
 					int64_t b0 = a0 + (-h0_0*a1);
-					int64_t b1 = a0 + (-h0_1 + 1);
+					int64_t b1 = a0 + a1 + (-h0_1*a1);
 					// Note:  The above only works for monic, quadratic h0
 					q4sieve0.push_back(q0);
 					q4sieve0.push_back(a0);

@@ -65,6 +65,7 @@ void mpz_poly_eval_ui (mpz_t res, mpz_poly f, unsigned long x);
 
 void mpz_poly_makemonic_mod_mpz (mpz_poly Q, mpz_poly P, mpz_t m);
 int mpz_poly_mod_mpz (mpz_poly R, mpz_poly A, mpz_t m);
+int mpz_poly_mod_ui(mpz_poly R, mpz_poly A, uint64_t m);
 static void mpz_poly_gcd_mpz_clobber (mpz_poly f, mpz_poly g, mpz_t p);
 void mpz_poly_gcd_mpz (mpz_poly f, mpz_poly a, mpz_poly b, mpz_t p);
 
