@@ -232,9 +232,10 @@ int main(int argc, char** argv)
 	#pragma omp for
 		for (int64_t i = 0; i < nump; i++) {
 			int64_t q0 = primes[i];
-			// skip q0 if it is ramified in Q[x]/<f0>
+			// skip q0 if it is ramified in K[x]/<f0>
 			if (mpz_mod_ui(dummy, Df0, q0) == 0)
 				continue;
+			//cout << q0 << endl;
 			mpz_t q; mpz_init_set_ui(q, q0);
 			// determine which type of special-q we have, first factor f mod q
 			mpz_poly_factor(lf, f0, q, rstate);
@@ -268,7 +269,7 @@ int main(int argc, char** argv)
 					break;
 				}
 
-			// categorize special-q by allf4, allf2, allh1
+			// categorize special-q by allf4, allf2, allf1, allh1
 			if (allf4) // q inert, 0 roots
 				q0sieve0.push_back(q0);
 			else if (allf2 && allh1)  { // 1 root 
@@ -326,8 +327,8 @@ int main(int argc, char** argv)
 			else { // mpz_poly_Fq_factor, 4 values
 				mpz_poly_Fq_factor_edf(1, F0, q0, h0, factors0);
 				for (int j = 0; j < f0->deg / 2; j++) {
-					int64_t a0 = mpz_get_ui(factors0[0]->coeff[0]->coeff[0]);
-					int64_t a1 = mpz_get_ui(factors0[0]->coeff[0]->coeff[1]);
+					int64_t a0 = mpz_get_ui(factors0[j]->coeff[0]->coeff[0]);
+					int64_t a1 = mpz_get_ui(factors0[j]->coeff[0]->coeff[1]);
 					// rel1 = x + a1*y + a0
 					// rel2 = rel1*y + rel1
 					int64_t h0_0 = mpz_get_si(h0->coeff[0]);

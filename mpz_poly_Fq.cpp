@@ -29,7 +29,7 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, int64_t q, mpz_poly h,
 	mpz_poly_init(A_i, 0);
 	mpz_poly_bivariate B;
 	mpz_poly_bivariate_init(B, 0);
-	mpz_poly_bivariate_set(B, A);
+	//mpz_poly_bivariate_set(B, A);
 	mpz_poly B_0; mpz_poly_init(B_0, 0);
 
 	int m = 0;
@@ -258,8 +258,11 @@ void mpz_poly_Fq_add(mpz_poly_bivariate f, mpz_poly_bivariate u, mpz_poly_bivari
 
 	for (int i = 0; i <= t; i++) {
 		mpz_poly_set_zero(f_i);
-		mpz_poly_add(f_i, u->coeff[i], v->coeff[i]);
-		mpz_poly_mod_ui(f->coeff[i], f_i, q);
+		if (i <= r) mpz_poly_add(f_i, f_i, u->coeff[i]);
+		if (i <= s) mpz_poly_add(f_i, f_i, v->coeff[i]);
+		//mpz_poly_add(f_i, u->coeff[i], v->coeff[i]);
+		mpz_poly_mod_ui(f_i, f_i, q);
+		mpz_poly_bivariate_setcoeff(f, i, f_i);
 	}
 
 	//mpz_poly_bivariate_fixifzero(f);
@@ -280,8 +283,11 @@ void mpz_poly_Fq_sub(mpz_poly_bivariate f, mpz_poly_bivariate u, mpz_poly_bivari
 
 	for (int i = 0; i <= t; i++) {
 		mpz_poly_set_zero(f_i);
-		mpz_poly_sub(f_i, u->coeff[i], v->coeff[i]);
-		mpz_poly_mod_ui(f->coeff[i], f_i, q);
+		if (i <= r) mpz_poly_add(f_i, f_i, u->coeff[i]);
+		if (i <= s) mpz_poly_sub(f_i, f_i, v->coeff[i]);
+		//mpz_poly_sub(f_i, u->coeff[i], v->coeff[i]);
+		mpz_poly_mod_ui(f_i, f_i, q);
+		mpz_poly_bivariate_setcoeff(f, i, f_i);
 	}
 
 	//mpz_poly_bivariate_fixifzero(f);
