@@ -191,14 +191,22 @@ int main(int argc, char** argv)
 	gmp_randinit_mt(rstate);
     gmp_randseed_ui(rstate, 123);
 
-	vector<int64_t> q0sieve0;
-	vector<int64_t> q1sieve0;
-	vector<int64_t> q2sieve0;
-	vector<int64_t> q4sieve0;
-	vector<int64_t> q0sieve1;
-	vector<int64_t> q1sieve1;
-	vector<int64_t> q2sieve1;
-	vector<int64_t> q4sieve1;
+	int64_t* q0sieve0 = new int64_t[nump]();
+	int64_t* q1sieve0 = new int64_t[nump*6]();
+	int64_t* q2sieve0 = new int64_t[nump*18]();
+	int64_t* q4sieve0 = new int64_t[nump*10]();
+	int64_t* q0sieve1 = new int64_t[nump]();
+	int64_t* q1sieve1 = new int64_t[nump*6]();
+	int64_t* q2sieve1 = new int64_t[nump*18]();
+	int64_t* q4sieve1 = new int64_t[nump*10]();
+	int k0 = 0;
+	int k1 = 0;
+	int k2 = 0;
+	int k4 = 0;
+	int l0 = 0;
+	int l1 = 0;
+	int l2 = 0;
+	int l4 = 0;
 
 	int64_t itenpc0 = nump / 10;
 	int64_t itotal = 0;
@@ -270,13 +278,21 @@ int main(int argc, char** argv)
 				}
 
 			// categorize special-q by allf4, allf2, allf1, allh1
-			if (allf4) // q inert, 0 roots
-				q0sieve0.push_back(q0);
+			if (allf4) { // q inert, 0 roots
+				q0sieve0[i] = q0;
+	#pragma omp atomic
+				k0++;
+				//q0sieve0.push_back(q0);
+			}
 			else if (allf2 && allh1)  { // 1 root 
 				for (int j = 0; j < lh->size; j++) {
 					int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
-					q1sieve0.push_back(q0);
-					q1sieve0.push_back(m);
+					q1sieve0[6*i + 2*j] = q0;
+					q1sieve0[6*i + 2*j + 1] = m;
+	#pragma omp atomic
+					k1++;
+					//q1sieve0.push_back(q0);
+					//q1sieve0.push_back(m);
 				}
 			}
 			else if (!allf4 && !allf2) {
@@ -289,12 +305,18 @@ int main(int argc, char** argv)
 					// now factor f0hlin mod q
 					mpz_poly_factor(l3, f0hlin, q, rstate);
 					if (l3->factors[0]->f->deg == 2) {	// smallest degree is 2
-						q1sieve0.push_back(q0);
-						q1sieve0.push_back(m);
+						q1sieve0[6*i + 4] = q0;
+						q1sieve0[6*i + 5] = m;
+	#pragma omp atomic
+						k1++;
+						//q1sieve0.push_back(q0);
+						//q1sieve0.push_back(m);
 					}
 					mpz_poly_factor_list_flush(l3);
 				}
-				for (int j = 0; j < lf->size; j++) {
+				int joff = 0;
+				if (allf1 == false) joff = 4;  // note if lf->size==3, for j below 0..1, not 2
+				for (int j = 0; j < lf->size; j++) { // lf sorted by deg increasing
 					if (lf->factors[j]->f->deg == 1) {
 						int64_t R = mpz_get_ui(lf->factors[j]->f->coeff[0]);
 						// find corresponding root r of h
@@ -312,9 +334,14 @@ int main(int argc, char** argv)
 								if (R == Rtest) {
 									foundR = true;
 									// now we have R, r
-									q2sieve0.push_back(q0);
-									q2sieve0.push_back(r);
-									q2sieve0.push_back(R);
+									q2sieve0[18*i + (joff + j)*3] = q0;
+									q2sieve0[18*i + (joff + j)*3 + 1] = r;
+									q2sieve0[18*i + (joff + j)*3 + 2] = R;
+	#pragma omp atomic
+									k2++;
+									//q2sieve0.push_back(q0);
+									//q2sieve0.push_back(r);
+									//q2sieve0.push_back(R);
 									break;
 								}
 							}
@@ -336,11 +363,18 @@ int main(int argc, char** argv)
 					int64_t b0 = a0 + (-h0_0*a1);
 					int64_t b1 = a0 + a1 + (-h0_1*a1);
 					// Note:  The above only works for monic, quadratic h0
-					q4sieve0.push_back(q0);
-					q4sieve0.push_back(a0);
-					q4sieve0.push_back(a1);
-					q4sieve0.push_back(b0);
-					q4sieve0.push_back(b1);
+					q4sieve0[10*i + 5*j] = q0;
+					q4sieve0[10*i + 5*j + 1] = a0;
+					q4sieve0[10*i + 5*j + 2] = a1;
+					q4sieve0[10*i + 5*j + 3] = b0;
+					q4sieve0[10*i + 5*j + 4] = b1;
+	#pragma omp atomic
+					k4++;
+					//q4sieve0.push_back(q0);
+					//q4sieve0.push_back(a0);
+					//q4sieve0.push_back(a1);
+					//q4sieve0.push_back(b0);
+					//q4sieve0.push_back(b1);
 				}
 			}
 
@@ -357,17 +391,9 @@ int main(int argc, char** argv)
 	timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC / K;
 	start = clock();
 	timetaken += ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	int k0 = q0sieve0.size();
-	int k1 = q1sieve0.size();
-	int k2 = q2sieve0.size();
-	int k4 = q4sieve0.size();
-	int l0 = q0sieve1.size();
-	int l1 = q1sieve1.size();
-	int l2 = q2sieve1.size();
-	int l4 = q4sieve1.size();
 	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl << flush;
-	if (verbose) cout << "There are " << k0 + (k1/2) + (k2/3) + (k4/5) << " factor base primes on side 0." << endl << flush;
-	if (verbose) cout << "There are " << l0 + (l1/2) + (l2/3) + (l4/5) << " factor base primes on side 1." << endl << flush;
+	if (verbose) cout << "There are " << k0 + k1 + k2 + k4 << " factor base ideals on side 0." << endl << flush;
+	if (verbose) cout << "There are " << l0 + l1 + l2 + l4 << " factor base ideals on side 1." << endl << flush;
 	//if (verbose) cout << "There are " << kh << " factor base primes in tower." << endl << flush;
 
 	// write output file
@@ -379,51 +405,73 @@ int main(int argc, char** argv)
 	fprintf(out, "%d\n", k1);
 	fprintf(out, "%d\n", k2);
 	fprintf(out, "%d\n", k4);
-	for (int i = 0; i < k0; i++) {
-		fprintf(out, "%d\n", q0sieve0[i]);
+	for (int i = 0; i < nump; i++) {
+		if (q0sieve0[i] > 0)
+			fprintf(out, "%d\n", q0sieve0[i]);
 	}
-	for (int i = 0; i < k1/2; i++) {
-		fprintf(out, "%d", q1sieve0[i*2]);
-        fprintf(out, ",%d", q1sieve0[i*2+1]);
-		fprintf(out, "\n");
+	for (int i = 0; i < nump; i++) {
+		for (int j = 0; j < 3; j++) {
+			if (q1sieve0[6*i + 2*j] > 0) {
+				fprintf(out, "%d", q1sieve0[6*i + 2*j]);
+				fprintf(out, ",%d", q1sieve0[6*i + 2*j + 1]);
+				fprintf(out, "\n");
+			}
+		}
 	}
-	for (int i = 0; i < k2/3; i++) {
-		fprintf(out, "%d", q2sieve0[i*3]);
-		for (int j = 1; j < 3; j++)
-			fprintf(out, ",%d", q2sieve0[i*3+j]);
-		fprintf(out, "\n");
+	for (int i = 0; i < nump; i++) {
+		for (int j = 0; j < 6; j++) {
+			if (q2sieve0[18*i + 3*j] > 0) {
+				fprintf(out, "%d", q2sieve0[18*i + 3*j]);
+				fprintf(out, ",%d", q2sieve0[18*i + 3*j + 1]);
+				fprintf(out, ",%d", q2sieve0[18*i + 3*j + 2]);
+				fprintf(out, "\n");
+			}
+		}
 	}
-	for (int i = 0; i < k4/5; i++) {
-		fprintf(out, "%d", q4sieve0[i*5]);
-		for (int j = 1; j < 5; j++)
-			fprintf(out, ",%d", q4sieve0[i*5+j]);
-		fprintf(out, "\n");
+	for (int i = 0; i < nump; i++) {
+		for (int j = 0; j < 2; j++) {
+			if (q4sieve0[10*i + 5*j] > 0) {
+				fprintf(out, "%d", q4sieve0[10*i + 5*j]);
+				fprintf(out, ",%d", q4sieve0[10*i + 5*j + 1]);
+				fprintf(out, ",%d", q4sieve0[10*i + 5*j + 2]);
+				fprintf(out, ",%d", q4sieve0[10*i + 5*j + 3]);
+				fprintf(out, ",%d", q4sieve0[10*i + 5*j + 4]);
+				fprintf(out, "\n");
+			}
+		}
 	}
 	// side 1
 	fprintf(out, "%d\n", l0);
 	fprintf(out, "%d\n", l1);
 	fprintf(out, "%d\n", l2);
-	fprintf(out, "%d\n", l4);
-	for (int i = 0; i < l0; i++) {
-		fprintf(out, "%d\n", q0sieve1[i]);
+	fprintf(out, "%d\n", l4);/*
+	for (int i = 0; i < nump; i++) {
+		if (q0sieve1[i] > 0)
+			fprintf(out, "%d\n", q0sieve0[i]);
 	}
-	for (int i = 0; i < l1/2; i++) {
-		fprintf(out, "%d", q1sieve1[i*2]);
-        fprintf(out, ",%d", q1sieve1[i*2+1]);
-		fprintf(out, "\n");
+	for (int i = 0; i < nump; i++) {
+		if (q1sieve1[2*i] > 0) {
+			fprintf(out, "%d", q1sieve0[i*2]);
+			fprintf(out, ",%d", q1sieve0[i*2+1]);
+			fprintf(out, "\n");
+		}
 	}
-	for (int i = 0; i < l2/3; i++) {
-		fprintf(out, "%d", q2sieve1[i*3]);
-		for (int j = 1; j < 3; j++)
-			fprintf(out, ",%d", q2sieve1[i*3+j]);
-		fprintf(out, "\n");
+	for (int i = 0; i < nump; i++) {
+		if (q2sieve1[3*i] > 0) {
+			fprintf(out, "%d", q2sieve0[i*3]);
+			for (int j = 1; j < 3; j++)
+				fprintf(out, ",%d", q2sieve0[i*3+j]);
+			fprintf(out, "\n");
+		}
 	}
-	for (int i = 0; i < l4/5; i++) {
-		fprintf(out, "%d", q4sieve1[i*5]);
-		for (int j = 1; j < 5; j++)
-			fprintf(out, ",%d", q4sieve1[i*5+j]);
-		fprintf(out, "\n");
-	}
+	for (int i = 0; i < nump; i++) {
+		if (q4sieve1[5*i] > 0) {
+			fprintf(out, "%d", q4sieve0[i*5]);
+			for (int j = 1; j < 5; j++)
+				fprintf(out, ",%d", q4sieve0[i*5+j]);
+			fprintf(out, "\n");
+		}
+	}*/
 	fclose(out);
 
 	// free memory
