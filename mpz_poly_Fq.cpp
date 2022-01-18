@@ -14,8 +14,10 @@ using std::endl;
 void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, int64_t q, mpz_poly h,
 	mpz_poly_bivariate* factors)
 {
-	// compute r = (q^2 - 1)/2
-	int64_t r = (q*q - 1)/2;
+	// compute r = (q^(2*d) - 1)/2, finite field has order q^2 for now
+	int64_t r = 1;
+	for (int i = 0; i < 2*d; i++) r *= q;
+	r = (r - 1)/2;
 
 	mpz_poly_bivariate A;
 	mpz_poly_bivariate_init(A, 0);
@@ -32,9 +34,15 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, int64_t q, mpz_poly h,
 	//mpz_poly_bivariate_set(B, A);
 	mpz_poly B_0; mpz_poly_init(B_0, 0);
 
+	// allocate store for factor tree
+	mpz_poly_bivariate* nodes = new mpz_poly_bivariate[f0->deg_y/d];
+	for (int i = 0; i < f0->deg_y/d; i++) mpz_poly_bivariate_init(nodes[i], 0);
+	int t = 0;
+
 	int m = 0;
 	stack<mpz_poly_bivariate_struct_t*> composites;
-	composites.push(f0);
+	mpz_poly_bivariate_set(nodes[0], f0);
+	composites.push(nodes[0]);
 
 	while (!composites.empty()) {
 		// std::stack doesn't like mpz_poly_bivariate so we give it mpz_poly_bivariate_struct_t
@@ -64,16 +72,16 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, int64_t q, mpz_poly h,
 			// reduce mod f, q, h
 			mpz_poly_Fq_divrem(Q, R, B, f, q, h);
 			mpz_poly_bivariate_set(B, R);
-			//polyprintf(B);
 			if (r & (1<<(L - i))) {
 				// multiply
 				mpz_poly_Fq_mul(B, B, A, q, h);
 				// reduce mod f, q, h
 				mpz_poly_Fq_divrem(Q, R, B, f, q, h);
 				mpz_poly_bivariate_set(B, R);
-				//cout << "\t"; polyprintf(B);
 			}
 		}
+		mpz_poly_set_zero(B_0);
+		if (B->coeff[0]->deg == -1) mpz_poly_setcoeff_ui(B_0, 0, q);
 		for (int i = 0; i <= B->coeff[0]->deg; i++) {
 			mpz_poly_setcoeff(B_0, i, B->coeff[0]->coeff[i]);
 		}
@@ -94,18 +102,22 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, int64_t q, mpz_poly h,
 				mpz_poly_bivariate_set(factors[m++], G);
 			}
 			else if (G->deg_y > 0) {
-				composites.push(G);
+				mpz_poly_bivariate_set(nodes[++t], G);
+				composites.push(nodes[t]);
 			}
 			if (Q->deg_y == d) {
 				mpz_poly_Fq_makemonic(Q, q, h);
 				mpz_poly_bivariate_set(factors[m++], Q);
 			}
 			else if (Q->deg_y > 0) {
-				composites.push(Q);
+				mpz_poly_bivariate_set(nodes[++t], Q);
+				composites.push(nodes[t]);
 			}			
+			mpz_poly_bivariate_clear(f);
 		}
 	}
 
+	for (int i = 0; i < f0->deg_y/d; i++) mpz_poly_bivariate_clear(nodes[i]);
 	mpz_poly_clear(B_0);
 	mpz_poly_bivariate_clear(B);
 	mpz_poly_clear(A_i);
