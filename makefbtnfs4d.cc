@@ -197,8 +197,8 @@ int main(int argc, char** argv)
 	int64_t* q4sieve0 = new int64_t[nump*10]();
 	int64_t* q0sieve1 = new int64_t[nump]();
 	int64_t* q1sieve1 = new int64_t[nump*6]();
-	int64_t* q2sieve1 = new int64_t[nump*18]();
-	int64_t* q4sieve1 = new int64_t[nump*10]();
+	int64_t* q2sieve1 = new int64_t[nump*36]();
+	int64_t* q4sieve1 = new int64_t[nump*20]();
 	int k0 = 0;
 	int k1 = 0;
 	int k2 = 0;
@@ -226,7 +226,7 @@ int main(int argc, char** argv)
 		mpz_poly_factor_list_init(l3);
 		mpz_poly hlin; mpz_poly_init(hlin, 0);
 		mpz_poly_bivariate Hlin; mpz_poly_bivariate_init(Hlin, 0);
-		mpz_poly f0hlin; mpz_poly_init(f0hlin, 0);
+		mpz_poly fhlin; mpz_poly_init(fhlin, 0);
 		mpz_poly_bivariate* factors0 = new mpz_poly_bivariate[f0->deg / 2];
 		mpz_poly_bivariate* factors1 = new mpz_poly_bivariate[f1->deg / 2];
 		for (int i = 0; i < f0->deg / 2; i++) mpz_poly_bivariate_init(factors0[i], 0);
@@ -236,24 +236,25 @@ int main(int argc, char** argv)
 		mpz_t dummy; mpz_init(dummy);
 		mpz_poly_discriminant(Df0, f0);
 		mpz_poly_discriminant(Df1, f1);
+		bool allh1, allf1, allf2, allf4;
 
 	#pragma omp for
 		for (int64_t i = 0; i < nump; i++) {
 			int64_t q0 = primes[i];
-			// skip q0 if it is ramified in K[x]/<f0>
-			if (mpz_mod_ui(dummy, Df0, q0) == 0)
-				continue;
 			//cout << q0 << endl;
 			mpz_t q; mpz_init_set_ui(q, q0);
+			// skip q0 if it is ramified in K[x]/<f0>
+			if (mpz_mod_ui(dummy, Df0, q0) == 0)
+				goto side1;
 			// determine which type of special-q we have, first factor f mod q
 			mpz_poly_factor(lf, f0, q, rstate);
-			bool allf4 = true;
+			allf4 = true;
 			for (int j = 0; j < lf->size; j++)
 				if (lf->factors[j]->f->deg != 4) {
 					allf4 = false;
 					break;
 				}
-			bool allf2 = true;
+			allf2 = true;
 			if (allf4) allf2 = false;
 			else
 				for (int j = 0; j < lf->size; j++)
@@ -261,7 +262,7 @@ int main(int argc, char** argv)
 						allf2 = false;
 						break;
 					}
-			bool allf1 = true;
+			allf1 = true;
 			if (allf4 || allf2) allf1 = false;
 			else
 				for (int j = 0; j < lf->size; j++)
@@ -270,7 +271,7 @@ int main(int argc, char** argv)
 						break;
 					}
 			mpz_poly_factor(lh, h0, q, rstate);
-			bool allh1 = true;
+			allh1 = true;
 			for (int j = 0; j < lh->size; j++)
 				if (lh->factors[j]->f->deg != 1) {
 					allh1 = false;
@@ -301,9 +302,10 @@ int main(int argc, char** argv)
 					mpz_poly_setcoeff_ui(hlin, 0, m);
 					mpz_poly_setcoeff_ui(hlin, 1, 1);
 					mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
-					mpz_poly_bivariate_resultant_x(f0hlin, F0, Hlin);
-					// now factor f0hlin mod q
-					mpz_poly_factor(l3, f0hlin, q, rstate);
+					mpz_poly_set_zero(fhlin);
+					mpz_poly_bivariate_resultant_x(fhlin, F0, Hlin);
+					// now factor fhlin mod q
+					mpz_poly_factor(l3, fhlin, q, rstate);
 					if (l3->factors[0]->f->deg == 2) {	// smallest degree is 2
 						q1sieve0[6*i + 4] = q0;
 						q1sieve0[6*i + 5] = m;
@@ -325,9 +327,10 @@ int main(int argc, char** argv)
 							mpz_poly_setcoeff_ui(hlin, 0, r);
 							mpz_poly_setcoeff_ui(hlin, 1, 1);
 							mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
-							mpz_poly_bivariate_resultant_x(f0hlin, F0, Hlin);
-							// now factor f0hlin mod q
-							mpz_poly_factor(l3, f0hlin, q, rstate);
+							mpz_poly_set_zero(fhlin);
+							mpz_poly_bivariate_resultant_x(fhlin, F0, Hlin);
+							// now factor fhlin mod q
+							mpz_poly_factor(l3, fhlin, q, rstate);
 							bool foundR = false;
 							for (int l = 0; l < l3->size; l++) {
 								int64_t Rtest = mpz_get_ui(l3->factors[l]->f->coeff[0]);
@@ -378,6 +381,145 @@ int main(int argc, char** argv)
 				}
 			}
 
+	side1:
+			// skip q0 if it is ramified in K[x]/<f1>
+			if (mpz_mod_ui(dummy, Df1, q0) == 0)
+				goto tidy; //continue;
+			// determine which type of special-q we have, first factor f mod q
+			mpz_poly_factor(lf, f1, q, rstate);
+			allf4 = true;
+			for (int j = 0; j < lf->size; j++)
+				if (lf->factors[j]->f->deg != 4) {
+					allf4 = false;
+					break;
+				}
+			allf2 = true;
+			if (allf4) allf2 = false;
+			else
+				for (int j = 0; j < lf->size; j++)
+					if (lf->factors[j]->f->deg != 2) {
+						allf2 = false;
+						break;
+					}
+			allf1 = true;
+			if (allf4 || allf2) allf1 = false;
+			else
+				for (int j = 0; j < lf->size; j++)
+					if (lf->factors[j]->f->deg != 1) {
+						allf1 = false;
+						break;
+					}
+			mpz_poly_factor(lh, h0, q, rstate);
+			allh1 = true;
+			for (int j = 0; j < lh->size; j++)
+				if (lh->factors[j]->f->deg != 1) {
+					allh1 = false;
+					break;
+				}
+	
+			// categorize special-q by allf4, allf2, allf1, allh1
+			if (allf4) { // q inert, 0 roots
+				q0sieve1[i] = q0;
+	#pragma omp atomic
+				l0++;
+				//q0sieve1.push_back(q0);
+			}
+			else if (allf2 && allh1)  { // 1 root 
+				for (int j = 0; j < lh->size; j++) {
+					int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
+					q1sieve1[6*i + 2*j] = q0;
+					q1sieve1[6*i + 2*j + 1] = m;
+	#pragma omp atomic
+					l1++;
+					//q1sieve1.push_back(q0);
+					//q1sieve1.push_back(m);
+				}
+			}
+			else if (!allf4 && !allf2) {
+				for (int j = 0; j < lh->size; j++) {
+					int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
+					mpz_poly_setcoeff_ui(hlin, 0, m);
+					mpz_poly_setcoeff_ui(hlin, 1, 1);
+					mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
+					mpz_poly_set_zero(fhlin);
+					mpz_poly_bivariate_resultant_x(fhlin, F1, Hlin);
+					// now factor fhlin mod q
+					mpz_poly_factor(l3, fhlin, q, rstate);
+					if (l3->factors[0]->f->deg == 2) {	// smallest degree is 2
+						q1sieve1[6*i + 4] = q0;
+						q1sieve1[6*i + 5] = m;
+	#pragma omp atomic
+						l1++;
+						//q1sieve1.push_back(q0);
+						//q1sieve1.push_back(m);
+					}
+					mpz_poly_factor_list_flush(l3);
+				}
+				int joff = 0;
+				if (allf1 == false) joff = 8;  // if lf->size==6, for j below 0..3, not 4,5
+				for (int j = 0; j < lf->size; j++) { // lf sorted by deg increasing
+					if (lf->factors[j]->f->deg == 1) {
+						int64_t R = mpz_get_ui(lf->factors[j]->f->coeff[0]);
+						// find corresponding root r of h
+						for (int k = 0; k < lh->size; k++) {
+							int64_t r = mpz_get_ui(lh->factors[k]->f->coeff[0]);
+							mpz_poly_setcoeff_ui(hlin, 0, r);
+							mpz_poly_setcoeff_ui(hlin, 1, 1);
+							mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
+							mpz_poly_set_zero(fhlin);
+							mpz_poly_bivariate_resultant_x(fhlin, F1, Hlin);
+							// now factor fhlin mod q
+							mpz_poly_factor(l3, fhlin, q, rstate);
+							bool foundR = false;
+							for (int l = 0; l < l3->size; l++) {
+								int64_t Rtest = mpz_get_ui(l3->factors[l]->f->coeff[0]);
+								if (R == Rtest) {
+									foundR = true;
+									// now we have R, r
+									q2sieve1[36*i + (joff + j)*3] = q0;
+									q2sieve1[36*i + (joff + j)*3 + 1] = r;
+									q2sieve1[36*i + (joff + j)*3 + 2] = R;
+	#pragma omp atomic
+									l2++;
+									//q2sieve1.push_back(q0);
+									//q2sieve1.push_back(r);
+									//q2sieve1.push_back(R);
+									break;
+								}
+							}
+							mpz_poly_factor_list_flush(l3);
+							if (foundR) break;
+						}
+					}
+				}
+			}
+			else { // mpz_poly_Fq_factor, 4 values
+				mpz_poly_Fq_factor_edf(1, F1, q0, h0, factors1);
+				for (int j = 0; j < f1->deg / 2; j++) {
+					int64_t a0 = mpz_get_ui(factors1[j]->coeff[0]->coeff[0]);
+					int64_t a1 = mpz_get_ui(factors1[j]->coeff[0]->coeff[1]);
+					// rel1 = x + a1*y + a0
+					// rel2 = rel1*y + rel1
+					int64_t h0_0 = mpz_get_si(h0->coeff[0]);
+					int64_t h0_1 = mpz_get_si(h0->coeff[1]);
+					int64_t b0 = a0 + (-h0_0*a1);
+					int64_t b1 = a0 + a1 + (-h0_1*a1);
+					// Note:  The above only works for monic, quadratic h0
+					q4sieve1[20*i + 5*j] = q0;
+					q4sieve1[20*i + 5*j + 1] = a0;
+					q4sieve1[20*i + 5*j + 2] = a1;
+					q4sieve1[20*i + 5*j + 3] = b0;
+					q4sieve1[20*i + 5*j + 4] = b1;
+	#pragma omp atomic
+					l4++;
+					//q4sieve1.push_back(q0);
+					//q4sieve1.push_back(a0);
+					//q4sieve1.push_back(a1);
+					//q4sieve1.push_back(b0);
+					//q4sieve1.push_back(b1);
+				}
+			}
+	tidy:
 			mpz_poly_factor_list_flush(lf);
 			mpz_poly_factor_list_flush(lh);
 	#pragma omp atomic
@@ -444,34 +586,42 @@ int main(int argc, char** argv)
 	fprintf(out, "%d\n", l0);
 	fprintf(out, "%d\n", l1);
 	fprintf(out, "%d\n", l2);
-	fprintf(out, "%d\n", l4);/*
+	fprintf(out, "%d\n", l4);
 	for (int i = 0; i < nump; i++) {
 		if (q0sieve1[i] > 0)
-			fprintf(out, "%d\n", q0sieve0[i]);
+			fprintf(out, "%d\n", q0sieve1[i]);
 	}
 	for (int i = 0; i < nump; i++) {
-		if (q1sieve1[2*i] > 0) {
-			fprintf(out, "%d", q1sieve0[i*2]);
-			fprintf(out, ",%d", q1sieve0[i*2+1]);
-			fprintf(out, "\n");
+		for (int j = 0; j < 3; j++) {
+			if (q1sieve1[6*i + 2*j] > 0) {
+				fprintf(out, "%d", q1sieve1[6*i + 2*j]);
+				fprintf(out, ",%d", q1sieve1[6*i + 2*j + 1]);
+				fprintf(out, "\n");
+			}
 		}
 	}
 	for (int i = 0; i < nump; i++) {
-		if (q2sieve1[3*i] > 0) {
-			fprintf(out, "%d", q2sieve0[i*3]);
-			for (int j = 1; j < 3; j++)
-				fprintf(out, ",%d", q2sieve0[i*3+j]);
-			fprintf(out, "\n");
+		for (int j = 0; j < 12; j++) {
+			if (q2sieve1[36*i + 3*j] > 0) {
+				fprintf(out, "%d", q2sieve1[36*i + 3*j]);
+				fprintf(out, ",%d", q2sieve1[36*i + 3*j + 1]);
+				fprintf(out, ",%d", q2sieve1[36*i + 3*j + 2]);
+				fprintf(out, "\n");
+			}
 		}
 	}
 	for (int i = 0; i < nump; i++) {
-		if (q4sieve1[5*i] > 0) {
-			fprintf(out, "%d", q4sieve0[i*5]);
-			for (int j = 1; j < 5; j++)
-				fprintf(out, ",%d", q4sieve0[i*5+j]);
-			fprintf(out, "\n");
+		for (int j = 0; j < 4; j++) {
+			if (q4sieve1[20*i + 5*j] > 0) {
+				fprintf(out, "%d", q4sieve1[20*i + 5*j]);
+				fprintf(out, ",%d", q4sieve1[20*i + 5*j + 1]);
+				fprintf(out, ",%d", q4sieve1[20*i + 5*j + 2]);
+				fprintf(out, ",%d", q4sieve1[20*i + 5*j + 3]);
+				fprintf(out, ",%d", q4sieve1[20*i + 5*j + 4]);
+				fprintf(out, "\n");
+			}
 		}
-	}*/
+	}
 	fclose(out);
 
 	// free memory
