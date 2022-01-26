@@ -41,7 +41,7 @@ __int128 MASK64;
 
 struct sievedata {
 	int fbb;
-	int k[4][2];
+	int k[2][4];
 	int64_t* q0sieve0;
 	int64_t* q1sieve0;
 	int64_t* q2sieve0;
@@ -53,7 +53,7 @@ struct sievedata {
 	// special q info
 	int64_t q; int qtype;
 	int64_t r, R, m, a0, a1, b0, b1;
-}
+};
 
 //int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t R,
 //		int* allp, int nump, int* s, int* S, int* num_Smodp, keyval* M, int Mlen, int* B);
@@ -263,14 +263,22 @@ int main(int argc, char** argv)
 		getline(fbfile, line);
 		info.k[i][0] = atoi(line.c_str());
 	}
+	int imax0 = info.k[0][0];
+	if (info.k[0][1] > imax0) imax0 = info.k[0][1];
+	if (info.k[0][2] > imax0) imax0 = info.k[0][2];
+	if (info.k[0][3] > imax0) imax0 = info.k[0][3];
+	int imax1 = info.k[1][0];
+	if (info.k[1][1] > imax1) imax1 = info.k[1][1];
+	if (info.k[1][2] > imax1) imax1 = info.k[1][2];
+	if (info.k[1][3] > imax1) imax1 = info.k[1][3];
 	// read q0sieve0
-	info.q0sieve0 = new int64_t[info.k[0][0]]();
+	info.q0sieve0 = new int64_t[imax0]();
 	for (int i = 0; i < info.k[0][0]; i++) {
 		getline(fbfile, line);
 		info.q0sieve0[i] = atoi(line.c_str());
 	}
 	// read q1sieve0
-	info.q1sieve0 = new int64_t[info.k[1][0]*2]();
+	info.q1sieve0 = new int64_t[imax0*2]();
 	for (int i = 0; i < info.k[1][0]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
@@ -284,7 +292,7 @@ int main(int argc, char** argv)
 		}
 	}
 	// read q2sieve0
-	info.q2sieve0 = new int64_t[info.k[2][0]*3]();
+	info.q2sieve0 = new int64_t[imax0*3]();
 	for (int i = 0; i < info.k[2][0]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
@@ -298,7 +306,7 @@ int main(int argc, char** argv)
 		}
 	}
 	// read q4sieve0
-	info.q4sieve0 = new int64_t[info.k[3][0]*5]();
+	info.q4sieve0 = new int64_t[imax0*5]();
 	for (int i = 0; i < info.k[3][0]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
@@ -317,13 +325,13 @@ int main(int argc, char** argv)
 		info.k[i][1] = atoi(line.c_str());
 	}
 	// read q0sieve1
-	info.q0sieve1 = new int64_t[info.k[0][1]]();
+	info.q0sieve1 = new int64_t[imax1]();
 	for (int i = 0; i < info.k[0][1]; i++) {
 		getline(fbfile, line);
 		info.q0sieve1[i] = atoi(line.c_str());
 	}
 	// read q1sieve1
-	info.q1sieve1 = new int64_t[info.k[1][1]*2]();
+	info.q1sieve1 = new int64_t[imax1*2]();
 	for (int i = 0; i < info.k[1][1]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
@@ -337,7 +345,7 @@ int main(int argc, char** argv)
 		}
 	}
 	// read q2sieve1
-	info.q2sieve1 = new int64_t[info.k[2][1]*3]();
+	info.q2sieve1 = new int64_t[imax1*3]();
 	for (int i = 0; i < info.k[2][1]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
@@ -351,7 +359,7 @@ int main(int argc, char** argv)
 		}
 	}
 	// read q4sieve1
-	info.q4sieve1 = new int64_t[info.k[3][1]*5]();
+	info.q4sieve1 = new int64_t[imax1*5]();
 	for (int i = 0; i < info.k[3][1]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
@@ -990,29 +998,27 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, sievedata info, int side,
 	int64_t* qinvmodp = new int64_t[4*imax]();
 	int64_t* pinvmodq = new int64_t[4*imax]();
 	int k0 = 0; int k1 = 0; int k2 = 0; int k4 = 0;
-	for (int i = 0; i < nump; i++) {
-		int64_t p = allp[i];
+	int ip = 0;
+	for (int i = 0; i < imax; i++) {
+		int64_t p = allp[ip];
 		if (p == q) continue;
-		if (i < info.k[side][0])
-			if (p == (side == 0 ? info.q0sieve0[i] : info.q0sieve1[i])) {
-				qinvmodp[k0] = modinv(q, p);
-				pinvmodq[k0++] = modinv(p, q);
-			}
-		if (i < info.k[side][1])
-			if (p == (side == 0 ? info.q1sieve0[i] : info.q1sieve1[i])) {
-				qinvmodp[k1] = modinv(q, p);
-				pinvmodq[k1++] = modinv(p, q);
-			}
-		if (i < info.k[side][2])
-			if (p == (side == 0 ? info.q2sieve0[i] : info.q2sieve1[i])) {
-				qinvmodp[k2] = modinv(q, p);
-				pinvmodq[k2++] = modinv(p, q);
-			}
-		if (i < info.k[side][3])
-			if (p == (side == 0 ? info.q4sieve0[i] : info.q4sieve1[i])) {
-				qinvmodp[k4] = modinv(q, p);
-				pinvmodq[k4++] = modinv(p, q);
-			}
+		if (i < info.k[side][0] && p == (side == 0 ? info.q0sieve0[i] : info.q0sieve1[i])) {
+			qinvmodp[k0] = modinv(q, p);
+			pinvmodq[k0++] = modinv(p, q);
+		}
+		if (i < info.k[side][1] && p == (side == 0 ? info.q1sieve0[i] : info.q1sieve1[i])) {
+			qinvmodp[imax + k1] = modinv(q, p);
+			pinvmodq[imax + k1++] = modinv(p, q);
+		}
+		if (i < info.k[side][2] && p == (side == 0 ? info.q2sieve0[i] : info.q2sieve1[i])) {
+			qinvmodp[2*imax + k2] = modinv(q, p);
+			pinvmodq[2*imax + k2++] = modinv(p, q);
+		}
+		if (i < info.k[side][3] && p == (side == 0 ? info.q4sieve0[i] : info.q4sieve1[i])) {
+			qinvmodp[3*imax + k4] = modinv(q, p);
+			pinvmodq[3*imax + k4++] = modinv(p, q);
+		}
+		ip++;
 	}
 
 	switch (info.qtype) {
@@ -1075,6 +1081,13 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, sievedata info, int side,
 			//cout << p << "," << mm << endl << flush;
 			uint8_t logp = log2f(p);
 			int ii = pt*imax + i;
+			__int128 m1 = side == 0 ? info.q1sieve0[2*i+1] : info.q1sieve1[2*i+1];
+			__int128 r1 = side == 0 ? info.q2sieve0[2*i+1] : info.q2sieve1[2*i+1];
+			__int128 R1 = side == 0 ? info.q2sieve0[2*i+2] : info.q2sieve1[2*i+2];
+			__int128 a0 = side == 0 ? info.q4sieve0[2*i+1] : info.q4sieve1[2*i+1];
+			__int128 a1 = side == 0 ? info.q4sieve0[2*i+2] : info.q4sieve1[2*i+2];
+			__int128 b0 = side == 0 ? info.q4sieve0[2*i+3] : info.q4sieve1[2*i+3];
+			__int128 b1 = side == 0 ? info.q4sieve0[2*i+4] : info.q4sieve1[2*i+4];
 			int64_t h0, h1, h2, h3, h4, h5, h6, h7, h8;
 			switch (pt) { // p type
 				case 0:
@@ -1089,7 +1102,6 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, sievedata info, int side,
 					h8 = p*( (L[15] * pinvmodq[ii]) % q );
 					break;
 				case 1:
-					__int128 m1 = side == 0 ? info.q1sieve0[2*i+1] : info.q1sieve1[2*i+1];
 					h0 = q*( (m1 * qinvmodp[ii]) % p ) + p*( (L[1] * pinvmodq[ii]) % q );
 					h1 = p*( (L[2] * pinvmodq[ii]) % q );					
 					h2 = p*( (L[3] * pinvmodq[ii]) % q );
@@ -1101,8 +1113,6 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, sievedata info, int side,
 					h8 = q*( (qinvmodp[ii]) % p ) + p*( (L[15] * pinvmodq[ii]) % q );
 					break;
 				case 2:
-					__int128 r1 = side == 0 ? info.q2sieve0[2*i+1] : info.q2sieve1[2*i+1];
-					__int128 R1 = side == 0 ? info.q2sieve0[2*i+2] : info.q2sieve1[2*i+2];
 					h0 = q*( (r1 * qinvmodp[ii]) % p ) + p*( (L[1] * pinvmodq[ii]) % q );
 					h1 = q*( (R1 * qinvmodp[ii]) % p ) + p*( (L[2] * pinvmodq[ii]) % q );					
 					h2 = p*( (L[3] * pinvmodq[ii]) % q );
@@ -1114,10 +1124,6 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, sievedata info, int side,
 					h8 = q*( (qinvmodp[ii]) % p ) + p*( (L[15] * pinvmodq[ii]) % q );
 					break;
 				case 3:
-					__int128 a0 = side == 0 ? info.q4sieve0[2*i+1] : info.q4sieve1[2*i+1];
-					__int128 a1 = side == 0 ? info.q4sieve0[2*i+2] : info.q4sieve1[2*i+2];
-					__int128 b0 = side == 0 ? info.q4sieve0[2*i+3] : info.q4sieve1[2*i+3];
-					__int128 b1 = side == 0 ? info.q4sieve0[2*i+4] : info.q4sieve1[2*i+4];
 					h0 = p*( (L[1] * pinvmodq[ii]) % q );
 					h1 = q*( (a0 * qinvmodp[ii]) % p ) + p*( (L[2] * pinvmodq[ii]) % q );
 					h2 = q*( (b0 * qinvmodp[ii]) % p ) + p*( (L[3] * pinvmodq[ii]) % q );
