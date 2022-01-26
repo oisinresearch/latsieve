@@ -39,8 +39,26 @@ struct keyval {
 
 __int128 MASK64;
 
-int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t R,
-		int* allp, int nump, int* s, int* S, int* num_Smodp, keyval* M, int Mlen, int* B);
+struct sievedata {
+	int fbb;
+	int k[4][2];
+	int64_t* q0sieve0;
+	int64_t* q1sieve0;
+	int64_t* q2sieve0;
+	int64_t* q4sieve0;
+	int64_t* q0sieve1;
+	int64_t* q1sieve1;
+	int64_t* q2sieve1;
+	int64_t* q4sieve1;
+	// special q info
+	int64_t q; int qtype;
+	int64_t r, R, m, a0, a1, b0, b1;
+}
+
+//int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t R,
+//		int* allp, int nump, int* s, int* S, int* num_Smodp, keyval* M, int Mlen, int* B);
+int latsieve4d(int64_t* h, int degh, int degfh_t, sievedata info, int side,
+	keyval* M, int Mlen, int* B);
 void histogram(keyval*M, uint8_t* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
 void csort(keyval* M, keyval* L, int* H, int len);
@@ -230,99 +248,130 @@ int main(int argc, char** argv)
 			primes[nump++] = i;
 	if (verbose) cout << "Complete." << endl;
 
-	// set up constants
-	std::clock_t start; double timetaken = 0;
-	mpz_t r0; mpz_init(r0);
-	int* sieves0 = new int[degfht * nump]();
-	int* sievep0 = new int[nump]();
-	int* sieves1 = new int[degght * nump]();
-	int* sievep1 = new int[nump]();
-	int* sieveP0 = new int[nump]();
-	int* sieveP1 = new int[nump]();
-	int* sieveS0 = new int[degfht * nump]();
-	int* sieveS1 = new int[degght * nump]();
-	//int* sievenum_s0modp = new int[nump]();
-	//int* sievenum_s1modp = new int[nump]();
-	int* sievenum_S0modp = new int[nump]();
-	int* sievenum_S1modp = new int[nump]();
 	// load factor base
+	sievedata info;
+	std::clock_t start; double timetaken = 0;
 	if (verbose) cout << endl << "Loading factor base..." << endl << flush;
 	start = clock();
 	ifstream fbfile(argv[3]);
 	start = clock();
 	// read fbb
 	getline(fbfile, line);
-	int fbb = atoi(line.c_str());
-	// read k0
-	getline(fbfile, line);
-	int k0 = atoi(line.c_str());
-	for (int i = 0; i < k0; i++) {
+	info.fbb = atoi(line.c_str());
+	// read k[0..3][0]
+	for (int i = 0; i < 4; i++) {
+		getline(fbfile, line);
+		info.k[i][0] = atoi(line.c_str());
+	}
+	// read q0sieve0
+	info.q0sieve0 = new int64_t[info.k[0][0]]();
+	for (int i = 0; i < info.k[0][0]; i++) {
+		getline(fbfile, line);
+		info.q0sieve0[i] = atoi(line.c_str());
+	}
+	// read q1sieve0
+	info.q1sieve0 = new int64_t[info.k[1][0]*2]();
+	for (int i = 0; i < info.k[1][0]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
 		string substr;
 		getline(ss, substr, ',');
-		sieveP0[i] = atoi(substr.c_str());
+		info.q1sieve0[2*i] = atoi(substr.c_str());
 		int j = 0;
 		while( ss.good() ) {
 			getline( ss, substr, ',' );
-			sieveS0[i*degfht + j++] = atoi(substr.c_str());
+			info.q1sieve0[2*i + j++] = atoi(substr.c_str());
 		}
-		sievenum_S0modp[i] = j;
 	}
-	// read kh0
-	getline(fbfile, line);
-	int kh0 = atoi(line.c_str());
-	for (int i = 0; i < kh0; i++) {
+	// read q2sieve0
+	info.q2sieve0 = new int64_t[info.k[2][0]*3]();
+	for (int i = 0; i < info.k[2][0]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
 		string substr;
 		getline(ss, substr, ',');
-		sievep0[i] = atoi(substr.c_str());
+		info.q2sieve0[3*i] = atoi(substr.c_str());
 		int j = 0;
 		while( ss.good() ) {
 			getline( ss, substr, ',' );
-			sieves0[i*degfht + j++] = atoi(substr.c_str());
+			info.q2sieve0[3*i + j++] = atoi(substr.c_str());
 		}
-		//sievenum_s0modp[i] = j;  // commented out since same as sievenum_S0modp[i]
 	}
-	// read k1
-	getline(fbfile, line);
-	int k1 = atoi(line.c_str());
-	for (int i = 0; i < k1; i++) {
+	// read q4sieve0
+	info.q4sieve0 = new int64_t[info.k[3][0]*5]();
+	for (int i = 0; i < info.k[3][0]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
 		string substr;
 		getline(ss, substr, ',');
-		sieveP1[i] = atoi(substr.c_str());
+		info.q4sieve0[5*i] = atoi(substr.c_str());
 		int j = 0;
 		while( ss.good() ) {
 			getline( ss, substr, ',' );
-			sieveS1[i*degght + j++] = atoi(substr.c_str());
+			info.q4sieve0[5*i + j++] = atoi(substr.c_str());
 		}
-		sievenum_S1modp[i] = j;
 	}
-	// read kh1
-	getline(fbfile, line);
-	int kh1 = atoi(line.c_str());
-	for (int i = 0; i < kh1; i++) {
+	// read k[0..3][1]
+	for (int i = 0; i < 4; i++) {
+		getline(fbfile, line);
+		info.k[i][1] = atoi(line.c_str());
+	}
+	// read q0sieve1
+	info.q0sieve1 = new int64_t[info.k[0][1]]();
+	for (int i = 0; i < info.k[0][1]; i++) {
+		getline(fbfile, line);
+		info.q0sieve1[i] = atoi(line.c_str());
+	}
+	// read q1sieve1
+	info.q1sieve1 = new int64_t[info.k[1][1]*2]();
+	for (int i = 0; i < info.k[1][1]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
 		string substr;
 		getline(ss, substr, ',');
-		sievep1[i] = atoi(substr.c_str());
+		info.q1sieve1[2*i] = atoi(substr.c_str());
 		int j = 0;
 		while( ss.good() ) {
 			getline( ss, substr, ',' );
-			sieves1[i*degght + j++] = atoi(substr.c_str());
+			info.q1sieve1[2*i + j++] = atoi(substr.c_str());
 		}
-		//sievenum_s1modp[i] = j;  // commented out since same as sievenum_S1modp[i]
 	}
+	// read q2sieve1
+	info.q2sieve1 = new int64_t[info.k[2][1]*3]();
+	for (int i = 0; i < info.k[2][1]; i++) {
+		getline(fbfile, line);
+		stringstream ss(line);
+		string substr;
+		getline(ss, substr, ',');
+		info.q2sieve1[3*i] = atoi(substr.c_str());
+		int j = 0;
+		while( ss.good() ) {
+			getline( ss, substr, ',' );
+			info.q2sieve1[3*i + j++] = atoi(substr.c_str());
+		}
+	}
+	// read q4sieve1
+	info.q4sieve1 = new int64_t[info.k[3][1]*5]();
+	for (int i = 0; i < info.k[3][1]; i++) {
+		getline(fbfile, line);
+		stringstream ss(line);
+		string substr;
+		getline(ss, substr, ',');
+		info.q4sieve1[5*i] = atoi(substr.c_str());
+		int j = 0;
+		while( ss.good() ) {
+			getline( ss, substr, ',' );
+			info.q4sieve1[5*i + j++] = atoi(substr.c_str());
+		}
+	}
+
 	timetaken += ( clock() - start ) / (double) CLOCKS_PER_SEC;
 	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl << flush;
-	if (verbose) cout << "There are " << k0 << " factor base primes on side 0." << endl << flush;
-	if (verbose) cout << "There are " << k1 << " factor base primes on side 1." << endl << flush;
+	if (verbose) cout << "There are " << info.k[0] << " factor base primes on side 0." << endl << flush;
+	if (verbose) cout << "There are " << info.k[1] << " factor base primes on side 1." << endl << flush;
 	fbfile.close();
-	
+
+	mpz_t r0; mpz_init(r0);
 	int B[4] = { 7, 7, 7, 7 };
 	if (argc >= 5) B[0] = atoi(argv[4]);
 	if (argc >= 6) B[1] = atoi(argv[5]);
@@ -430,9 +479,7 @@ int main(int argc, char** argv)
 
 			cout << "(q,r) = (" << q << "," << r[l] << ")" << endl;
 			break;
-
-			m = latsieve4d(h, degh, degfhqt, q, r[l], R[ll], sievep0, k0, sieves0, sieveS0, 
-									sievenum_S0modp, M, Mlen, B);
+			m = latsieve4d(h, degh, degfhqt, info, 0, allp, nump, M, Mlen, B);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			cout << "# Size of lattice point list is " << m << "." << endl << flush;
@@ -465,8 +512,7 @@ int main(int argc, char** argv)
 			cout << "..." << endl << flush;
 			start = clock();
 			//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-			m = latsieve4d(h, degh, degghqt, q, r[l], R[ll], sievep1, k1, sieves1, sieveS1, 
-									sievenum_S1modp, M, Mlen, B);
+			m = latsieve4d(h, degh, degghqt, info, 1, allp, nump, M, Mlen, B);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			cout << "# Size of lattice point list is " << m << "." << endl << flush;
@@ -908,8 +954,8 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 }
 
 
-int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t R,
-		int* allp, int nump, int* s, int* S, int* num_Smodp, keyval* M, int Mlen, int* B)
+int latsieve4d(int64_t* h, int degh, int degfh_t, sievedata info, int side, 
+	int* allp, int nump, keyval* M, int Mlen, int* B)
 {
 	int64_t L[16];
 	int64_t L2[16];
@@ -930,23 +976,70 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t 
 	int B1x2xB2x2bits = B1bits + 1 + B2bits + 1;
 	int B1x2xB2x2xB3x2bits = B1bits + 1 + B2bits + 1 + B3bits + 1;
 
+	int64_t q = info.q; int64_t m = info.m; int64_t r = info.r; int64_t R = info.r;
+	int64_t a0 = info.a0; int64_t a1 = info.a1;
+	int64_t b0 = info.b0;  int64_t b1 = info.b1;
 	// print (q,r) ideal
 	//cout << "special-q (" << q << "," << rl << ")" << endl;
 
 	// compute modpinvq and modqinvp arrays
-	int64_t* modpinvq = new int64_t[nump];
-	int64_t* modqinvp = new int64_t[nump];
+	int imax = info.k[side][0];
+	if (info.k[side][1] > imax) imax = info.k[side][1];
+	if (info.k[side][2] > imax) imax = info.k[side][2];
+	if (info.k[side][3] > imax) imax = info.k[side][3];
+	int64_t* qinvmodp = new int64_t[4*imax]();
+	int64_t* pinvmodq = new int64_t[4*imax]();
+	int k0 = 0; int k1 = 0; int k2 = 0; int k4 = 0;
 	for (int i = 0; i < nump; i++) {
 		int64_t p = allp[i];
 		if (p == q) continue;
-		modpinvq[i] = modinv(q, p);
-		modqinvp[i] = modinv(p, q);
+		if (i < info.k[side][0])
+			if (p == (side == 0 ? info.q0sieve0[i] : info.q0sieve1[i])) {
+				qinvmodp[k0] = modinv(q, p);
+				pinvmodq[k0++] = modinv(p, q);
+			}
+		if (i < info.k[side][1])
+			if (p == (side == 0 ? info.q1sieve0[i] : info.q1sieve1[i])) {
+				qinvmodp[k1] = modinv(q, p);
+				pinvmodq[k1++] = modinv(p, q);
+			}
+		if (i < info.k[side][2])
+			if (p == (side == 0 ? info.q2sieve0[i] : info.q2sieve1[i])) {
+				qinvmodp[k2] = modinv(q, p);
+				pinvmodq[k2++] = modinv(p, q);
+			}
+		if (i < info.k[side][3])
+			if (p == (side == 0 ? info.q4sieve0[i] : info.q4sieve1[i])) {
+				qinvmodp[k4] = modinv(q, p);
+				pinvmodq[k4++] = modinv(p, q);
+			}
 	}
 
-	L[0]  = q; L[1]  = -r; L[2]  = -R; L[3]  = 0;
-	L[4]  = 0; L[5]  = 1;  L[6]  = 0;  L[7]  = -R;
-	L[8]  = 0; L[9]  = 0;  L[10] = 1;  L[11] = 0;
-	L[12] = 0; L[13] = 0;  L[14] = 0;  L[15] = 1;
+	switch (info.qtype) {
+		case 0:
+			L[0]  = q; L[1]  = 0;  L[2]  = 0;  L[3]  = 0;
+			L[4]  = 0; L[5]  = q;  L[6]  = 0;  L[7]  = 0;
+			L[8]  = 0; L[9]  = 0;  L[10] = q;  L[11] = 0;
+			L[12] = 0; L[13] = 0;  L[14] = 0;  L[15] = q;
+			break;
+		case 1:
+			L[0]  = q; L[1]  = m;  L[2]  = 0;  L[3]  = 0;
+			L[4]  = 0; L[5]  = 1;  L[6]  = 0;  L[7]  = 0;
+			L[8]  = 0; L[9]  = 0;  L[10] = q;  L[11] = m;
+			L[12] = 0; L[13] = 0;  L[14] = 0;  L[15] = 1;
+			break;
+		case 2:
+			L[0]  = q; L[1]  = r;  L[2]  = R;  L[3]  = 0;
+			L[4]  = 0; L[5]  = 1;  L[6]  = 0;  L[7]  = R;
+			L[8]  = 0; L[9]  = 0;  L[10] = 1;  L[11] = 0;
+			L[12] = 0; L[13] = 0;  L[14] = 0;  L[15] = 1;
+			break;
+		case 4:
+			L[0]  = q; L[1]  = 0;  L[2]  = a0;  L[3]  = b0;
+			L[4]  = 0; L[5]  = q;  L[6]  = a1;  L[7]  = b1;
+			L[8]  = 0; L[9]  = 0;  L[10] = 1;   L[11] = 1;
+			L[12] = 0; L[13] = 0;  L[14] = 0;   L[15] = 1;
+	}
 
 	int64L2(L, 4);	// LLL reduce L, time log(q)^2
 
@@ -974,26 +1067,71 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t 
 	qLinv[14] = (-L[14]*L[5] + L[13]*L[6])*L[0] + ((L[14]*L[4] - L[12]*L[6])*L[1] + (-L[2]*L[13]*L[4] + L[2]*L[12]*L[5]));
 	qLinv[15] = (L[10]*L[5] - L[9]*L[6])*L[0] + ((-L[10]*L[4] + L[8]*L[6])*L[1] + (L[2]*L[9]*L[4] - L[2]*L[8]*L[5]));
 
-	int i = 40; int m = 0;
-	while (i < nump) {
-		int64_t p = allp[i];
-		if (p == q) { i++; continue; }
-		//cout << p << "," << m << endl << flush;
-		int64_t n = p*q;
-		uint8_t logp = log2f(p);
-		__int128 Rll = mod(-R, q);
-		__int128 rl = mod(-r, q);
-		for (int k = 0; k < num_Smodp[i]; k++) {
-			__int128 Sk = mod(-S[k+i*degfh_t], p);
-			__int128 sk = mod(-s[k+i*degfh_t], p);
-			int64_t T = q*( (Sk * modpinvq[i]) % p ) + p*( (Rll * modqinvp[i]) % q ); // CRT
-			if (T >= n) T -= n;
-			int64_t t_ = q*( (sk * modpinvq[i]) % p ) + p*( (rl * modqinvp[i]) % q ); // CRT
-			if (t_ >= n) t_ -= n;
-			L2[0]  = n; L2[1]  = t_; L2[2]  = T; L2[3]  = 0;
-			L2[4]  = 0; L2[5]  = 1;  L2[6]  = 0; L2[7]  = T;
-			L2[8]  = 0; L2[9]  = 0;  L2[10] = 1; L2[11] = 0;
-			L2[12] = 0; L2[13] = 0;  L2[14] = 0; L2[15] = 1;
+	int i = 40; int mm = 0;
+	for (int pt = 0; pt < 4; pt++) {
+		while (i < info.k[side][pt]) {
+			int64_t p = allp[i];
+			if (p == q) { i++; continue; }
+			//cout << p << "," << mm << endl << flush;
+			uint8_t logp = log2f(p);
+			int ii = pt*imax + i;
+			int64_t h0, h1, h2, h3, h4, h5, h6, h7, h8;
+			switch (pt) { // p type
+				case 0:
+					h0 = p*( (L[1] * pinvmodq[ii]) % q );
+					h1 = p*( (L[2] * pinvmodq[ii]) % q );
+					h2 = p*( (L[3] * pinvmodq[ii]) % q );
+					h3 = p*( (L[5] * pinvmodq[ii]) % q );
+					h4 = p*( (L[6] * pinvmodq[ii]) % q );
+					h5 = p*( (L[7] * pinvmodq[ii]) % q );
+					h6 = p*( (L[10] * pinvmodq[ii]) % q );
+					h7 = p*( (L[11] * pinvmodq[ii]) % q );
+					h8 = p*( (L[15] * pinvmodq[ii]) % q );
+					break;
+				case 1:
+					__int128 m1 = side == 0 ? info.q1sieve0[2*i+1] : info.q1sieve1[2*i+1];
+					h0 = q*( (m1 * qinvmodp[ii]) % p ) + p*( (L[1] * pinvmodq[ii]) % q );
+					h1 = p*( (L[2] * pinvmodq[ii]) % q );					
+					h2 = p*( (L[3] * pinvmodq[ii]) % q );
+					h3 = q*( (qinvmodp[ii]) % p ) + p*( (L2[5] * pinvmodq[ii]) % q );
+					h4 = p*( (L[6] * pinvmodq[ii]) % q );
+					h5 = p*( (L[7] * pinvmodq[ii]) % q );
+					h6 = p*( (L[10] * pinvmodq[ii]) % q );
+					h7 = q*( (m1 * qinvmodp[ii]) % p ) + p*( (L[11] * pinvmodq[ii]) % q );
+					h8 = q*( (qinvmodp[ii]) % p ) + p*( (L[15] * pinvmodq[ii]) % q );
+					break;
+				case 2:
+					__int128 r1 = side == 0 ? info.q2sieve0[2*i+1] : info.q2sieve1[2*i+1];
+					__int128 R1 = side == 0 ? info.q2sieve0[2*i+2] : info.q2sieve1[2*i+2];
+					h0 = q*( (r1 * qinvmodp[ii]) % p ) + p*( (L[1] * pinvmodq[ii]) % q );
+					h1 = q*( (R1 * qinvmodp[ii]) % p ) + p*( (L[2] * pinvmodq[ii]) % q );					
+					h2 = p*( (L[3] * pinvmodq[ii]) % q );
+					h3 = q*( (qinvmodp[ii]) % p ) + p*( (L2[5] * pinvmodq[ii]) % q );
+					h4 = p*( (L[6] * pinvmodq[ii]) % q );
+					h5 = q*( (R1 * qinvmodp[ii]) % p ) + p*( (L[7] * pinvmodq[ii]) % q );
+					h6 = p*( (L[10] * pinvmodq[ii]) % q );
+					h7 = q*( (qinvmodp[ii]) % p ) + p*( (L[11] * pinvmodq[ii]) % q );
+					h8 = q*( (qinvmodp[ii]) % p ) + p*( (L[15] * pinvmodq[ii]) % q );
+					break;
+				case 3:
+					__int128 a0 = side == 0 ? info.q4sieve0[2*i+1] : info.q4sieve1[2*i+1];
+					__int128 a1 = side == 0 ? info.q4sieve0[2*i+2] : info.q4sieve1[2*i+2];
+					__int128 b0 = side == 0 ? info.q4sieve0[2*i+3] : info.q4sieve1[2*i+3];
+					__int128 b1 = side == 0 ? info.q4sieve0[2*i+4] : info.q4sieve1[2*i+4];
+					h0 = p*( (L[1] * pinvmodq[ii]) % q );
+					h1 = q*( (a0 * qinvmodp[ii]) % p ) + p*( (L[2] * pinvmodq[ii]) % q );
+					h2 = q*( (b0 * qinvmodp[ii]) % p ) + p*( (L[3] * pinvmodq[ii]) % q );
+					h3 = p*( (L[5] * pinvmodq[ii]) % q );
+					h4 = q*( (a1 * qinvmodp[ii]) % p ) + p*( (L[6] * pinvmodq[ii]) % q );
+					h5 = q*( (b1 * qinvmodp[ii]) % p ) + p*( (L[7] * pinvmodq[ii]) % q );
+					h6 = q*( (qinvmodp[ii]) % p ) + p*( (L[10] * pinvmodq[ii]) % q );
+					h7 = q*( (qinvmodp[ii]) % p ) + p*( (L[11] * pinvmodq[ii]) % q );
+					h8 = q*( (qinvmodp[ii]) % p ) + p*( (L[15] * pinvmodq[ii]) % q );
+			}
+			L2[0]  = p*q; L2[1]  = h0; L2[2]  = h1; L2[3]  = h2;
+			L2[4]  = 0;   L2[5]  = h3; L2[6]  = h4; L2[7]  = h5;
+			L2[8]  = 0;   L2[9]  = 0;  L2[10] = h6; L2[11] = h7;
+			L2[12] = 0;   L2[13] = 0;  L2[14] = 0;  L2[15] = h8;
 			int64L2(L2,4);	// LLL reduce L, time log(n)^2
 			mat4x4prod(qLinv, L2, L3);	// L3 =  qLinv*L2
 			for (int ii = 0; ii < 16; ii++) L3[ii] /= q;
@@ -1063,7 +1201,7 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t 
 									for (int j = 0; j <= jmin; j++) {
 										int id = (x + B1) + ((y + B2) << B1x2bits) + ((z + B3) << B1x2xB2x2bits)
 										  + ((t + B4) << B1x2xB2x2xB3x2bits);
-										M[m++] = (keyval){ id, logp };
+										M[mm++] = (keyval){ id, logp };
 										x += u1; y += u2; z += u3; t += u4;
 									}
 									// move by '1-transition' vector
@@ -1092,10 +1230,10 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t 
 	}
 
 	// clear memory
-	delete[] modqinvp;
-	delete[] modpinvq;
+	delete[] qinvmodp;
+	delete[] pinvmodq;
 
-	return m;
+	return mm;
 }
 
 bool planeintersectsbox4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3, int v4,
