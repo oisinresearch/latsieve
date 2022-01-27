@@ -57,7 +57,7 @@ struct sievedata {
 
 //int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t R,
 //		int* allp, int nump, int* s, int* S, int* num_Smodp, keyval* M, int Mlen, int* B);
-int latsieve4d(int64_t* h, int degh, int degfh_t, sievedata info, int side,
+int latsieve4d(int64_t* h, int degh, sievedata info, int side,
 	keyval* M, int Mlen, int* B);
 void histogram(keyval*M, uint8_t* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
@@ -487,7 +487,7 @@ int main(int argc, char** argv)
 
 			cout << "(q,r) = (" << q << "," << r[l] << ")" << endl;
 			break;
-			m = latsieve4d(h, degh, degfhqt, info, 0, allp, nump, M, Mlen, B);
+			m = latsieve4d(h, degh, info, 0, primes, nump, M, Mlen, B);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			cout << "# Size of lattice point list is " << m << "." << endl << flush;
@@ -520,7 +520,7 @@ int main(int argc, char** argv)
 			cout << "..." << endl << flush;
 			start = clock();
 			//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-			m = latsieve4d(h, degh, degghqt, info, 1, allp, nump, M, Mlen, B);
+			m = latsieve4d(h, degh, info, 1, primes, nump, M, Mlen, B);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			cout << "# Size of lattice point list is " << m << "." << endl << flush;
@@ -962,7 +962,7 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 }
 
 
-int latsieve4d(int64_t* h, int degh, int degfh_t, sievedata info, int side, 
+int latsieve4d(int64_t* h, int degh, sievedata info, int side, 
 	int* allp, int nump, keyval* M, int Mlen, int* B)
 {
 	int64_t L[16];
@@ -990,7 +990,7 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, sievedata info, int side,
 	// print (q,r) ideal
 	//cout << "special-q (" << q << "," << rl << ")" << endl;
 
-	// compute modpinvq and modqinvp arrays
+	// compute qinvmodp and pinvmodq arrays
 	int imax = info.k[side][0];
 	if (info.k[side][1] > imax) imax = info.k[side][1];
 	if (info.k[side][2] > imax) imax = info.k[side][2];
@@ -1002,19 +1002,23 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, sievedata info, int side,
 	for (int i = 0; i < imax; i++) {
 		int64_t p = allp[ip];
 		if (p == q) continue;
-		if (i < info.k[side][0] && p == (side == 0 ? info.q0sieve0[i] : info.q0sieve1[i])) {
+		if (i < info.k[side][0] &&
+			p == (side == 0 ? info.q0sieve0[i] : info.q0sieve1[i])) {
 			qinvmodp[k0] = modinv(q, p);
 			pinvmodq[k0++] = modinv(p, q);
 		}
-		if (i < info.k[side][1] && p == (side == 0 ? info.q1sieve0[i] : info.q1sieve1[i])) {
+		if (i < info.k[side][1] &&
+			p == (side == 0 ? info.q1sieve0[2*i] : info.q1sieve1[2*i])) {
 			qinvmodp[imax + k1] = modinv(q, p);
 			pinvmodq[imax + k1++] = modinv(p, q);
 		}
-		if (i < info.k[side][2] && p == (side == 0 ? info.q2sieve0[i] : info.q2sieve1[i])) {
+		if (i < info.k[side][2] &&
+			p == (side == 0 ? info.q2sieve0[3*i] : info.q2sieve1[3*i])) {
 			qinvmodp[2*imax + k2] = modinv(q, p);
 			pinvmodq[2*imax + k2++] = modinv(p, q);
 		}
-		if (i < info.k[side][3] && p == (side == 0 ? info.q4sieve0[i] : info.q4sieve1[i])) {
+		if (i < info.k[side][3] &&
+			p == (side == 0 ? info.q4sieve0[5*i] : info.q4sieve1[5*i])) {
 			qinvmodp[3*imax + k4] = modinv(q, p);
 			pinvmodq[3*imax + k4++] = modinv(p, q);
 		}
@@ -1076,18 +1080,26 @@ int latsieve4d(int64_t* h, int degh, int degfh_t, sievedata info, int side,
 	int i = 40; int mm = 0;
 	for (int pt = 0; pt < 4; pt++) {
 		while (i < info.k[side][pt]) {
-			int64_t p = allp[i];
+			int64_t p;
+			if (pt == 0 && side == 0) p = info.q0sieve0[i];
+			if (pt == 1 && side == 0) p = info.q1sieve0[i];
+			if (pt == 2 && side == 0) p = info.q2sieve0[i];
+			if (pt == 3 && side == 0) p = info.q4sieve0[i];
+			if (pt == 0 && side == 1) p = info.q0sieve1[i];
+			if (pt == 1 && side == 1) p = info.q1sieve1[i];
+			if (pt == 2 && side == 1) p = info.q2sieve1[i];
+			if (pt == 3 && side == 1) p = info.q4sieve1[i];
 			if (p == q) { i++; continue; }
 			//cout << p << "," << mm << endl << flush;
 			uint8_t logp = log2f(p);
 			int ii = pt*imax + i;
 			__int128 m1 = side == 0 ? info.q1sieve0[2*i+1] : info.q1sieve1[2*i+1];
-			__int128 r1 = side == 0 ? info.q2sieve0[2*i+1] : info.q2sieve1[2*i+1];
-			__int128 R1 = side == 0 ? info.q2sieve0[2*i+2] : info.q2sieve1[2*i+2];
-			__int128 a0 = side == 0 ? info.q4sieve0[2*i+1] : info.q4sieve1[2*i+1];
-			__int128 a1 = side == 0 ? info.q4sieve0[2*i+2] : info.q4sieve1[2*i+2];
-			__int128 b0 = side == 0 ? info.q4sieve0[2*i+3] : info.q4sieve1[2*i+3];
-			__int128 b1 = side == 0 ? info.q4sieve0[2*i+4] : info.q4sieve1[2*i+4];
+			__int128 r1 = side == 0 ? info.q2sieve0[3*i+1] : info.q2sieve1[3*i+1];
+			__int128 R1 = side == 0 ? info.q2sieve0[3*i+2] : info.q2sieve1[3*i+2];
+			__int128 a0 = side == 0 ? info.q4sieve0[5*i+1] : info.q4sieve1[5*i+1];
+			__int128 a1 = side == 0 ? info.q4sieve0[5*i+2] : info.q4sieve1[5*i+2];
+			__int128 b0 = side == 0 ? info.q4sieve0[5*i+3] : info.q4sieve1[5*i+3];
+			__int128 b1 = side == 0 ? info.q4sieve0[5*i+4] : info.q4sieve1[5*i+4];
 			int64_t h0, h1, h2, h3, h4, h5, h6, h7, h8;
 			switch (pt) { // p type
 				case 0:
