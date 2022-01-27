@@ -443,7 +443,7 @@ int main(int argc, char** argv)
 		q = mpz_get_ui(qmpz);
 
 		// calculate special-q ideals for this q
-		int nmax = populate_q(info, side, h0, f0, f1, F0, F1)
+		int nmax = populate_q(&info, qside, h0, f0, f1, F0, F1);
 		if (nmax == 0 || q > qmax) continue;
 		
 		cout << "# (nmax) = (" << nmax << ")" << endl;
@@ -629,7 +629,7 @@ int main(int argc, char** argv)
 						
 						// trial division on side 0
 						int p = primes[0]; int k = 0; 
-						while (p < sieveP0[k0-1]) {
+						while (p < primes[nump-1]) {
 							int valp = 0;
 							while (mpz_fdiv_ui(N0, p) == 0) {
 								mpz_divexact_ui(N0, N0, p);
@@ -638,16 +638,7 @@ int main(int argc, char** argv)
 								stream << hex << p;
 								str += stream.str() + ",";
 							}
-							if (p < 1000) {
-								p = primes[++k];
-								if (p > 1000) {
-									k = 0;
-									while (sieveP0[k] < 1000) k++;
-								}
-							}
-							else {
-								p = sieveP0[++k];
-							}
+							p = primes[++k];
 						}
 						if (mpz_fdiv_ui(N0, q) == 0 && qside == 0) {
 							mpz_divexact_ui(N0, N0, q);
@@ -729,7 +720,7 @@ int main(int argc, char** argv)
 						// trial division on side 1
 						if (isrel) {
 							p = primes[0]; k = 0;
-							while (p < sieveP1[k1-1]) {
+							while (p < primes[nump-1]) {
 								int valp = 0;
 								while (mpz_fdiv_ui(N1, p) == 0) {
 									mpz_divexact_ui(N1, N1, p);
@@ -738,16 +729,7 @@ int main(int argc, char** argv)
 									stream << hex << p;
 									str += stream.str() + ",";
 								}
-								if (p < 1000) {
-									p = primes[++k];
-									if (p > 1000) {
-										k = 0;
-										while (sieveP1[k] < 1000) k++;
-									}
-								}
-								else {
-									p = sieveP1[++k];
-								}
+								p = primes[++k];
 							}
 							if (mpz_fdiv_ui(N1, q) == 0 && qside == 1)  {
 								mpz_divexact_ui(N1, N1, q);
@@ -848,26 +830,11 @@ int main(int argc, char** argv)
     mpz_poly_clear(f1); mpz_poly_clear(f0);
 	mpz_poly_clear(h0);
 	delete[] h;
-	delete[] fhqt;
-	delete[] R;
-	delete[] r;
 	for (int i = 0; i < 8; i++) mpz_clear(pi[i]); delete[] pi;
 	mpz_clear(qmpz);
 	delete[] H;
 	//delete[] L;
 	delete[] M;
-	delete[] sievenum_S1modp;
-	delete[] sieveP1;
-	delete[] sieveS1;
-	delete[] sievenum_S0modp;
-	delete[] sieveP0;
-	delete[] sieveS0;
-	//delete[] sievenum_s1modp;
-	//delete[] sievenum_s0modp;
-	delete[] sievep1;
-	delete[] sieves1;
-	delete[] sievep0;
-	delete[] sieves0;
 	mpz_clear(r0);
 	delete[] primes;
 	delete[] sieve;
@@ -1132,7 +1099,7 @@ int latsieve4d(int n, sievedata info, int side, int* allp, int nump,
 					h7 = q*( (qinvmodp[ii]) % p ) + p*( (L[11] * pinvmodq[ii]) % q );
 					h8 = q*( (qinvmodp[ii]) % p ) + p*( (L[15] * pinvmodq[ii]) % q );
 					break;
-				case 3:
+				case 4:
 					h0 = p*( (L[1] * pinvmodq[ii]) % q );
 					h1 = q*( (a0 * qinvmodp[ii]) % p ) + p*( (L[2] * pinvmodq[ii]) % q );
 					h2 = q*( (b0 * qinvmodp[ii]) % p ) + p*( (L[3] * pinvmodq[ii]) % q );
