@@ -52,13 +52,15 @@ struct sievedata {
 	int64_t* q4sieve1;
 	// special q info
 	int64_t q; int qtype;
-	int64_t r, R, m, a0, a1, b0, b1;
+	int64_t r[8], R[8], m[4], a0[4], a1[4], b0[4], b1[4];
 };
 
 //int latsieve4d(int64_t* h, int degh, int degfh_t, int64_t q, int64_t r, int64_t R,
 //		int* allp, int nump, int* s, int* S, int* num_Smodp, keyval* M, int Mlen, int* B);
-int latsieve4d(int64_t* h, int degh, sievedata info, int side,
+int latsieve4d(int n, sievedata info, int side, int* allp, int nump,
 	keyval* M, int Mlen, int* B);
+int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
+	mpz_poly_bivariate F0, mpz_poly_bivariate F1);
 void histogram(keyval*M, uint8_t* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
 void csort(keyval* M, keyval* L, int* H, int len);
@@ -403,9 +405,6 @@ int main(int argc, char** argv)
 
 	int64_t qmin; int64_t qmax; mpz_t qmpz; mpz_init(qmpz);
 	mpz_t* pi = new mpz_t[8]; for (int i = 0; i < 8; i++) mpz_init(pi[i]);
-	int64_t* r = new int64_t[degh]();
-	int64_t* R = new int64_t[(degght>degfht?degght:degfht)]();
-	int64_t* fhqt = new int64_t[(degght>degfht?degght:degfht)+1](); // careful, what if degght > degfht?
 	int64_t* h = new int64_t[degh+1]();
 	mpz_poly h0; mpz_poly_init(h0, degh);
 	mpz_poly f0; mpz_poly f1;
@@ -443,55 +442,34 @@ int main(int argc, char** argv)
 		mpz_nextprime(qmpz, qmpz);
 		q = mpz_get_ui(qmpz);
 
-		for (int i = 0; i <= degh; i++) h[i] = mpz_mod_ui(r0, hpoly[i], q);
-
-		mpz_poly_bivariate* Fq;
-		mpz_t* fhtpolyside = fhtpoly;
-		int degfhqt = degfht;
-		int degghqt = degght;
-		Fq = &F0;
-		if (qside == 1) {
-			fhtpolyside = ghtpoly; degfhqt = degght; degghqt = degfht; Fq = &F1;
-		}
-		for (int i = 0; i <= degfht; i++) {
-			fhqt[i] = mpz_mod_ui(r0, fhtpolyside[i], q);
-		}
-		int numl = polrootsmod(h, degh, r, q);
-		int numll = polrootsmod(fhqt, degfhqt, R, q);
-		if (numl == 0 || numll == 0 || q > qmax) continue;
+		// calculate special-q ideals for this q
+		int nmax = populate_q(info, side, h0, f0, f1, F0, F1)
+		if (nmax == 0 || q > qmax) continue;
 		
-		cout << "(numl, numll) = (" << numl << "," << numll << ")" << endl;
+		cout << "# (nmax) = (" << nmax << ")" << endl;
 
 		// sieve side 0
 		cout << "# Starting sieve on side 0";
 		if (qside == 0) cout << " for special-q " << q;
-		cout << "..." << endl << flush;
+		cout << "..." << endl;
 		start = clock();
 		//int m = latsieve3d(fq, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M, Mlen, B);
 		int m = 0;
-		// compute which r[l] are valid for given R[ll]
-		int l = -1;
-		for (int ll = 0; ll < numll; ll++) {
-			for (int i = 0; i < numl; i++) {
-				Aq0->deg = -1; mpz_poly_cleandeg(Aq0, 0);
-				mpz_poly_setcoeff_si(Aq0, 0, -R[ll]);
-				mpz_poly_bivariate_setcoeff(Aq, 0, Aq0);
-				mpz_poly_setcoeff_ui(Aq0, 0, 1);	// Aq = x - R[ll]
-				mpz_poly_bivariate_setcoeff(Aq, 1, Aq0);
-				Fqh_x->deg = -1; mpz_poly_cleandeg(Fqh_x, 0);
-				mpz_poly_bivariate_resultant_y(Fqh_x, *Fq, Aq);
-				mpz_poly_eval_ui(res, Fqh_x, r[i]);
-				int val = mpz_mod_ui(r0, res, q);
-				if (val == 0) { l = i; break; }
-			}
-
-			cout << "(q,r) = (" << q << "," << r[l] << ")" << endl;
+		for (int n = 0; n < nmax; n++) {
+			int64_t mn = info.m[n];
+			int64_t rn = info.r[n]; int64_t Rn = info.R[n];
+			int64_t a0 = info.a0[n]; int64_t a1 = info.a1[n];
+			int64_t b0 = info.b0[n];  int64_t b1 = info.b1[n];
+			cout << "# (q,m,r,R) = (" << q << "," << mn << "," << rn << "," <<
+				Rn << ")" << endl;
+			cout << "# (a0,a1,b0,b1) = (" << a0 << "," <<  a1 << "," << 
+				b0 << "," << b1 << "," << ")" << endl;
 			break;
-			m = latsieve4d(h, degh, info, 0, primes, nump, M, Mlen, B);
+			m = latsieve4d(n, info, 0, primes, nump, M, Mlen, B);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
-			cout << "# Size of lattice point list is " << m << "." << endl << flush;
-			cout << "# Constructing histogram..." << endl << flush;
+			cout << "# Finished! Time taken: " << timetaken << "s" << endl;
+			cout << "# Size of lattice point list is " << m << "." << endl;
+			cout << "# Constructing histogram..." << endl;
 			start = clock();
 			//std::stable_sort(M, M + m, &lattice_sorter);
 			histogram(M, H, m);
@@ -520,7 +498,7 @@ int main(int argc, char** argv)
 			cout << "..." << endl << flush;
 			start = clock();
 			//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-			m = latsieve4d(h, degh, info, 1, primes, nump, M, Mlen, B);
+			m = latsieve4d(n, info, 1, primes, nump, M, Mlen, B);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			cout << "# Size of lattice point list is " << m << "." << endl << flush;
@@ -543,13 +521,31 @@ int main(int argc, char** argv)
 			
 			// compute special-q lattice L 
 			int64_t L[16];
-			numl = polrootsmod(h, degh, r, q);
-			numll = polrootsmod(fhqt, degfhqt, R, q);
-			//int l = 0; int ll = 0;
-			L[0]  = q; L[1]  = -r[l]; L[2]  = -R[ll]; L[3]  = 0;
-			L[4]  = 0; L[5]  = 1;     L[6]  = 0;      L[7]  = -R[ll];
-			L[8]  = 0; L[9]  = 0;     L[10] = 1;      L[11] = 0;
-			L[12] = 0; L[13] = 0;     L[14] = 0;      L[15] = 1;
+			switch (info.qtype) {
+				case 0:
+					L[0]  = q; L[1]  = 0;  L[2]  = 0;  L[3]  = 0;
+					L[4]  = 0; L[5]  = q;  L[6]  = 0;  L[7]  = 0;
+					L[8]  = 0; L[9]  = 0;  L[10] = q;  L[11] = 0;
+					L[12] = 0; L[13] = 0;  L[14] = 0;  L[15] = q;
+					break;
+				case 1:
+					L[0]  = q; L[1]  = mn;  L[2]  = 0;  L[3]  = 0;
+					L[4]  = 0; L[5]  = 1;   L[6]  = 0;  L[7]  = 0;
+					L[8]  = 0; L[9]  = 0;   L[10] = q;  L[11] = mn;
+					L[12] = 0; L[13] = 0;   L[14] = 0;  L[15] = 1;
+					break;
+				case 2:
+					L[0]  = q; L[1]  = rn;  L[2]  = Rn;  L[3]  = 0;
+					L[4]  = 0; L[5]  = 1;   L[6]  = 0;   L[7]  = Rn;
+					L[8]  = 0; L[9]  = 0;   L[10] = 1;   L[11] = 0;
+					L[12] = 0; L[13] = 0;   L[14] = 0;   L[15] = 1;
+					break;
+				case 4:
+					L[0]  = q; L[1]  = 0;  L[2]  = a0;  L[3]  = b0;
+					L[4]  = 0; L[5]  = q;  L[6]  = a1;  L[7]  = b1;
+					L[8]  = 0; L[9]  = 0;  L[10] = 1;   L[11] = 1;
+					L[12] = 0; L[13] = 0;  L[14] = 0;   L[15] = 1;
+			}
 			int64L2(L, 4);	// LLL reduce L, time log(q)^2
 			
 			// print list of potential relations
@@ -962,8 +958,8 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 }
 
 
-int latsieve4d(int64_t* h, int degh, sievedata info, int side, 
-	int* allp, int nump, keyval* M, int Mlen, int* B)
+int latsieve4d(int n, sievedata info, int side, int* allp, int nump,
+	keyval* M, int Mlen, int* B)
 {
 	int64_t L[16];
 	int64_t L2[16];
@@ -984,9 +980,10 @@ int latsieve4d(int64_t* h, int degh, sievedata info, int side,
 	int B1x2xB2x2bits = B1bits + 1 + B2bits + 1;
 	int B1x2xB2x2xB3x2bits = B1bits + 1 + B2bits + 1 + B3bits + 1;
 
-	int64_t q = info.q; int64_t m = info.m; int64_t r = info.r; int64_t R = info.r;
-	int64_t a0 = info.a0; int64_t a1 = info.a1;
-	int64_t b0 = info.b0;  int64_t b1 = info.b1;
+	int64_t q = info.q; int64_t m = info.m[n];
+	int64_t r = info.r[n]; int64_t R = info.R[n];
+	int64_t a0 = info.a0[n]; int64_t a1 = info.a1[n];
+	int64_t b0 = info.b0[n];  int64_t b1 = info.b1[n];
 	// print (q,r) ideal
 	//cout << "special-q (" << q << "," << rl << ")" << endl;
 
@@ -2077,4 +2074,271 @@ inline __int128 make_int128(uint64_t lo, uint64_t hi)
 	return N;
 }
 
+int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
+	mpz_poly_bivariate F0, mpz_poly_bivariate F1)
+{
+	gmp_randstate_t rstate;
+	gmp_randinit_mt(rstate);
+    gmp_randseed_ui(rstate, 123);
 
+	mpz_poly_factor_list lf;
+	mpz_poly_factor_list_init(lf);
+	mpz_poly_factor_list lh;
+	mpz_poly_factor_list_init(lh);
+	mpz_poly_factor_list l3;
+	mpz_poly_factor_list_init(l3);
+	mpz_poly hlin; mpz_poly_init(hlin, 0);
+	mpz_poly_bivariate Hlin; mpz_poly_bivariate_init(Hlin, 0);
+	mpz_poly fhlin; mpz_poly_init(fhlin, 0);
+	mpz_poly_bivariate* factors0 = new mpz_poly_bivariate[f0->deg / 2];
+	mpz_poly_bivariate* factors1 = new mpz_poly_bivariate[f1->deg / 2];
+	for (int i = 0; i < f0->deg / 2; i++) mpz_poly_bivariate_init(factors0[i], 0);
+	for (int i = 0; i < f1->deg / 2; i++) mpz_poly_bivariate_init(factors1[i], 0);
+	// compute discriminants of f0 and f1
+	mpz_t Df0; mpz_init(Df0); mpz_t Df1; mpz_init(Df1);
+	mpz_t dummy; mpz_init(dummy);
+	mpz_poly_discriminant(Df0, f0);
+	mpz_poly_discriminant(Df1, f1);
+	bool allh1, allf1, allf2, allf4;
+	int n = 0;	// number of special-q's found
+
+	int64_t q0 = info->q;
+	//cout << q0 << endl;
+	mpz_t q; mpz_init_set_ui(q, q0);
+	if (side == 0) {
+		// skip q0 if it is ramified in K[x]/<f0>
+		if (mpz_mod_ui(dummy, Df0, q0) == 0) return 0;
+
+		// determine which type of special-q we have, first factor f mod q
+		mpz_poly_factor(lf, f0, q, rstate);
+		allf4 = true;
+		for (int j = 0; j < lf->size; j++)
+			if (lf->factors[j]->f->deg != 4) {
+				allf4 = false;
+				break;
+			}
+		allf2 = true;
+		if (allf4) allf2 = false;
+		else
+			for (int j = 0; j < lf->size; j++)
+				if (lf->factors[j]->f->deg != 2) {
+					allf2 = false;
+					break;
+				}
+		allf1 = true;
+		if (allf4 || allf2) allf1 = false;
+		else
+			for (int j = 0; j < lf->size; j++)
+				if (lf->factors[j]->f->deg != 1) {
+					allf1 = false;
+					break;
+				}
+		mpz_poly_factor(lh, h0, q, rstate);
+		allh1 = true;
+		for (int j = 0; j < lh->size; j++)
+			if (lh->factors[j]->f->deg != 1) {
+				allh1 = false;
+				break;
+			}
+
+		// categorize special-q by allf4, allf2, allf1, allh1
+		if (allf4) { // q inert, 0 roots
+			info->qtype = 0;
+			n = 1;
+		}
+		else if (allf2 && allh1)  { // 1 root 
+			for (int j = 0; j < lh->size; j++) {
+				int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
+				info->qtype = 1;
+				info->m[n++] = m;
+			}
+		}
+		else if (!allf4 && !allf2) {
+			for (int j = 0; j < lh->size; j++) {
+				int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
+				mpz_poly_setcoeff_ui(hlin, 0, m);
+				mpz_poly_setcoeff_ui(hlin, 1, 1);
+				mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
+				mpz_poly_set_zero(fhlin);
+				mpz_poly_bivariate_resultant_x(fhlin, F0, Hlin);
+				// now factor fhlin mod q
+				mpz_poly_factor(l3, fhlin, q, rstate);
+				if (l3->factors[0]->f->deg == 2) {	// smallest degree is 2
+					info->qtype = 1;
+					info->m[n++] = m;
+				}
+				mpz_poly_factor_list_flush(l3);
+			}
+			int joff = 0;
+			if (allf1 == false) joff = 4;  // note if lf->size==3, for j below 0..1, not 2
+			for (int j = 0; j < lf->size; j++) { // lf sorted by deg increasing
+				if (lf->factors[j]->f->deg == 1) {
+					int64_t R = mpz_get_ui(lf->factors[j]->f->coeff[0]);
+					// find corresponding root r of h
+					for (int k = 0; k < lh->size; k++) {
+						int64_t r = mpz_get_ui(lh->factors[k]->f->coeff[0]);
+						mpz_poly_setcoeff_ui(hlin, 0, r);
+						mpz_poly_setcoeff_ui(hlin, 1, 1);
+						mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
+						mpz_poly_set_zero(fhlin);
+						mpz_poly_bivariate_resultant_x(fhlin, F0, Hlin);
+						// now factor fhlin mod q
+						mpz_poly_factor(l3, fhlin, q, rstate);
+						bool foundR = false;
+						for (int l = 0; l < l3->size; l++) {
+							int64_t Rtest = mpz_get_ui(l3->factors[l]->f->coeff[0]);
+							if (R == Rtest) {
+								foundR = true;
+								// now we have R, r
+								info->qtype = 2;
+								info->r[n] = r;
+								info->R[n++] = R;
+								break;
+							}
+						}
+						mpz_poly_factor_list_flush(l3);
+						if (foundR) break;
+					}
+				}
+			}
+		}
+		else { // mpz_poly_Fq_factor, 4 values
+			mpz_poly_Fq_factor_edf(1, F0, q0, h0, factors0);
+			for (int j = 0; j < f0->deg / 2; j++) {
+				int64_t a0 = mpz_get_ui(factors0[j]->coeff[0]->coeff[0]);
+				int64_t a1 = mpz_get_ui(factors0[j]->coeff[0]->coeff[1]);
+				// rel1 = x + a1*y + a0
+				// rel2 = rel1*y + rel1
+				int64_t h0_0 = mpz_get_si(h0->coeff[0]);
+				int64_t h0_1 = mpz_get_si(h0->coeff[1]);
+				int64_t b0 = a0 + (-h0_0*a1);
+				int64_t b1 = a0 + a1 + (-h0_1*a1);
+				// Note:  The above only works for monic, quadratic h0
+				info->qtype = 4;
+				info->a0[n] = a0;
+				info->a1[n] = a1;
+				info->b0[n] = b0;
+				info->b1[n++] = b1;
+			}
+		}
+	}
+	else {	// side == 1
+		// skip q0 if it is ramified in K[x]/<f1>
+		if (mpz_mod_ui(dummy, Df1, q0) == 0) return 0;
+
+		// determine which type of special-q we have, first factor f mod q
+		mpz_poly_factor(lf, f1, q, rstate);
+		allf4 = true;
+		for (int j = 0; j < lf->size; j++)
+			if (lf->factors[j]->f->deg != 4) {
+				allf4 = false;
+				break;
+			}
+		allf2 = true;
+		if (allf4) allf2 = false;
+		else
+			for (int j = 0; j < lf->size; j++)
+				if (lf->factors[j]->f->deg != 2) {
+					allf2 = false;
+					break;
+				}
+		allf1 = true;
+		if (allf4 || allf2) allf1 = false;
+		else
+			for (int j = 0; j < lf->size; j++)
+				if (lf->factors[j]->f->deg != 1) {
+					allf1 = false;
+					break;
+				}
+		mpz_poly_factor(lh, h0, q, rstate);
+		allh1 = true;
+		for (int j = 0; j < lh->size; j++)
+			if (lh->factors[j]->f->deg != 1) {
+				allh1 = false;
+				break;
+			}
+
+		// categorize special-q by allf4, allf2, allf1, allh1
+		if (allf4) { // q inert, 0 roots
+			info->qtype = 0;
+			n = 1;
+		}
+		else if (allf2 && allh1)  { // 1 root 
+			for (int j = 0; j < lh->size; j++) {
+				int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
+				info->qtype = 1;
+				info->m[n++] = m;
+			}
+		}
+		else if (!allf4 && !allf2) {
+			for (int j = 0; j < lh->size; j++) {
+				int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
+				mpz_poly_setcoeff_ui(hlin, 0, m);
+				mpz_poly_setcoeff_ui(hlin, 1, 1);
+				mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
+				mpz_poly_set_zero(fhlin);
+				mpz_poly_bivariate_resultant_x(fhlin, F1, Hlin);
+				// now factor fhlin mod q
+				mpz_poly_factor(l3, fhlin, q, rstate);
+				if (l3->factors[0]->f->deg == 2) {	// smallest degree is 2
+					info->qtype = 1;
+					info->m[n++] = m;
+				}
+				mpz_poly_factor_list_flush(l3);
+			}
+			int joff = 0;
+			if (allf1 == false) joff = 8;  // if lf->size==6, for j below 0..3, not 4,5
+			for (int j = 0; j < lf->size; j++) { // lf sorted by deg increasing
+				if (lf->factors[j]->f->deg == 1) {
+					int64_t R = mpz_get_ui(lf->factors[j]->f->coeff[0]);
+					// find corresponding root r of h
+					for (int k = 0; k < lh->size; k++) {
+						int64_t r = mpz_get_ui(lh->factors[k]->f->coeff[0]);
+						mpz_poly_setcoeff_ui(hlin, 0, r);
+						mpz_poly_setcoeff_ui(hlin, 1, 1);
+						mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
+						mpz_poly_set_zero(fhlin);
+						mpz_poly_bivariate_resultant_x(fhlin, F1, Hlin);
+						// now factor fhlin mod q
+						mpz_poly_factor(l3, fhlin, q, rstate);
+						bool foundR = false;
+						for (int l = 0; l < l3->size; l++) {
+							int64_t Rtest = mpz_get_ui(l3->factors[l]->f->coeff[0]);
+							if (R == Rtest) {
+								foundR = true;
+								// now we have R, r
+								info->qtype = 2;
+								info->r[n] = r;
+								info->R[n++] = R;
+								break;
+							}
+						}
+						mpz_poly_factor_list_flush(l3);
+						if (foundR) break;
+					}
+				}
+			}
+		}
+		else { // mpz_poly_Fq_factor, 4 values
+			mpz_poly_Fq_factor_edf(1, F1, q0, h0, factors1);
+			for (int j = 0; j < f1->deg / 2; j++) {
+				int64_t a0 = mpz_get_ui(factors1[j]->coeff[0]->coeff[0]);
+				int64_t a1 = mpz_get_ui(factors1[j]->coeff[0]->coeff[1]);
+				// rel1 = x + a1*y + a0
+				// rel2 = rel1*y + rel1
+				int64_t h0_0 = mpz_get_si(h0->coeff[0]);
+				int64_t h0_1 = mpz_get_si(h0->coeff[1]);
+				int64_t b0 = a0 + (-h0_0*a1);
+				int64_t b1 = a0 + a1 + (-h0_1*a1);
+				// Note:  The above only works for monic, quadratic h0
+				info->qtype = 4;
+				info->a0[n] = a0;
+				info->a1[n] = a1;
+				info->b0[n] = b0;
+				info->b1[n++] = b1;
+			}
+		}
+	}
+
+	return n;
+}
