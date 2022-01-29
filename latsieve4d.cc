@@ -260,10 +260,10 @@ int main(int argc, char** argv)
 	// read fbb
 	getline(fbfile, line);
 	info.fbb = atoi(line.c_str());
-	// read k[0..3][0]
+	// read k[0][0..3]
 	for (int i = 0; i < 4; i++) {
 		getline(fbfile, line);
-		info.k[i][0] = atoi(line.c_str());
+		info.k[0][i] = atoi(line.c_str());
 	}
 	int imax0 = info.k[0][0];
 	if (info.k[0][1] > imax0) imax0 = info.k[0][1];
@@ -281,7 +281,7 @@ int main(int argc, char** argv)
 	}
 	// read q1sieve0
 	info.q1sieve0 = new int64_t[imax0*2]();
-	for (int i = 0; i < info.k[1][0]; i++) {
+	for (int i = 0; i < info.k[0][1]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
 		string substr;
@@ -295,7 +295,7 @@ int main(int argc, char** argv)
 	}
 	// read q2sieve0
 	info.q2sieve0 = new int64_t[imax0*3]();
-	for (int i = 0; i < info.k[2][0]; i++) {
+	for (int i = 0; i < info.k[0][2]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
 		string substr;
@@ -309,7 +309,7 @@ int main(int argc, char** argv)
 	}
 	// read q4sieve0
 	info.q4sieve0 = new int64_t[imax0*5]();
-	for (int i = 0; i < info.k[3][0]; i++) {
+	for (int i = 0; i < info.k[0][3]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
 		string substr;
@@ -321,14 +321,14 @@ int main(int argc, char** argv)
 			info.q4sieve0[5*i + j++] = atoi(substr.c_str());
 		}
 	}
-	// read k[0..3][1]
+	// read k[1][0..3]
 	for (int i = 0; i < 4; i++) {
 		getline(fbfile, line);
-		info.k[i][1] = atoi(line.c_str());
+		info.k[1][i] = atoi(line.c_str());
 	}
 	// read q0sieve1
 	info.q0sieve1 = new int64_t[imax1]();
-	for (int i = 0; i < info.k[0][1]; i++) {
+	for (int i = 0; i < info.k[1][0]; i++) {
 		getline(fbfile, line);
 		info.q0sieve1[i] = atoi(line.c_str());
 	}
@@ -348,7 +348,7 @@ int main(int argc, char** argv)
 	}
 	// read q2sieve1
 	info.q2sieve1 = new int64_t[imax1*3]();
-	for (int i = 0; i < info.k[2][1]; i++) {
+	for (int i = 0; i < info.k[1][2]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
 		string substr;
@@ -362,7 +362,7 @@ int main(int argc, char** argv)
 	}
 	// read q4sieve1
 	info.q4sieve1 = new int64_t[imax1*5]();
-	for (int i = 0; i < info.k[3][1]; i++) {
+	for (int i = 0; i < info.k[1][3]; i++) {
 		getline(fbfile, line);
 		stringstream ss(line);
 		string substr;
