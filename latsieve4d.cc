@@ -132,8 +132,8 @@ int main(int argc, char** argv)
 	getline(file, line);	// first line contains number n to factor
 	// read nonlinear poly
 	int degfht = -1;
-	if (verbose) cout << endl << "Side 0 polynomial fh_t (ascending coefficients)" << endl;
-	while (getline(file, line) && line.substr(0,3) == "fht" ) {
+	if (verbose) cout << endl << "Side 0 polynomial fh_y (ascending coefficients)" << endl;
+	while (getline(file, line) && line.substr(0,3) == "fhy" ) {
 		line = line.substr(line.find_first_of(" ")+1);
 		//mpz_set_str(c, line.c_str(), 10);
 		mpz_set_str(fhtpoly[++degfht], line.c_str(), 10);
@@ -144,8 +144,8 @@ int main(int argc, char** argv)
 	// read other poly
 	int degght = -1;
 	bool read = true;
-	if (verbose) cout << endl << "Side 1 polynomial gh_t: (ascending coefficients)" << endl;
-	while (read && line.substr(0,3) == "ght" ) {
+	if (verbose) cout << endl << "Side 1 polynomial gh_y: (ascending coefficients)" << endl;
+	while (read && line.substr(0,3) == "ghy" ) {
 		line = line.substr(line.find_first_of(" ")+1);
 		//mpz_set_str(c, line.c_str(), 10);
 		mpz_set_str(ghtpoly[++degght], line.c_str(), 10);
@@ -376,9 +376,11 @@ int main(int argc, char** argv)
 	}
 
 	timetaken += ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl << flush;
-	if (verbose) cout << "There are " << info.k[0] << " factor base primes on side 0." << endl << flush;
-	if (verbose) cout << "There are " << info.k[1] << " factor base primes on side 1." << endl << flush;
+	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl;
+	if (verbose) cout << "There are " << info.k[0][0] + info.k[0][1] + info.k[0][2]
+		+ info.k[0][3] << " factor base prime ideals on side 0." << endl;
+	if (verbose) cout << "There are " << info.k[1][0] + info.k[1][1] + info.k[1][2]
+		+ info.k[1][3] << " factor base prime ideals on side 1." << endl;
 	fbfile.close();
 
 	mpz_t r0; mpz_init(r0);
