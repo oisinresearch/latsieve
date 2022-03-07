@@ -97,6 +97,7 @@ bool PollardPm1_int128(__int128 N, mpz_t S, __int128 &factor, int64_t mulo, int6
 bool EECM(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int Z0);
 bool EECM_mpz(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int Z0);
 bool EECM_int128(__int128 N, mpz_t S, __int128 &factor, int d, int a, int X0, int Y0, int Z0, int64_t mulo, int64_t muhi);
+int bisection(int* list, int n, int t);
 
 
 int main(int argc, char** argv)
@@ -114,11 +115,13 @@ int main(int argc, char** argv)
 	MPI_Comm comm2;
 	MPI_Comm_rank(comm1, &myrank);
 	MPI_Comm_size(comm1, &np);
-
-	if (argc != 19 && myrank == 0) {
-		cout << endl << "Usage: mpirun -np xx latsieve4dmpi relprefix inputpoly fbb sievebb "
-			"factorbasefile B1 B2 B3 B4 th0 th1 cofacscalar qside nq qlower nrel"
-			<< endl << endl;
+	
+	if (argc != 17) {
+		if (myrank == 0) {
+			cout << endl << "Usage: mpirun -np xx latsieve4dmpi relprefix inputpoly fbb sievebb "
+				"factorbasefile B1 B2 B3 B4 th0 th1 cofacscalar qside nq qlower nrel"
+				<< endl << endl;
+		}
 		MPI_Finalize();
 		return 0;
 	}
@@ -132,7 +135,7 @@ int main(int argc, char** argv)
 
 	bool verbose = false;
 		
-	if (verbose) myout << endl << "Reading input polynomial in file " << argv[1] << "..." << flush;
+	if (verbose) myout << endl << "Reading input polynomial in file " << argv[2] << "..." << flush;
 	//vector<mpz_class> fpoly;
 	//vector<mpz_class> gpoly;
 	mpz_t* fhtpoly = new mpz_t[20];	// max degree of 20.  Not the neatest
@@ -448,20 +451,20 @@ int main(int argc, char** argv)
 	mpz_t lpb; mpz_init(lpb);
 	mpz_t factor; mpz_init(factor); mpz_t p1; mpz_t p2; mpz_init(p1); mpz_init(p2);
 	mpz_t tmp1; mpz_init(tmp1); 
-	if (argc >= 11) qmin = strtoll(argv[10], NULL, 10);
-	if (argc >= 12) qmax = strtoll(argv[11], NULL, 10);
+	//if (argc >= 11) qmin = strtoll(argv[10], NULL, 10);
+	//if (argc >= 12) qmax = strtoll(argv[11], NULL, 10);
 	uint8_t th0 = 70;
-	if (argc >= 13) th0 = atoi(argv[12]);
+	if (argc >= 11) th0 = atoi(argv[10]);
 	uint8_t th1 = 70;
-	if (argc >= 14) th1 = atoi(argv[13]);
+	if (argc >= 12) th1 = atoi(argv[11]);
 	int cofacS = 1000;
-	if (argc >= 15) cofacS = atoi(argv[14]);
+	if (argc >= 13) cofacS = atoi(argv[12]);
 	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, allp, 669);	// max S = 5000
 	char* str2 = (char*)malloc(20*sizeof(char));
-	int qside = atoi(argv[15]);
-	int NQ = atoi(argv[16]);
-	int qlower = atoi(argv[17]);
-	int nrel = atoi(argv[18]);
+	int qside = atoi(argv[13]);
+	int NQ = atoi(argv[14]);
+	int qlower = atoi(argv[15]);
+	int nrel = atoi(argv[16]);
 	mpz_poly Fqh_x; mpz_poly_init(Fqh_x, 0);
 	mpz_poly_bivariate Aq; mpz_poly_bivariate_init(Aq, 0);
 	mpz_poly Aq0; mpz_poly_init(Aq0, 0);
@@ -877,6 +880,7 @@ int main(int argc, char** argv)
 							// move top nq primes from each list into MPI buffer
 							int k0 = plist0.size(); int k1 = plist1.size();
 							for (int j = 0; j < NQ; j++) {
+								myprimes[j] = 0; myprimes[j+NQ] = 0;
 								if (k0 >= 0) myprimes[j] = plist0[--k0];
 								if (k1 >= 0) myprimes[j+NQ] = plist1[--k1];
 							}
@@ -894,13 +898,17 @@ int main(int argc, char** argv)
 				for (int j = 0; j < np; j++) {
 					for (int k = 0; k < NQ; k++) {
 						int pk0 = buffer[2*j*NQ + k];
-						// find pk0 in allp0 using bisection
-						int ipk0 = bisection(allp, pk0);
-						allp0hits[ipk0]++;
+						if (pk0 > 0) {
+							// find pk0 in allp0 using bisection
+							int ipk0 = bisection(allp, nump, pk0);
+							allp0hits[ipk0]++;
+						}
 						int pk1 = buffer[(2*j+1)*NQ + k];
-						// find pk1 in allp1 using bisection
-						int ipk1 = bisection(allp, pk1);
-						allp1hits[ipk1]++;
+						if (pk1 > 0) {
+							// find pk1 in allp1 using bisection
+							int ipk1 = bisection(allp, nump, pk1);
+							allp1hits[ipk1]++;
+						}
 					}
 				}
 
@@ -2450,3 +2458,18 @@ int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 
 	return n;
 }
+
+// assume list is sorted in increasing order
+int bisection(int* list, int n, int t)
+{
+	int i = -1;
+	int start = 0; int stop = n;
+	while (start != stop) {
+		int mid = start + (stop - start)/2;
+		if (t < list[mid]) stop = mid;
+		else if (t > list[mid]) start = mid;
+		else { i = mid; break; }
+	}
+	return i;
+}
+
