@@ -129,6 +129,10 @@ int main(int argc, char** argv)
 
 	// find an integer qmod such that eulerphi(qmod) = np
 	int* qclass = new int[np];
+	int qmod = 1;
+	while (eulerphi(qmod) != np) qmod++;
+	int qmodi = 0;
+	for (int i = 1; i < qmod; i++) if (gcd(i, qmod) == 1) qclass[qmodi++] = i;
 
 	bool verbose = false;
 		
@@ -458,24 +462,10 @@ int main(int argc, char** argv)
 	for (int i = 0; i <= degh; i++) mpz_poly_setcoeff(h0, i, hpoly[i]);
 
 	int* buffer = new int[np*NQ]();
-	int myimax = nump0-1;
-	if (qside == 1) myimax = nump1-1;
+	int myimax = nump0 - 1 - myrank;
+	if (qside == 1) myimax = nump1 - 1 - myrank;
 	int64_t q = allp0[myimax];
 	if (qside == 1) q = allp1[myimax];
-	if (qside == 0) {
-		while ((q % qmod != qclass[myrank] || allp0hits[myimax] >= 0)
-			&& q > qlower) {
-			myimax--;
-			q = allp0[myimax];
-		}
-	}
-	else {
-		while ((q % qmod != qclass[myrank] || allp1hits[myimax] >= 0)
-			&& q > qlower) {
-			myimax--;
-			q = allp1[myimax];
-		}
-	}
 	int Rtotal = 0;
 	while (q > qlower && Rtotal < Rreqd) {
 		info.q = q;
@@ -908,16 +898,14 @@ int main(int argc, char** argv)
 				int nmax = 0;
 				while (nmax == 0 && q > qlower) {
 					if (qside == 0) {
-						while ((q % qmod != qclass[myrank] || allp0hits[myimax] >= 0)
-							&& q > qlower) {
-							myimax--;
+						while (allp0hits[myimax] >= 0 && q > qlower) {
+							myimax -= np;
 							q = allp0[myimax];
 						}
 					}
 					else {
-						while ((q % qmod != qclass[myrank] || allp1hits[myimax] >= 0)
-							&& q > qlower) {
-							myimax--;
+						while (allp1hits[myimax] >= 0 && q > qlower) {
+							myimax -= np;
 							q = allp1[myimax];
 						}
 					}
