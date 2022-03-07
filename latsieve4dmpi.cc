@@ -23,6 +23,7 @@ using std::flush;
 //using std::vector;
 using std::string;
 using std::ifstream;
+using std::ofstream;
 using std::fixed;
 using std::scientific;
 using std::setprecision;
@@ -105,18 +106,33 @@ int main(int argc, char** argv)
 
 	//cout << (uint64_t)(MASK64) << " " << (uint64_t)(MASK64 >> 64) << endl;
 
-	if (argc != 15) {
-		cout << endl << "Usage: ./latsieve4d inputpoly fbbits factorbasefile B1 B2 B3 B4 qmin qmax th0 th1 lpbbits cofacscalar qside" << endl << endl;
+	MPI_Init(&argc, &argv);
+	int myrank; int np;
+	MPI_Comm comm1 = MPI_COMM_WORLD;
+	MPI_Comm comm2;
+	MPI_Comm_rank(comm1, &myrank);
+	MPI_Comm_size(comm1, &np);
+
+	if (argc != 18 && myrank == 0) {
+		cout << endl << "Usage: mpirun -np xx latsieve4dmpi relprefix inputpoly fbb sievebb "
+			"factorbasefile B1 B2 B3 B4 th0 th1 cofacscalar qside nq nrel" << endl << endl;
+		MPI_Finalize();
 		return 0;
 	}
 
-	cout << "# ";
-	for (int i = 0; i < argc; i++) cout << argv[i] << " ";
-	cout << endl;
+	string relprefix(argv[1]);
+	ofstream myout(relprefix + string(myrank));
+
+	myout << "# ";
+	for (int i = 0; i < argc; i++) myout << argv[i] << " ";
+	myout << endl;
+
+	// find an integer qmod such that eulerphi(qmod) = np
+	int* qclass = new int[np];
 
 	bool verbose = false;
 		
-	if (verbose) cout << endl << "Reading input polynomial in file " << argv[1] << "..." << flush;
+	if (verbose) myout << endl << "Reading input polynomial in file " << argv[1] << "..." << flush;
 	//vector<mpz_class> fpoly;
 	//vector<mpz_class> gpoly;
 	mpz_t* fhtpoly = new mpz_t[20];	// max degree of 20.  Not the neatest
@@ -129,42 +145,42 @@ int main(int argc, char** argv)
 	}
 	string line;
 	char linebuffer[100];
-	ifstream file(argv[1]);
+	ifstream file(argv[2]);
 	getline(file, line);	// first line contains number n to factor
 	// read nonlinear poly
 	int degfht = -1;
-	if (verbose) cout << endl << "Side 0 polynomial fh_y (ascending coefficients)" << endl;
+	if (verbose) myout << endl << "Side 0 polynomial fh_y (ascending coefficients)" << endl;
 	while (getline(file, line) && line.substr(0,3) == "fhy" ) {
 		line = line.substr(line.find_first_of(" ")+1);
 		//mpz_set_str(c, line.c_str(), 10);
 		mpz_set_str(fhtpoly[++degfht], line.c_str(), 10);
 		//mpz_get_str(linebuffer, 10, fpoly[degf-1]);
-		if (verbose) cout << line << endl << flush;
+		if (verbose) myout << line << endl << flush;
 	}
 	//int degf = fpoly.size();
 	// read other poly
 	int degght = -1;
 	bool read = true;
-	if (verbose) cout << endl << "Side 1 polynomial gh_y: (ascending coefficients)" << endl;
+	if (verbose) myout << endl << "Side 1 polynomial gh_y: (ascending coefficients)" << endl;
 	while (read && line.substr(0,3) == "ghy" ) {
 		line = line.substr(line.find_first_of(" ")+1);
 		//mpz_set_str(c, line.c_str(), 10);
 		mpz_set_str(ghtpoly[++degght], line.c_str(), 10);
 		//mpz_get_str(linebuffer, 10, gpoly[degg-1]);
-		if (verbose) cout << line << endl << flush;
+		if (verbose) myout << line << endl << flush;
 		read = static_cast<bool>(getline(file, line));
 	}
 	//int degg = gpoly.size();
 	// read other poly
 	int degh = -1;
 	read = true;
-	if (verbose) cout << endl << "Tower polynomial h: (ascending coefficients)" << endl;
+	if (verbose) myout << endl << "Tower polynomial h: (ascending coefficients)" << endl;
 	while (read && line.substr(0,1) == "h" ) {
 		line = line.substr(line.find_first_of(" ")+1);
 		//mpz_set_str(c, line.c_str(), 10);
 		mpz_set_str(hpoly[++degh], line.c_str(), 10);
 		//mpz_get_str(linebuffer, 10, gpoly[degg-1]);
-		if (verbose) cout << line << endl << flush;
+		if (verbose) myout << line << endl << flush;
 		read = static_cast<bool>(getline(file, line));
 	}
 	// read bivariate F0 poly
@@ -174,7 +190,7 @@ int main(int argc, char** argv)
 	mpz_poly_init(F0i, 0); // init to deg 0 (constant)
 	mpz_t F0ij; mpz_init(F0ij);
 	read = true;
-	if (verbose) cout << endl << "Bivariate polynomial F0: (ascending coefficients)" << endl;
+	if (verbose) myout << endl << "Bivariate polynomial F0: (ascending coefficients)" << endl;
 	int inow = 0;
 	while (read && line.substr(0,1) == "f" ) {
 		int u = line.find_first_of("_");
@@ -195,7 +211,7 @@ int main(int argc, char** argv)
 			mpz_set_str(F0ij, line.c_str(), 10);
 			mpz_poly_setcoeff(F0i, j, F0ij);
 		}
-		if (verbose) cout << line << endl << flush;
+		if (verbose) myout << line << endl << flush;
 		read = static_cast<bool>(getline(file, line));
 	}
 	mpz_poly_bivariate_setcoeff(F0, inow, F0i);
@@ -206,7 +222,7 @@ int main(int argc, char** argv)
 	mpz_poly_init(F1i, 0); // init to deg 0 (constant)
 	mpz_t F1ij; mpz_init(F1ij);
 	read = true;
-	if (verbose) cout << endl << "Bivariate polynomial F1: (ascending coefficients)" << endl;
+	if (verbose) myout << endl << "Bivariate polynomial F1: (ascending coefficients)" << endl;
 	inow = 0;
 	while (read && line.substr(0,1) == "g" ) {
 		int u = line.find_first_of("_");
@@ -227,18 +243,19 @@ int main(int argc, char** argv)
 			mpz_set_str(F1ij, line.c_str(), 10);
 			mpz_poly_setcoeff(F1i, j, F1ij);
 		}
-		if (verbose) cout << line << endl << flush;
+		if (verbose) myout << line << endl << flush;
 		read = static_cast<bool>(getline(file, line));
 	}
 	mpz_poly_bivariate_setcoeff(F1, inow, F1i);
 	file.close();
 	//mpz_clear(c);
-	if (verbose) cout << endl << "Complete.  Degree fh_t = " << degfht << ", degree gh_t = " << degght << "." << endl;
+	if (verbose) myout << endl << "Complete.  Degree fh_t = " << degfht << ", degree gh_t = " << degght << "." << endl;
 
-	if (verbose) cout << endl << "Starting sieve of Eratosthenes for small primes..." << endl << flush;
-	int fbbits = 21;
-	if (argc >=3) fbbits = atoi(argv[2]);
-	int max = 1<<fbbits; // 10000000;// 65536;
+	if (verbose) myout << endl << "Starting sieve of Eratosthenes for small primes..." << endl << flush;
+	int fbb = 0;
+	if (argc >= 4) fbb = atoi(argv[3]);
+	if (argc >= 5) sievebb = atoi(argv[4]);
+	int max = fbb; // 10000000;// 65536;
 	char* sieve = new char[max+1]();
 	int* primes = new int[2097152]; //int[1077871]; // int[155611]; //new int[809228];	//new int[6542]; 	// 2039 is the 309th prime, largest below 2048
 	for (int i = 2; i <= sqrt(max); i++)
@@ -249,14 +266,14 @@ int main(int argc, char** argv)
 	for (int i = 2; i <= max-1; i++)
 		if (!sieve[i])
 			primes[nump++] = i;
-	if (verbose) cout << "Complete." << endl;
+	if (verbose) myout << "Complete." << endl;
 
 	// load factor base
 	sievedata info;
 	std::clock_t start; double timetaken = 0;
-	if (verbose) cout << endl << "Loading factor base..." << endl << flush;
+	if (verbose) myout << endl << "Loading factor base..." << endl << flush;
 	start = clock();
-	ifstream fbfile(argv[3]);
+	ifstream fbfile(argv[5]);
 	start = clock();
 	// read fbb
 	getline(fbfile, line);
@@ -377,19 +394,19 @@ int main(int argc, char** argv)
 	}
 
 	timetaken += ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	if (verbose) cout << "Complete.  Time taken: " << timetaken << "s" << endl;
-	if (verbose) cout << "There are " << info.k[0][0] + info.k[0][1] + info.k[0][2]
+	if (verbose) myout << "Complete.  Time taken: " << timetaken << "s" << endl;
+	if (verbose) myout << "There are " << info.k[0][0] + info.k[0][1] + info.k[0][2]
 		+ info.k[0][3] << " factor base prime ideals on side 0." << endl;
-	if (verbose) cout << "There are " << info.k[1][0] + info.k[1][1] + info.k[1][2]
+	if (verbose) myout << "There are " << info.k[1][0] + info.k[1][1] + info.k[1][2]
 		+ info.k[1][3] << " factor base prime ideals on side 1." << endl;
 	fbfile.close();
 
 	mpz_t r0; mpz_init(r0);
 	int B[4] = { 7, 7, 7, 7 };
-	if (argc >= 5) B[0] = atoi(argv[4]);
-	if (argc >= 6) B[1] = atoi(argv[5]);
-	if (argc >= 7) B[2] = atoi(argv[6]);
-	if (argc >= 8) B[3] = atoi(argv[7]);
+	if (argc >= 7) B[0] = atoi(argv[6]);
+	if (argc >= 8) B[1] = atoi(argv[7]);
+	if (argc >= 9) B[2] = atoi(argv[8]);
+	if (argc >= 10) B[3] = atoi(argv[9]);
 	int B1bits = B[0]; int B2bits = B[1]; int B3bits = B[2]; int B4bits = B[3];
 	int B1 = 1<<B1bits; int B2 = 1<<B2bits; int B3 = 1<<B3bits; int B4 = 1<<B4bits;
 	int Mlen = (B1*2*B2*2*B3*2*B4*2);	// DO NOT! require positive z coordinate
@@ -399,12 +416,12 @@ int main(int argc, char** argv)
 	uint8_t* H = new uint8_t[Mlen];	// histogram
 	vector<int> rel;
 	// clear M
-	//cout << "Clearing memory..." << endl << flush;
+	//myout << "Clearing memory..." << endl << flush;
 	//start = clock();
 	//for (int j = 0; j < Mlen; j++) M[j] = (keyval){ 0, 0 };
 	//memset(M, 0, Mlen * sizeof(keyval));
 	//timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-	//cout << "Memory cleared. Time taken: " << timetaken << "s" << endl << flush;
+	//myout << "Memory cleared. Time taken: " << timetaken << "s" << endl << flush;
 
 	int64_t qmin; int64_t qmax; mpz_t qmpz; mpz_init(qmpz);
 	mpz_t* pi = new mpz_t[8]; for (int i = 0; i < 8; i++) mpz_init(pi[i]);
@@ -420,78 +437,85 @@ int main(int argc, char** argv)
 	mpz_t lpb; mpz_init(lpb);
 	mpz_t factor; mpz_init(factor); mpz_t p1; mpz_t p2; mpz_init(p1); mpz_init(p2);
 	mpz_t tmp1; mpz_init(tmp1); 
-	if (argc >= 9) qmin = strtoll(argv[8], NULL, 10);	// atoi(argv[7]);
-	if (argc >= 10) qmax = strtoll(argv[9], NULL, 10);	// atoi(argv[8]);
+	if (argc >= 11) qmin = strtoll(argv[10], NULL, 10);
+	if (argc >= 12) qmax = strtoll(argv[11], NULL, 10);
 	uint8_t th0 = 70;
-	if (argc >= 11) th0 = atoi(argv[10]);
+	if (argc >= 13) th0 = atoi(argv[12]);
 	uint8_t th1 = 70;
-	if (argc >= 12) th1 = atoi(argv[11]);
+	if (argc >= 14) th1 = atoi(argv[13]);
 	int lpbits = 29;
-	if (argc >= 13) lpbits = atoi(argv[12]);
 	int cofacS = 1000;
-	if (argc >= 14) cofacS = atoi(argv[13]);
+	if (argc >= 15) cofacS = atoi(argv[14]);
 	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, primes, 669);	// max S = 5000
 	char* str2 = (char*)malloc(20*sizeof(char));
-	int qside = atoi(argv[14]);
+	int qside = atoi(argv[15]);
+	int NQ = atoi(argv[16]);
+	int nrel = atoi(argv[17]);
 	mpz_poly Fqh_x; mpz_poly_init(Fqh_x, 0);
 	mpz_poly_bivariate Aq; mpz_poly_bivariate_init(Aq, 0);
 	mpz_poly Aq0; mpz_poly_init(Aq0, 0);
 	mpz_t res; mpz_init(res);
 	for (int i = 0; i <= degh; i++) mpz_poly_setcoeff(h0, i, hpoly[i]);
 
-	MPI_Init(&argc, &argv);
-	int myrank; int np;
-	int* buffer = new int[np*nq]();
-	MPI_Comm comm1 = MPI_COMM_WORLD;
-	MPI_Comm comm2;
-	MPI_Comm_rank(comm1, &myrank);
-	MPI_Comm_size(comm1, &np);
-
-	int npi = 0;
-	int myimax = (nump0-1) - npi*np - myrank;
-	if (qside == 1) myimax = (nump1-1) - npi*np - myrank;
+	int* buffer = new int[np*NQ]();
+	int myimax = nump0-1;
+	if (qside == 1) myimax = nump1-1;
 	int64_t q = allp0[myimax];
 	if (qside == 1) q = allp1[myimax];
+	if (qside == 0) {
+		while ((q % qmod != qclass[myrank] || allp0hits[myimax] >= 0)
+			&& q > qlower) {
+			myimax--;
+			q = allp0[myimax];
+		}
+	}
+	else {
+		while ((q % qmod != qclass[myrank] || allp1hits[myimax] >= 0)
+			&& q > qlower) {
+			myimax--;
+			q = allp1[myimax];
+		}
+	}
 	int Rtotal = 0;
 	while (q > qlower && Rtotal < Rreqd) {
 		info.q = q;
 
 		// calculate special-q ideals for this q
 		int nmax = populate_q(&info, qside, h0, f0, f1, F0, F1);
-		cout << "# (nmax = " << nmax << ")" << endl;
+		myout << "# (nmax = " << nmax << ")" << endl;
 
 		int m = 0;
 		for (int n = 0; n < nmax; n++) {
 			// sieve side 0
-			cout << "# Starting sieve on side 0" << flush;
+			myout << "# Starting sieve on side 0" << flush;
 			start = clock();
 			int64_t mn = info.m[n];
 			int64_t rn = info.r[n]; int64_t Rn = info.R[n];
 			int64_t a0 = info.a0[n]; int64_t a1 = info.a1[n];
 			int64_t b0 = info.b0[n];  int64_t b1 = info.b1[n];
 			if (qside == 0) {
-				cout << " for special-q ";
-				if (info.qtype[n] == 0) cout << "(q) = (" << q << ")";
-				else if (info.qtype[n] == 1) cout << "(q,m) = (" << q << "," << mn << ")";
-				else if (info.qtype[n] == 2) cout << "(q,r,R) = (" << q << "," << rn << "," << Rn << ")";
-				else if (info.qtype[n] == 3) cout << "(q,a0,a1,b0,b1) = (" << q << "," << a0
+				myout << " for special-q ";
+				if (info.qtype[n] == 0) myout << "(q) = (" << q << ")";
+				else if (info.qtype[n] == 1) myout << "(q,m) = (" << q << "," << mn << ")";
+				else if (info.qtype[n] == 2) myout << "(q,r,R) = (" << q << "," << rn << "," << Rn << ")";
+				else if (info.qtype[n] == 3) myout << "(q,a0,a1,b0,b1) = (" << q << "," << a0
 					<< "," << a1 << "," << b0 << "," << b1 << ")";
 			}
-			cout << "..." << endl;
+			myout << "..." << endl;
 			
 			// we only allow degree-1 special-q ideals for the moment (note: sieve has all)
 			if (info.qtype[n] != 2) continue;
 
 			m = latsieve4d(n, info, 0, primes, nump, M, Mlen, B);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-			cout << "# Finished! Time taken: " << timetaken << "s" << endl;
-			cout << "# Size of lattice point list is " << m << "." << endl;
-			cout << "# Constructing histogram..." << endl;
+			myout << "# Finished! Time taken: " << timetaken << "s" << endl;
+			myout << "# Size of lattice point list is " << m << "." << endl;
+			myout << "# Constructing histogram..." << endl;
 			start = clock();
 			//std::stable_sort(M, M + m, &lattice_sorter);
 			histogram(M, H, m);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
+			myout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			int R0 = 0;
 			int B1xB2 = B1*B2;
 			int B1x2bits = B1bits + 1;
@@ -508,30 +532,30 @@ int main(int argc, char** argv)
 					R0++;
 				}
 			}
-			cout << "# " << R0 << " candidates on side 0." << endl << flush;
+			myout << "# " << R0 << " candidates on side 0." << endl << flush;
 			// sieve side 1
-			cout << "# Starting sieve on side 1";
+			myout << "# Starting sieve on side 1";
 			if (qside == 1) {
-				cout << " for special-q ";
-				if (info.qtype[n] == 0) cout << "(q) = (" << q << ")";
-				else if (info.qtype[n] == 1) cout << "(q,m) = (" << q << "," << mn << ")";
-				else if (info.qtype[n] == 2) cout << "(q,r,R) = (" << q << "," << rn << "," << Rn << ")";
-				else if (info.qtype[n] == 3) cout << "(q,a0,a1,b0,b1) = (" << q << "," << a0
+				myout << " for special-q ";
+				if (info.qtype[n] == 0) myout << "(q) = (" << q << ")";
+				else if (info.qtype[n] == 1) myout << "(q,m) = (" << q << "," << mn << ")";
+				else if (info.qtype[n] == 2) myout << "(q,r,R) = (" << q << "," << rn << "," << Rn << ")";
+				else if (info.qtype[n] == 3) myout << "(q,a0,a1,b0,b1) = (" << q << "," << a0
 					<< "," << a1 << "," << b0 << "," << b1 << ")";
 			}
-			cout << "..." << endl;
+			myout << "..." << endl;
 			start = clock();
 			//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
 			m = latsieve4d(n, info, 1, primes, nump, M, Mlen, B);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
-			cout << "# Size of lattice point list is " << m << "." << endl << flush;
-			cout << "# Constructing histogram..." << endl << flush;
+			myout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
+			myout << "# Size of lattice point list is " << m << "." << endl << flush;
+			myout << "# Constructing histogram..." << endl << flush;
 			start = clock();
 			//std::stable_sort(M, M + m, &lattice_sorter);
 			histogram(M, H, m);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
+			myout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			int R1 = 0;
 			for (int i = 0; i < m; i++) {
 				if (H[i] > th1) {
@@ -539,7 +563,7 @@ int main(int argc, char** argv)
 					R1++;
 				}
 			}
-			cout << "# " << R1 << " candidates on side 1." << endl << flush;
+			myout << "# " << R1 << " candidates on side 1." << endl << flush;
 			// sort hits
 			sort(rel.begin(), rel.end());
 			
@@ -588,14 +612,14 @@ int main(int argc, char** argv)
 						//int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
 						//int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
 						//if (R >= 100 & R < 110)
-						//	cout << rel[i] << ": " << a << "," << b << "," << c << "," << d << endl;
-						//	cout << "(x,y,z,t): " << x << "," << y << "," << z << "," << t << endl;
+						//	myout << rel[i] << ": " << a << "," << b << "," << c << "," << d << endl;
+						//	myout << "(x,y,z,t): " << x << "," << y << "," << z << "," << t << endl;
 						potrel.push_back(rel[i]);
 						potR++;
 					}
 				}
 			}
-			cout << "# " << potR << " potential relations found." << endl;
+			myout << "# " << potR << " potential relations found." << endl;
 		   
 			// compute and factor resultants as much as possible, leave large gcd computation till later.
 			mpz_ui_pow_ui(lpb, 2, lpbits);
@@ -603,7 +627,7 @@ int main(int argc, char** argv)
 			stack<mpz_t*> QN; stack<int> Q; int algarr[3]; mpz_t* N;
 			start = clock();
 			int R = 0;
-			if (verbose) cout << "Starting cofactorization..." << endl;
+			if (verbose) myout << "Starting cofactorization..." << endl;
 			for (int i = 0; i < potR; i++)
 			{
 				// zero buffer first.  even if there is no relation, buffer = { 0 }
@@ -635,7 +659,7 @@ int main(int argc, char** argv)
 					content = gcd(content, d);
 					a = a/content; b = b/content; c = c/content; d = d/content;
 
-					//cout << "[a, b, c] = [" << a << ", " << b << ", " << c << "]" << endl << flush;
+					//myout << "[a, b, c] = [" << a << ", " << b << ", " << c << "]" << endl << flush;
 					
 					mpz_poly_setcoeff_si(Aq0, 0, a);
 					mpz_poly_setcoeff_si(Aq0, 1, b);	// Aq0 = x - R[ll]
@@ -652,8 +676,8 @@ int main(int argc, char** argv)
 					mpz_poly_resultant(N1, Fqh_x, h0);
 					mpz_abs(N0, N0);
 					mpz_abs(N1, N1);
-					//cout << mpz_get_str(NULL, 10, N0) << endl;
-					//cout << mpz_get_str(NULL, 10, N1) << endl;
+					//myout << mpz_get_str(NULL, 10, N0) << endl;
+					//myout << mpz_get_str(NULL, 10, N1) << endl;
 					string str = to_string(a) + "," + to_string(b) + "," + 
 						to_string(c) + "," + to_string(d) + ":";
 					
@@ -846,7 +870,7 @@ int main(int argc, char** argv)
 						}
 
 						if (isrel) {
-							cout << str << endl;
+							myout << str << endl;
 							R++; Rtotal++;
 							sort(plist0.begin(), plist0.end());
 							sort(plist1.begin(), plist1.end());
@@ -882,21 +906,22 @@ int main(int argc, char** argv)
 
 				// find next special-q
 				int nmax = 0;
-				while (nmax == 0 || q < qlower) {
+				while (nmax == 0 && q > qlower) {
 					if (qside == 0) {
-						while (q % qmod != qclass[myrank] || allp0hits[myimax] < 0
-							|| q < qlower) {
+						while ((q % qmod != qclass[myrank] || allp0hits[myimax] >= 0)
+							&& q > qlower) {
 							myimax--;
 							q = allp0[myimax];
 						}
 					}
 					else {
-						while (q % qmod != qclass[myrank] || allp1hits[myimax] < 0
-							|| q < qlower) {
+						while ((q % qmod != qclass[myrank] || allp1hits[myimax] >= 0)
+							&& q > qlower) {
 							myimax--;
 							q = allp1[myimax];
 						}
 					}
+					info.q = q;
 					nmax = populate_q(&info, qside, h0, f0, f1, F0, F1);
 				}
 
@@ -907,9 +932,9 @@ int main(int argc, char** argv)
 				comm1 = comm2;
 			}
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
-			cout << "# Finished! Cofactorization took " << timetaken << "s" << endl << flush;
-			cout << "# " << R << " actual relations found." << endl << flush;
-			//cout << "lpb = " << mpz_get_str(NULL, 10, lpb) << endl << flush;
+			myout << "# Finished! Cofactorization took " << timetaken << "s" << endl << flush;
+			myout << "# " << R << " actual relations found." << endl << flush;
+			//myout << "lpb = " << mpz_get_str(NULL, 10, lpb) << endl << flush;
 		}
 	}
 
@@ -950,6 +975,7 @@ int main(int argc, char** argv)
 	delete[] hpoly;
 	delete[] ghtpoly;
 	delete[] fhtpoly;
+	delete[] qclass;
 
 	return EXIT_SUCCESS;
 }

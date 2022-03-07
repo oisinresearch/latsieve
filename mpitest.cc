@@ -8,6 +8,10 @@ using std::endl;
 
 int main(int argc, char* argv[])
 {
+	cout << "# ";
+	for (int i = 0; i < argc; i++) cout << argv[i] << " ";
+	cout << endl;
+
     MPI_Init(&argc, &argv);
  
     int my_rank; int np;
