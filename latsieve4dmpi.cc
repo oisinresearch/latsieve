@@ -15,12 +15,13 @@
 #include <stack>	// stack
 #include "mpz_poly_bivariate.h"
 #include "mpz_poly_Fq.h"
+#include <algorithm>
 #include <mpi.h>
 
 using std::cout;
 using std::endl;
 using std::flush;
-//using std::vector;
+using std::vector;
 using std::string;
 using std::ifstream;
 using std::ofstream;
@@ -33,6 +34,7 @@ using std::hex;
 using std::stringstream;
 using std::stack;
 using std::abs;
+using std::fill_n;
 
 struct keyval {
 	int id;
@@ -87,7 +89,7 @@ inline int minabs(int u, int v, int w);
 inline int maxabs(int u, int v, int w);
 inline int min(int u, int v, int w);
 inline int max(int u, int v, int w);
-void GetlcmScalar(int B, mpz_t S, int* primes, int nump);
+void GetlcmScalar(int B, mpz_t S, int* allp, int nump);
 inline __int128 make_int128(uint64_t lo, uint64_t hi);
 bool PollardPm1(mpz_t N, mpz_t S, mpz_t factor);
 bool PollardPm1_mpz(mpz_t N, mpz_t S, mpz_t factor);
@@ -113,26 +115,20 @@ int main(int argc, char** argv)
 	MPI_Comm_rank(comm1, &myrank);
 	MPI_Comm_size(comm1, &np);
 
-	if (argc != 18 && myrank == 0) {
+	if (argc != 19 && myrank == 0) {
 		cout << endl << "Usage: mpirun -np xx latsieve4dmpi relprefix inputpoly fbb sievebb "
-			"factorbasefile B1 B2 B3 B4 th0 th1 cofacscalar qside nq nrel" << endl << endl;
+			"factorbasefile B1 B2 B3 B4 th0 th1 cofacscalar qside nq qlower nrel"
+			<< endl << endl;
 		MPI_Finalize();
 		return 0;
 	}
 
 	string relprefix(argv[1]);
-	ofstream myout(relprefix + string(myrank));
+	ofstream myout(relprefix + to_string(myrank));
 
 	myout << "# ";
 	for (int i = 0; i < argc; i++) myout << argv[i] << " ";
 	myout << endl;
-
-	// find an integer qmod such that eulerphi(qmod) = np
-	int* qclass = new int[np];
-	int qmod = 1;
-	while (eulerphi(qmod) != np) qmod++;
-	int qmodi = 0;
-	for (int i = 1; i < qmod; i++) if (gcd(i, qmod) == 1) qclass[qmodi++] = i;
 
 	bool verbose = false;
 		
@@ -256,22 +252,30 @@ int main(int argc, char** argv)
 	if (verbose) myout << endl << "Complete.  Degree fh_t = " << degfht << ", degree gh_t = " << degght << "." << endl;
 
 	if (verbose) myout << endl << "Starting sieve of Eratosthenes for small primes..." << endl << flush;
-	int fbb = 0;
+	int fbb = 0; int sievebb = 0;
 	if (argc >= 4) fbb = atoi(argv[3]);
 	if (argc >= 5) sievebb = atoi(argv[4]);
-	int max = fbb; // 10000000;// 65536;
+	int max = sievebb; // 10000000;// 65536;
 	char* sieve = new char[max+1]();
-	int* primes = new int[2097152]; //int[1077871]; // int[155611]; //new int[809228];	//new int[6542]; 	// 2039 is the 309th prime, largest below 2048
+	int* allp = new int[2097152]; //int[1077871]; // int[155611]; //new int[809228];	//new int[6542]; 	// 2039 is the 309th prime, largest below 2048
 	for (int i = 2; i <= sqrt(max); i++)
 		if(!sieve[i])
 			for (int j = i*i; j <= max; j += i)
 				if(!sieve[j]) sieve[j] = 1;
-	int nump = 0;
+	int nump = 0; int fbnump = 0;
 	for (int i = 2; i <= max-1; i++)
-		if (!sieve[i])
-			primes[nump++] = i;
+		if (!sieve[i]) {
+			allp[nump] = i;
+			if (fbnump == 0 && allp[nump] > fbb) fbnump = nump - 1;
+			nump++;
+			if (allp[nump+1] > sievebb) break;
+		}
 	if (verbose) myout << "Complete." << endl;
-
+	int* allp0hits = new int[nump];
+	int* allp1hits = new int[nump];
+	fill_n(allp0hits, nump, -1);
+	fill_n(allp1hits, nump, -1);
+	
 	// load factor base
 	sievedata info;
 	std::clock_t start; double timetaken = 0;
@@ -419,6 +423,9 @@ int main(int argc, char** argv)
 	//keyval* L = new keyval[Mlen];	// copy of M
 	uint8_t* H = new uint8_t[Mlen];	// histogram
 	vector<int> rel;
+	vector<int> potrel;
+	vector<int> plist0;
+	vector<int> plist1;
 	// clear M
 	//myout << "Clearing memory..." << endl << flush;
 	//start = clock();
@@ -447,27 +454,26 @@ int main(int argc, char** argv)
 	if (argc >= 13) th0 = atoi(argv[12]);
 	uint8_t th1 = 70;
 	if (argc >= 14) th1 = atoi(argv[13]);
-	int lpbits = 29;
 	int cofacS = 1000;
 	if (argc >= 15) cofacS = atoi(argv[14]);
-	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, primes, 669);	// max S = 5000
+	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, allp, 669);	// max S = 5000
 	char* str2 = (char*)malloc(20*sizeof(char));
 	int qside = atoi(argv[15]);
 	int NQ = atoi(argv[16]);
-	int nrel = atoi(argv[17]);
+	int qlower = atoi(argv[17]);
+	int nrel = atoi(argv[18]);
 	mpz_poly Fqh_x; mpz_poly_init(Fqh_x, 0);
 	mpz_poly_bivariate Aq; mpz_poly_bivariate_init(Aq, 0);
 	mpz_poly Aq0; mpz_poly_init(Aq0, 0);
 	mpz_t res; mpz_init(res);
 	for (int i = 0; i <= degh; i++) mpz_poly_setcoeff(h0, i, hpoly[i]);
 
-	int* buffer = new int[np*NQ]();
-	int myimax = nump0 - 1 - myrank;
-	if (qside == 1) myimax = nump1 - 1 - myrank;
-	int64_t q = allp0[myimax];
-	if (qside == 1) q = allp1[myimax];
+	int* buffer = new int[np*2*NQ]();
+	int* myprimes = new int[2*NQ]();
+	int myimax = nump - 1 - myrank;
+	int64_t q = allp[myimax];
 	int Rtotal = 0;
-	while (q > qlower && Rtotal < Rreqd) {
+	while (q > qlower && Rtotal < nrel) {
 		info.q = q;
 
 		// calculate special-q ideals for this q
@@ -496,7 +502,7 @@ int main(int argc, char** argv)
 			// we only allow degree-1 special-q ideals for the moment (note: sieve has all)
 			if (info.qtype[n] != 2) continue;
 
-			m = latsieve4d(n, info, 0, primes, nump, M, Mlen, B);
+			m = latsieve4d(n, info, 0, allp, fbnump, M, Mlen, B);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			myout << "# Finished! Time taken: " << timetaken << "s" << endl;
 			myout << "# Size of lattice point list is " << m << "." << endl;
@@ -536,7 +542,7 @@ int main(int argc, char** argv)
 			myout << "..." << endl;
 			start = clock();
 			//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-			m = latsieve4d(n, info, 1, primes, nump, M, Mlen, B);
+			m = latsieve4d(n, info, 1, allp, fbnump, M, Mlen, B);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			myout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			myout << "# Size of lattice point list is " << m << "." << endl << flush;
@@ -588,6 +594,7 @@ int main(int argc, char** argv)
 			
 			// print list of potential relations
 			int potR = 0;
+			potrel.clear();
 			for (int i = 0; i < rel.size()-1; i++)
 			{
 				if (rel[i] == rel[i+1] && rel[i] != 0) {
@@ -612,7 +619,8 @@ int main(int argc, char** argv)
 			myout << "# " << potR << " potential relations found." << endl;
 		   
 			// compute and factor resultants as much as possible, leave large gcd computation till later.
-			mpz_ui_pow_ui(lpb, 2, lpbits);
+			//mpz_ui_pow_ui(lpb, 2, lpbits);
+			mpz_set_ui(lpb, allp[nump-1]);
 			int BASE = 16;
 			stack<mpz_t*> QN; stack<int> Q; int algarr[3]; mpz_t* N;
 			start = clock();
@@ -621,9 +629,9 @@ int main(int argc, char** argv)
 			for (int i = 0; i < potR; i++)
 			{
 				// zero buffer first.  even if there is no relation, buffer = { 0 }
-				for (int j = 0; j < nq; j++) {
+				for (int j = 0; j < NQ; j++) {
 					buffer[j] = 0;
-					buffer[j+nq] = 0;
+					buffer[j+NQ] = 0;
 				}
 				int reli = potrel[i];
 				int x = (reli % B1x2) - B1;
@@ -672,8 +680,9 @@ int main(int argc, char** argv)
 						to_string(c) + "," + to_string(d) + ":";
 					
 					// trial division on side 0
-					int p = primes[0]; int k = 0; 
-					while (p < primes[fbnump-1]) {
+					int p = allp[0]; int k = 0;
+					plist0.clear();
+					while (p < allp[fbnump-1]) {
 						int valp = 0;
 						while (mpz_fdiv_ui(N0, p) == 0) {
 							mpz_divexact_ui(N0, N0, p);
@@ -683,7 +692,7 @@ int main(int argc, char** argv)
 							str += stream.str() + ",";
 							plist0.push_back(p);
 						}
-						p = primes[++k];
+						p = allp[++k];
 					}
 					if (mpz_fdiv_ui(N0, q) == 0 && qside == 0) {
 						mpz_divexact_ui(N0, N0, q);
@@ -768,8 +777,9 @@ int main(int argc, char** argv)
 
 					// trial division on side 1
 					if (isrel) {
-						p = primes[0]; k = 0;
-						while (p < primes[nump-1]) {
+						p = allp[0]; k = 0;
+						plist1.clear();
+						while (p < allp[fbnump-1]) {
 							int valp = 0;
 							while (mpz_fdiv_ui(N1, p) == 0) {
 								mpz_divexact_ui(N1, N1, p);
@@ -779,7 +789,7 @@ int main(int argc, char** argv)
 								str += stream.str() + ",";
 								plist1.push_back(p);
 							}
-							p = primes[++k];
+							p = allp[++k];
 						}
 						if (mpz_fdiv_ui(N1, q) == 0 && qside == 1)  {
 							mpz_divexact_ui(N1, N1, q);
@@ -885,11 +895,11 @@ int main(int argc, char** argv)
 					for (int k = 0; k < NQ; k++) {
 						int pk0 = buffer[2*j*NQ + k];
 						// find pk0 in allp0 using bisection
-						int ipk0 = bisection(allp0, pk0);
+						int ipk0 = bisection(allp, pk0);
 						allp0hits[ipk0]++;
 						int pk1 = buffer[(2*j+1)*NQ + k];
 						// find pk1 in allp1 using bisection
-						int ipk1 = bisection(allp1, pk1);
+						int ipk1 = bisection(allp, pk1);
 						allp1hits[ipk1]++;
 					}
 				}
@@ -900,13 +910,13 @@ int main(int argc, char** argv)
 					if (qside == 0) {
 						while (allp0hits[myimax] >= 0 && q > qlower) {
 							myimax -= np;
-							q = allp0[myimax];
+							q = allp[myimax];
 						}
 					}
 					else {
 						while (allp1hits[myimax] >= 0 && q > qlower) {
 							myimax -= np;
-							q = allp1[myimax];
+							q = allp[myimax];
 						}
 					}
 					info.q = q;
@@ -915,7 +925,7 @@ int main(int argc, char** argv)
 
 				// now remove this rank from communicator if no work left
 				int colour = 1; int key = 1;
-				if (q <= qlower || Rtotal >= Rreqd) colour = 0;
+				if (q <= qlower || Rtotal >= nrel) colour = 0;
 				MPI_Comm_split(comm1, colour, key, &comm2);
 				comm1 = comm2;
 			}
@@ -928,6 +938,8 @@ int main(int argc, char** argv)
 
 	MPI_Finalize();
 
+	delete[] myprimes;
+	delete[] buffer;
 	free(str2);
 	mpz_clear(res);
 	mpz_poly_clear(Aq0);
@@ -947,7 +959,7 @@ int main(int argc, char** argv)
 	//delete[] L;
 	delete[] M;
 	mpz_clear(r0);
-	delete[] primes;
+	delete[] allp;
 	delete[] sieve;
 	mpz_clear(F1ij);
 	mpz_poly_clear(F1i);
@@ -963,7 +975,6 @@ int main(int argc, char** argv)
 	delete[] hpoly;
 	delete[] ghtpoly;
 	delete[] fhtpoly;
-	delete[] qclass;
 
 	return EXIT_SUCCESS;
 }
@@ -1037,7 +1048,7 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 }
 
 
-int latsieve4d(int n, sievedata info, int side, int* allp, int nump,
+int latsieve4d(int n, sievedata info, int side, int* allp, int fbnump,
 	keyval* M, int Mlen, int* B)
 {
 	int64_t L[16];
@@ -1817,7 +1828,7 @@ inline int64_t modinv(int64_t x, int64_t m)
     return y;
 }
 
-void GetlcmScalar(int B, mpz_t S, int* primes, int nump)
+void GetlcmScalar(int B, mpz_t S, int* allp, int nump)
 {
     mpz_t* tree = new mpz_t[nump];
     
@@ -1833,7 +1844,7 @@ void GetlcmScalar(int B, mpz_t S, int* primes, int nump)
 		mpz_init(tree[n]);
 		mpz_set(tree[n], pe);
 		n++;
-		p = primes[n];
+		p = allp[n];
     }
     mpz_clear(pe); mpz_clear(pe1);
     
