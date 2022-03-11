@@ -99,6 +99,15 @@ bool EECM_mpz(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int 
 bool EECM_int128(__int128 N, mpz_t S, __int128 &factor, int d, int a, int X0, int Y0, int Z0, int64_t mulo, int64_t muhi);
 int bisection(int* list, int n, int t);
 
+static void wait_for_debugger(int myrank)
+{
+	if (getenv("MPI_DEBUG") != NULL) { // && myrank == 0) {
+		volatile int i = 0;
+		fprintf(stderr, "waiting for debugger...\n");
+		while (i == 0) { /* change ’i’ in the debugger */ }
+	}
+	MPI_Barrier (MPI_COMM_WORLD);
+}
 
 int main(int argc, char** argv)
 {
@@ -115,6 +124,8 @@ int main(int argc, char** argv)
 	MPI_Comm comm2;
 	MPI_Comm_rank(comm1, &myrank);
 	MPI_Comm_size(comm1, &np);
+
+	wait_for_debugger(myrank);
 	
 	if (argc != 17) {
 		if (myrank == 0) {
@@ -475,12 +486,34 @@ int main(int argc, char** argv)
 	int* myprimes = new int[2*NQ]();
 	int myimax = nump - 1 - myrank;
 	int64_t q = allp[myimax];
+	myimax += np;	// clumsy way to prepare for decreasing q per rank
 	int Rtotal = 0;
 	while (q > qlower && Rtotal < nrel) {
-		info.q = q;
+		// find next special-q
+		if (myimax >= np) { myimax -= np; q = allp[myimax]; }
+		else q = 0;
+		int nmax = 0;
+		while (nmax == 0 && q > qlower) {
+			if (qside == 0) {
+				while (allp0hits[myimax] >= 0 && q > qlower) {
+					myimax -= np;
+					q = allp[myimax];
+				}
+			}
+			else {
+				while (allp1hits[myimax] >= 0 && q > qlower) {
+					myimax -= np;
+					q = allp[myimax];
+				}
+			}
+			info.q = q;
+			nmax = populate_q(&info, qside, h0, f0, f1, F0, F1);
+			if (nmax == 0 && qside == 0) allp0hits[myimax] = 0;
+			if (nmax == 0 && qside == 1) allp1hits[myimax] = 0;
+		}
+		if (qside == 0) allp0hits[myimax] = 0;
+		else allp1hits[myimax] = 0;
 
-		// calculate special-q ideals for this q
-		int nmax = populate_q(&info, qside, h0, f0, f1, F0, F1);
 		myout << "# (nmax = " << nmax << ")" << endl;
 
 		int m = 0;
@@ -492,13 +525,18 @@ int main(int argc, char** argv)
 			int64_t rn = info.r[n]; int64_t Rn = info.R[n];
 			int64_t a0 = info.a0[n]; int64_t a1 = info.a1[n];
 			int64_t b0 = info.b0[n];  int64_t b1 = info.b1[n];
+			string sqstr = "";
+			if (info.qtype[n] == 0) sqstr = "(q) = (" + to_string(q) + ")";
+			else if (info.qtype[n] == 1) sqstr = "(q,m) = (" + to_string(q) + "," 
+				+ to_string(mn) + ")";
+			else if (info.qtype[n] == 2) sqstr = "(q,r,R) = (" + to_string(q) + ","
+				+ to_string(rn) + "," + to_string(Rn) + ")";
+			else if (info.qtype[n] == 3) sqstr = "(q,a0,a1,b0,b1) = (" + to_string(q) + ","
+				+ to_string(a0) + "," + to_string(a1) + "," + to_string(b0) + ","
+				+ to_string(b1) + ")";
 			if (qside == 0) {
 				myout << " for special-q ";
-				if (info.qtype[n] == 0) myout << "(q) = (" << q << ")";
-				else if (info.qtype[n] == 1) myout << "(q,m) = (" << q << "," << mn << ")";
-				else if (info.qtype[n] == 2) myout << "(q,r,R) = (" << q << "," << rn << "," << Rn << ")";
-				else if (info.qtype[n] == 3) myout << "(q,a0,a1,b0,b1) = (" << q << "," << a0
-					<< "," << a1 << "," << b0 << "," << b1 << ")";
+				myout << sqstr;
 			}
 			myout << "..." << endl;
 			
@@ -536,11 +574,7 @@ int main(int argc, char** argv)
 			myout << "# Starting sieve on side 1";
 			if (qside == 1) {
 				myout << " for special-q ";
-				if (info.qtype[n] == 0) myout << "(q) = (" << q << ")";
-				else if (info.qtype[n] == 1) myout << "(q,m) = (" << q << "," << mn << ")";
-				else if (info.qtype[n] == 2) myout << "(q,r,R) = (" << q << "," << rn << "," << Rn << ")";
-				else if (info.qtype[n] == 3) myout << "(q,a0,a1,b0,b1) = (" << q << "," << a0
-					<< "," << a1 << "," << b0 << "," << b1 << ")";
+				myout << sqstr;
 			}
 			myout << "..." << endl;
 			start = clock();
@@ -631,11 +665,10 @@ int main(int argc, char** argv)
 			if (verbose) myout << "Starting cofactorization..." << endl;
 			for (int i = 0; i < potR; i++)
 			{
-				// zero buffer first.  even if there is no relation, buffer = { 0 }
-				for (int j = 0; j < NQ; j++) {
-					buffer[j] = 0;
-					buffer[j+NQ] = 0;
-				}
+				// zero buffers first.  even if there is no relation, buffer = { 0 }
+				for (int j = 0; j < np*2*NQ; j++) buffer[j] = 0;
+				for (int j = 0; j < 2*NQ; j++) myprimes[j] = 0;
+
 				int reli = potrel[i];
 				int x = (reli % B1x2) - B1;
 				int y = ((reli >> B1x2bits) % B2x2) - B2;
@@ -888,11 +921,11 @@ int main(int argc, char** argv)
 					}
 				}
 				// we go to great lengths to avoid MPI calls in if block, so it goes here.
-				MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-				MPI_Comm_size(MPI_COMM_WORLD, &np);
+				MPI_Comm_rank(comm1, &myrank);
+				MPI_Comm_size(comm1, &np);
 
 				// now send this rank's rel to all ranks
-				MPI_Allgather(&myprimes, 2*NQ, MPI_INT, buffer, 2*NQ, MPI_INT, comm1);
+				MPI_Allgather(myprimes, 2*NQ, MPI_INT, buffer, 2*NQ, MPI_INT, comm1);
 				// now update local lists of primes from buffer
 				int off = 0;
 				for (int j = 0; j < np; j++) {
@@ -912,31 +945,21 @@ int main(int argc, char** argv)
 					}
 				}
 
-				// find next special-q
-				int nmax = 0;
-				while (nmax == 0 && q > qlower) {
-					if (qside == 0) {
-						while (allp0hits[myimax] >= 0 && q > qlower) {
-							myimax -= np;
-							q = allp[myimax];
-						}
-					}
-					else {
-						while (allp1hits[myimax] >= 0 && q > qlower) {
-							myimax -= np;
-							q = allp[myimax];
-						}
-					}
-					info.q = q;
-					nmax = populate_q(&info, qside, h0, f0, f1, F0, F1);
-				}
-
 				// now remove this rank from communicator if no work left
-				int colour = 1; int key = 1;
-				if (q <= qlower || Rtotal >= nrel) colour = 0;
-				MPI_Comm_split(comm1, colour, key, &comm2);
-				comm1 = comm2;
+				//int colour = 1; int key = 1;
+				//if (q <= qlower || Rtotal >= nrel) colour = 0;
+				//MPI_Comm_split(comm1, colour, key, &comm2);
+				//comm1 = comm2;
+
+				// print . every 1000 iterations of i on myrank == 0
+				//if (i % 1000 == 1 && myrank == 0) cout << "." << flush;
 			}
+			/*for (int j = nump-1; j > nump-50; j--) {
+				if ((nump-1-j)%np == myrank)
+					cout << allp[j] << ":" << allp0hits[j] << ":" << allp1hits[j] << endl;
+			}*/
+			cout << endl << "special-q " << sqstr << " processed." << endl;
+
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			myout << "# Finished! Cofactorization took " << timetaken << "s" << endl << flush;
 			myout << "# " << R << " actual relations found." << endl << flush;
