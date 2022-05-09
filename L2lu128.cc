@@ -5,9 +5,14 @@
 #include <iomanip>
 #include <cstdint>	// int64_t
 #include <boost/multiprecision/cpp_int.hpp>
+#include <boost/multiprecision/float128.hpp>
+#include <boost/lexical_cast.hpp>
+#include <string>
 
 using namespace boost::multiprecision;
 
+using boost::lexical_cast;
+using std::string;
 using std::cout;
 using std::endl;
 using std::fixed;
@@ -29,8 +34,8 @@ void int128L2(int128_t* borig, int d)
 	int d2 = d*d;
 	int256_t* b = new int256_t[d2];
 	int256_t* G = new int256_t[d2](); // subtle bug unless G initialized to zero
-	double* rr = new double[d2];
-	double* uu = new double[d2];
+	float128* rr = new float128[d2];
+	float128* uu = new float128[d2];
 
 	// copy into b
 	for (int i = 0; i < d2; i++) b[i] = borig[i].convert_to<int256_t>();
@@ -44,7 +49,7 @@ void int128L2(int128_t* borig, int d)
 		}
 	}
 
-	rr[0] = G[0].convert_to<double>();
+	rr[0] = G[0].convert_to<float128>();
 	int k = 1;
 
 	while (k < d) {
@@ -52,21 +57,24 @@ void int128L2(int128_t* borig, int d)
 
 		// compute rr[k][j]'s and uu[k][j]'s from G etc
 		for (int i = 0; i <= k; i++) {
-			rr[i*d+k] = G[i*d+k].convert_to<double>();
+			rr[i*d+k] = G[i*d+k].convert_to<float128>();
 			for (int j = 0; j < i; j++)
 				rr[i*d+k] -= rr[j*d+k] * uu[j*d+i];
 			uu[i*d+k] = rr[i*d+k] / rr[i*d+i];
 		}
 
 		// compute max |uu[k*d+j]| for j < k
-		double max = uu[0*d+k];
-		for (int j = 0; j < k; j++)
-			if (fabs(uu[j*d+k]) > max)
-				max = fabs(uu[j*d+k]);
+		float128 max = uu[0*d+k];
+		for (int j = 0; j < k; j++) {
+			float128 fabsuu = uu[j*d+k];
+			if (fabsuu < 0) fabsuu *= -1;
+			if (fabsuu > max) max = fabsuu;
+		}
 		if (max > nn) {
 			for (int j = k-1; j >= 0; j--) {
-				int256_t X = static_cast<int256_t>(floorl(uu[j*d+k] + 0.5f));
-                double Xf = X.convert_to<double>();
+				int256_t X = floor(uu[j*d+k] + 0.5).convert_to<int256_t>();
+				//int256_t X = static_cast<int256_t>(floorl(uu[j*d+k] + 0.5f));
+                float128 Xf = X.convert_to<float128>();
 				for (int i = 0; i < d; i++)
 					b[i*d+k] -= X * b[i*d+j];
 				// update G
@@ -105,14 +113,14 @@ void int128L2(int128_t* borig, int d)
 			}
 			// update rr[(k-1)*d+i] & uu[(k-1)*d+i]
 			for (int i = 0; i <= k-1; i++) {
-				rr[i*d+k-1] = G[i*d+k-1].convert_to<double>();
+				rr[i*d+k-1] = G[i*d+k-1].convert_to<float128>();
 				for (int j = 0; j < i; j++)
 					rr[i*d+k-1] -= rr[j*d+k-1] * uu[j*d+i];
 				uu[i*d+k-1] = rr[i*d+k-1] / rr[i*d+i];
 			}
 			// update rr[k*d+i] & uu[k*d+i]
 			for (int i = 0; i <= k; i++) {
-				rr[i*d+k] = G[i*d+k].convert_to<double>();
+				rr[i*d+k] = G[i*d+k].convert_to<float128>();
 				for (int j = 0; j < i; j++)
 					rr[i*d+k] -= rr[j*d+k] * uu[j*d+i];
 				uu[i*d+k] = rr[i*d+k] / rr[i*d+i];
@@ -132,5 +140,24 @@ void int128L2(int128_t* borig, int d)
 	delete[] rr;
 	delete[] G;
 	delete[] b;
+}
+
+
+void matprint(int d, int128_t* M)
+{
+	int maxw = 0;
+	for (int i = 0; i < d; i++) {
+		for (int j = 0; j < d; j++) {
+			string coeff = lexical_cast<string>(M[i*d+j]);
+			if (coeff.length() > maxw) maxw = coeff.length();
+		}
+	}
+	for (int i = 0; i < d; i++) {
+		for (int j = 0; j < d; j++) {
+			string coeff = lexical_cast<string>(M[i*d+j]);
+			cout << setw(maxw) << coeff << " ";
+		}
+		cout << endl << endl;
+	}
 }
 

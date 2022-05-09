@@ -7,5 +7,6 @@
 using namespace boost::multiprecision;
 
 void int128L2(int128_t* b, int d);
+void matprint(int d, int128_t* M);
 
 #endif /* L2lu128_h */
