@@ -81,10 +81,11 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, int64_t q, mpz_poly h,
 			}
 		}
 		mpz_poly_set_zero(B_0);
-		if (B->coeff[0]->deg == -1) mpz_poly_setcoeff_ui(B_0, 0, q);
 		for (int i = 0; i <= B->coeff[0]->deg; i++) {
 			mpz_poly_setcoeff(B_0, i, B->coeff[0]->coeff[i]);
 		}
+		if (B->coeff[0]->deg == -1 || B->coeff[0]->coeff[0]->_mp_size == 0)
+			mpz_poly_setcoeff_ui(B_0, 0, q);
 		int64_t B_0_0 = (mpz_get_ui(B_0->coeff[0]) - 1) % q;
 		mpz_poly_setcoeff_ui(B_0, 0, B_0_0);
 		mpz_poly_bivariate_setcoeff(B, 0, B_0);
