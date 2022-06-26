@@ -37,7 +37,10 @@ typedef struct struct1 {
 } dlog;
 
 typedef struct struct2 {
+	string ellstr;
 	vector<string>* relsdel;
+	string* fblogs;
+	int numrels;
 	int rowstart;
 	vector<string> newrows;
 	int numnewrows;
@@ -45,8 +48,8 @@ typedef struct struct2 {
 } thread_root_data;
 
 string deduce_from_both_sides(string ellstr, string filename);
-
 void *thread_root(void* context_data);
+long hex2long(string str1);
 
 void init_val3d(mpz_t* poly, int d, GEN *f, GEN *K, GEN *x, GEN *J1, GEN *J2)
 {
@@ -138,9 +141,6 @@ bool find_log(GEN Ip, GEN K, GEN J1, GEN x, vector<dlog> dloglist,
 	return foundlog;
 }
 
-vector<dlog> dlogs;
-vector< pair<uint64_t,int> > ideals;
-vector< pair<int,string> > sm;
 
 int main(int argc, char** argv)
 {
@@ -305,9 +305,11 @@ int main(int argc, char** argv)
 
 	// begin threading code
 	thread_root_data* data = new thread_root_data[nt];
+	data.ellstr = ellstr;
 	for (int i = 0; i < nt; i++) {
 		data[i].newrows = new vector<string>[nt];
 		data[i].numnewrows = new int[nt];
+		data[i].fblogs = fblogs;
 	}
 
 	// read relsdel
@@ -323,8 +325,8 @@ int main(int argc, char** argv)
 			mark *= 2;
 		}
 	}
-	int numrels = t;
-	cout << string(numrels) << " relations read." << endl;
+	data.numrels = t;
+	cout << string(data.numrels) << " relations read." << endl;
 
 	GEN args = cgetg(13, t_VEC);
 	gel(args, 0) = f; 
@@ -458,119 +460,89 @@ void *thread_root(void* context_data)
 	int row = data->startrow;
 	while (row < data->numrels) {
 		string rel = data->relsdel[row];
-	
-		GEN a = stoi(inta);
-		GEN b = stoi(intb);
-		GEN c = stoi(intc);
-		GEN d = stoi(intd);
+		if (rel[rel.length()-1] == ',') rel = rel.substr(0, rel.length()-1);
+		string abcd = rel.substr(0, rel.find(":"));
+		GEN abcdstr = strtoGENstr(abcd);
+		GEN abcdvec = strsplit(abcdstr, strtoGENstr(","));
+			
+		GEN a = eval(gel(abcdvec, 1));
+		GEN b = eval(gel(abcdvec, 2));
+		GEN c = eval(gel(abcdvec, 3));
+		GEN d = eval(gel(abcdvec, 4));
+		int64_t inta = itos(a);
+		int64_t intb = itos(b);
+		int64_t intc = itos(c);
+		int64_t intd = itos(d);
 
 		GEN I3, I4, I3M, I4M;	
 		GEN g3, g4;
 		GEN Ip, pj, idj, sj;
 		GEN item0 = cgetg(4, t_VEC);
 		long i0; GEN logi0;
-		cout << inta << " " << intb << " " << intc << " " << intd << endl;
-		cout << "2 J 1 " << GENtostr(log0) << endl;
+		//cout << inta << " " << intb << " " << intc << " " << intd << endl;
+		//cout << "2 J 1 " << GENtostr(log0) << endl;
 		string side0logstr = "";
 		string side1logstr = "";
-		if (side == 0 || side == 2) {
-			cout << "side 0:" << endl;
-			g3 = gadd(gadd(a, gmul(b, y3)), gmul(gadd(c, gmul(d, y3)), x3));
-			I3 = idealmul(L3, idealhnf0(L3, gsubst(g3, gvar(g3), gel(L3, 2)), NULL), J3);
-			I3M = idealfactor(L3, I3);
-			dims = matsize(I3M);
-			int nv = itos(gel(dims,1));
-			for (int j = 0; j < nv; ++j) {
-				Ip = gcoeff(I3M, j+1, 1);
-				int v = itos(gcoeff(I3M, j+1, 2));
-				pj = gel(Ip, 1);
-				idj = gel(Ip, 2);
-				sj = gen_0;
-				gel(item0, 1) = gcopy(pj);
-				gel(item0, 2) = gcopy(idj);
-				gel(item0, 3) = gcopy(sj);
-				i0 = gtos(stoi(vecsearch(ideals, item0, NULL)));
-				if (i0 != 0) {
-					logi0 = gcopy(gel(logs, i0));			 
-					cout << GENtostr(sj) << " " << GENtostr(pj) << " " << GENtostr(idj) << " "
-						<< v << " " << GENtostr(logi0) << endl;
-					side0logstr += ("+"+to_string(v)+"*"+GENtostr(logi0));
+		// split string of ideals
+		GEN ideals = rel.substr(rel.find(":")+1);
+		GEN strideals = strtoGENstr(ideals);
+		GEN idealsvec = strsplit(strideals, strtoGENstr(",");
+		idealsvec = vecsort0(idealsvec, NULL, 0);	// ideals guaranteed to be hex-sorted
+
+		int numunk = 0;
+		long unklogj = 0;
+		int nv = glength(idealsvec);
+		vector<pair<long, int>> knownjlogs;
+		knownjlogs.clear();
+		long jlast = -1;	// no ideal has this column number
+		for (int j = 1; j <= nv+1; ++j) {
+			long jcol = -1;
+			if (j <= nv)
+				jcol = hex2long(GENtostr(gel(idealsvec, j)));
+			int e = 0;
+			if (jcol != jlast) {
+				if (jlast >= 0) {
+					if (data.fblogs[jlast].empty()) {
+						numunk++;
+						unklogj = jlast;	// found an unknown log, hopefully just 1
+					}
+					else {
+						knownjlogs.push_back(make_pair(jlast, e));
+					}
 				}
-				else {
-					// attempt to deduce log from file named "deduce_{pj}.txt" for prime {pj}
-					string deduce_pj = "deduce_" + string(GENtostr(pj)) + ".txt";
-					string strlog = deduce_from_both_sides(ellstr, deduce_pj);
-					cout << GENtostr(sj) << " " << GENtostr(pj) << " " << GENtostr(idj) << " "
-						<< v << " " << strlog << endl;
-					side0logstr += ("+"+to_string(v)+"*"+strlog);
-				}
+				jlast = jcol;
+				e = 1;
 			}
-			// print Schirokauer maps for side 0
+			else {
+				e++;
+			}
+		}
+		if (numunk == 1) {
+			// first compute Schirokauer maps for this (a,b,c,d)
+			vector<string> sm;
+			sm.clear();
+			// side 0
 			GEN A1 = liftall(gmul(m1, gmodulo(gadd(gadd(a, gmul(b, y3)), gmul(gadd(c, gmul(d, y3)), x3)), f)));
 			GEN feps = gdiv(liftall(gsubgs(gpow(gmodulo(gmodulo(A1, f), gsqr(ell)), eps0, prec), 1)), ell);
 			for (int i = 0; i < nsm0; i++) {
 				string sm_exp_i = string(GENtostr(polcoef(feps, i+1, -1)));
-				cout << "0 sm_exp " << i+1 << " " << sm_exp_i << endl;
-				v1 = strsplit(gel(mix0, numlogs+1+i), strtoGENstr(" "));
-				string sm0i = string(GENtostr(geval(gel(v1, 2))));
-				side0logstr += ("+"+ sm_exp_i + "*" + sm0i);
+				sm.push_back(make_pair(0, sm_exp_i);
 			}
-		}
-		if (side == 1 || side == 2) {
-			cout << "side 1:" << endl;
-			g4 = gadd(gadd(a, gmul(b, y4)), gmul(gadd(c, gmul(d, y4)), x4));
-			I4 = idealmul(L4, idealhnf0(L4, gsubst(g4, gvar(g4), gel(L4, 2)), NULL), J4);
-			I4M = idealfactor(L4, I4);
-			dims = matsize(I4M);
-			int nv = itos(gel(dims,1));
-			for (int j = 0; j < nv; ++j) {
-				Ip = gcoeff(I4M, j+1, 1);
-				int v = itos(gcoeff(I4M, j+1, 2));
-				pj = gel(Ip, 1);
-				idj = gel(Ip, 2);
-				sj = gen_1;
-				gel(item0, 1) = gcopy(pj);
-				gel(item0, 2) = gcopy(idj);
-				gel(item0, 3) = gcopy(sj);
-				i0 = gtos(stoi(vecsearch(ideals, item0, NULL)));
-				if (i0 != 0) {
-					logi0 = gcopy(gel(logs, i0));			 
-					cout << GENtostr(sj) << " " << GENtostr(pj) << " " << GENtostr(idj) << " "
-						<< v << " " << GENtostr(logi0) << endl;
-					side1logstr += ("+"+to_string(v)+"*"+GENtostr(logi0));
-				}
-				else {
-					// attempt to deduce log from file named "deduce_{pj}.txt" for prime {pj}
-					string deduce_pj = "deduce_" + string(GENtostr(pj)) + ".txt";
-					string strlog = deduce_from_both_sides(ellstr, deduce_pj); 
-					cout << GENtostr(sj) << " " << GENtostr(pj) << " " << GENtostr(idj) << " "
-						<< v << " " << strlog << endl;
-					side1logstr += ("+"+to_string(v)+"*"+strlog);
-				}
-			}
-			// print Schirokauer maps for side 1
+			// side 1
 			GEN A2 = liftall(gmul(m2, gmodulo(gadd(gadd(a, gmul(b, y4)), gmul(gadd(c, gmul(d, y4)), x4)), g)));
 			GEN geps = gdiv(liftall(gsubgs(gpow(gmodulo(gmodulo(A2, g), gsqr(ell)), eps1, prec), 1)), ell);
 			for (int i = 0; i < nsm1; i++) {
 				string sm_exp_i = string(GENtostr(polcoef(geps, i+1, -1)));
-				cout << "1 sm_exp " << i+1 << " " << sm_exp_i << endl;
-				v1 = strsplit(gel(mix0, numlogs+numsch0+1+i), strtoGENstr(" "));
-				string sm1i = string(GENtostr(geval(gel(v1, 2))));
-				side1logstr += ("+"+ sm_exp_i + "*" + sm1i);
+				sm.push_back(make_pair(1, sm_exp_i);
 			}
+			// deduce single unknown log from the known ones
+			data->fblogs[unklogj] = deduce_from_both_sides(inta, intb, intc, intd, data,
+				knownjlogs, sm);
 		}
-		cout << "Schirokauer Maps:" << endl;
-		for (int i = 0; i < numsch0 + numsch1; i++) {
-			v1 = strsplit(gel(mix0, numlogs+1+i), strtoGENstr(" "));
-			cout << GENtostr(geval(gel(v1, 4))) << " SM " << i+1 << " "
-				<< GENtostr(geval(gel(v1, 2))) << endl;
-		}
-		if (side == 0) cout << side0logstr;
-		if (side == 1) cout << side1logstr;
 
+		// advance to next relation for this thread
 		row += data->nt;
 	}
-
 	avma = ltop;
 
 	// finish
@@ -578,190 +550,83 @@ void *thread_root(void* context_data)
 	return NULL;
 }
 
+long hex2long(string str1)
+{
+	stringstream stream;
+	long jcol = -1;
+	stream.str("");
+	stream << str1;
+	stream >> jcol;
+	return jcol;
+}
 
-string deduce_from_both_sides(string ellstr, string filename)
+string deduce_from_both_sides(int64_t a, int64_t b, int64_t c, int64_t d,
+	thread_root_arg* data, vector<pair<long, int>> knownlogs, vector<pair<int,string>> sm)
 {
 	vector<pair<int,string> > sm_exp;
-	vector<dlog> dlogs;
-	vector<pair<int,string> > sm;
 
-    string separator0 = " ";
-    string separator1 = ":";
-    string separator2 = ",";
-	string separator3 = "[";
-	string separator5 = "~";
-	string line;
-	string tlogstr = "";
+	mpz_t logJ; mpz_init(logJ);
+	mpz_set_str(logJ, data->fblogs[0], 10);
 
-	ifstream file(filename);
-	if (file.good()) {
-		string pfilestr = filename.substr(7, filename.find(".") - 7);
-		int64_t pfile = strtoull(pfilestr.c_str(), NULL, 10);
-
-		// read a b c d
-		getline(file, line);
-		int64_t a = strtoll(line.substr(0, line.find(separator0)).c_str(), NULL, 10);
-		line.erase(0, line.find(separator0) + 1);
-		int64_t b = strtoll(line.substr(0, line.find(separator0)).c_str(), NULL, 10);
-		line.erase(0, line.find(separator0) + 1);
-		int64_t c = strtoll(line.substr(0, line.find(separator0)).c_str(), NULL, 10);
-		line.erase(0, line.find(separator0) + 1);
-		int64_t d = strtoll(line.substr(0, line.find(separator0)).c_str(), NULL, 10);
-		line.erase(0, line.find(separator0) + 1);
-
-		mpz_t logJ; mpz_init(logJ);
-		getline(file, line);
-		line.erase(0, line.find(separator0) + 1);
-		line.erase(0, line.find(separator0) + 1);
-		line.erase(0, line.find(separator0) + 1);
-		mpz_set_str(logJ, line.c_str(), 10);
-
-		int tside = 0;
-
-		// read "side 0:"
-		getline(file, line);
-
-		// read side 0 ideal logs/Schirokauer exponents
-		while (getline(file, line)) {
-			if (line.find("side 1:", 0) == 0) break;
-
-			int side = atoi(line.substr(0, line.find(separator0)).c_str());
-			line.erase(0, line.find(separator0) + 1);
-
-			string pstr = line.substr(0, line.find(separator0));
-			line.erase(0, line.find(separator0) + 1);
-
-			GEN id = gp_read_str(line.substr(0, line.find(separator5) + 1).c_str());
-			line.erase(0, line.find(separator5) + 2);
-
-			int e = atoi(line.substr(0, line.find(separator0)).c_str());
-			if (line.find(separator0) == npos) line = "";
-			else line.erase(0, line.find(separator0) + 1);
-
-			string val = line;
-
-			if (pstr == "sm_exp") {
-				sm_exp.push_back(make_pair(side, val));
-			}
-			else {
-				uint64_t p = strtoull(pstr.c_str(), NULL, 10);
-				if (val == "" && p != pfile) {
-					val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt");
-					//cout << "\tvlog(" << p << ") = " << val << " on side " << 0 << endl;
-				}
-				dlogs.push_back((dlog){ side, p, gcopy(id), e, val });
-			}
-		}
-
-		// read side 1 ideal logs/Schirokauer exponents
-		while (getline(file, line)) {
-			if (line.find("Schirokauer Maps:", 0) == 0) break;
-
-			int side = atoi(line.substr(0, line.find(separator0)).c_str());
-			line.erase(0, line.find(separator0) + 1);
-
-			string pstr = line.substr(0, line.find(separator0));
-			line.erase(0, line.find(separator0) + 1);
-
-			GEN id = gp_read_str(line.substr(0, line.find(separator5) + 1).c_str());
-			line.erase(0, line.find(separator5) + 2);
-
-			int e = atoi(line.substr(0, line.find(separator0)).c_str());
-			if (line.find(separator0) == npos) line = "";
-			else line.erase(0, line.find(separator0) + 1);
-
-			string val = line;
-
-			if (pstr == "sm_exp") {
-				sm_exp.push_back(make_pair(side, val));
-			}
-			else {
-				uint64_t p = strtoull(pstr.c_str(), NULL, 10);
-				if (val == "" && p != pfile) {
-					val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt");
-					//cout << "\tvlog(" << p << ") = " << val << " on side " << 1 << endl;
-				}
-				dlogs.push_back((dlog){ side, p, gcopy(id), e, val });
-			}
-		}
-
-		// read Schirokauer map logs
-		while (getline(file, line)) {
-			line.erase(0, line.find(separator0) + 1);
-
-			int side = atoi(line.substr(0, line.find(separator0)).c_str());
-			line.erase(0, line.find(separator0) + 1);
-
-			uint64_t r = strtoll(line.substr(0, line.find(separator0)).c_str(), NULL, 10);
-			line.erase(0, line.find(separator0) + 1);
-			
-			string val = line;
-
-			sm.push_back(make_pair(side, val));
-		}
-
-		// deduce target
-		int64_t q = 0;
-		mpz_t tlog; mpz_init(tlog);
-		mpz_t log; mpz_init(log);
-		mpz_t ell; mpz_init(ell);
-		mpz_t exp; mpz_init(exp);
-		mpz_set_str(ell, ellstr.c_str(), 10);
-		int ndlogs = dlogs.size();
-		mpz_set_ui(tlog, 0);
-		// ideal logs first
-		for (int i = 0; i < ndlogs; i++) {
-			int side = dlogs[i].s;
-			int64_t p = dlogs[i].p;
-			int e = dlogs[i].e;
-			string val = dlogs[i].log;
-			if (val != "") {
-				//	cout << " + " << e << "*" << val;
-				mpz_set_str(log, val.c_str(), 10);
-				mpz_mul_si(log, log, e);
-				mpz_add(tlog, tlog, log);
-				mpz_mod(tlog, tlog, ell);	// reduce mod ell
-			}
-			else {
-				q = p;
-			}
-		}
-		// then Schirokauer maps
-		int nsm = sm.size();
-		for (int i = 0; i < nsm; i++) {
-			int side = sm[i].first;
-			string eval = sm_exp[i].second;
-			string val = sm[i].second;
-			//	cout << " + " << eval << "*" << val;
-			mpz_set_str(exp, eval.c_str(), 10);
+	// deduce target
+	int64_t q = 0;
+	mpz_t tlog; mpz_init(tlog);
+	mpz_t log; mpz_init(log);
+	mpz_t ell; mpz_init(ell);
+	mpz_t exp; mpz_init(exp);
+	mpz_set_str(ell, data->ellstr.c_str(), 10);
+	mpz_set_ui(tlog, 0);
+	// ideal logs first
+	for (int i = 0; i < knownlogs.size(); i++) {
+		int jcol = knownlogs[i].first;
+		int e = knownlogs[i].second;
+		string val = data->fblogs[jcol];
+		if (val != "") {
+			//	cout << " + " << e << "*" << val;
 			mpz_set_str(log, val.c_str(), 10);
-			mpz_mul(log, log, exp);
+			mpz_mul_si(log, log, e);
 			mpz_add(tlog, tlog, log);
-			mpz_mod(tlog, tlog, ell);	// reduce mod ell		
+			mpz_mod(tlog, tlog, ell);	// reduce mod ell
 		}
-		//if (target_side == 1) {
-		mpz_add(tlog, tlog, logJ);	// account for J ideal (warning - J should be for both sides)
-		//	cout << " + " << mpz_get_str(NULL, 10, logJ);
-		//}
-
-		//cout << endl << "\ttarget side = " << target_side << endl;
-
-		//if (target_side == 0) {
-		mpz_sub(tlog, ell, tlog);	// move known logs to other side
-		//}
-
-		mpz_mod(tlog, tlog, ell);
-
-		tlogstr = mpz_get_str(NULL, 10, tlog);
-
-		//	cout << endl;
-		//cout << "vlog(" << q << ") = " << mpz_get_str(NULL, 10, tlog) << endl;
-
-		mpz_clear(exp);
-		mpz_clear(ell);
-		mpz_clear(log);
-		mpz_clear(tlog);
+		else {
+			q = p;
+		}
 	}
+	// then Schirokauer maps
+	int nsm = sm.size();
+	for (int i = 0; i < nsm; i++) {
+		int side = sm[i].first;
+		string eval = sm_exp[i].second;
+		string val = sm[i].second;
+		//	cout << " + " << eval << "*" << val;
+		mpz_set_str(exp, eval.c_str(), 10);
+		mpz_set_str(log, val.c_str(), 10);
+		mpz_mul(log, log, exp);
+		mpz_add(tlog, tlog, log);
+		mpz_mod(tlog, tlog, ell);	// reduce mod ell		
+	}
+	//if (target_side == 1) {
+	mpz_add(tlog, tlog, logJ);	// account for J ideal (warning - J should be for both sides)
+	//	cout << " + " << mpz_get_str(NULL, 10, logJ);
+	//}
+
+	//cout << endl << "\ttarget side = " << target_side << endl;
+
+	//if (target_side == 0) {
+	mpz_sub(tlog, ell, tlog);	// move known logs to other side
+	//}
+
+	mpz_mod(tlog, tlog, ell);
+
+	tlogstr = mpz_get_str(NULL, 10, tlog);
+
+	//	cout << endl;
+	//cout << "vlog(" << q << ") = " << mpz_get_str(NULL, 10, tlog) << endl;
+
+	mpz_clear(exp);
+	mpz_clear(ell);
+	mpz_clear(log);
+	mpz_clear(tlog);
 
 	return tlogstr;
 }
