@@ -42,12 +42,12 @@ typedef struct struct2 {
 	string* fblogs;
 	int numrels;
 	int rowstart;
-	vector<string> newrows;
-	int numnewrows;
-	int workid;
+	int numnewlogs;
+	vector<string> newlogs;
 } thread_root_data;
 
-string deduce_from_both_sides(string ellstr, string filename);
+string deduce_from_both_sides(int64_t a, int64_t b, int64_t c, int64_t d,
+	thread_root_arg* data, vector<pair<long, int>> knownlogs, vector<pair<int,string>> sm);
 void *thread_root(void* context_data);
 long hex2long(string str1);
 
@@ -305,28 +305,32 @@ int main(int argc, char** argv)
 
 	// begin threading code
 	thread_root_data* data = new thread_root_data[nt];
-	data.ellstr = ellstr;
 	for (int i = 0; i < nt; i++) {
-		data[i].newrows = new vector<string>[nt];
-		data[i].numnewrows = new int[nt];
-		data[i].fblogs = fblogs;
+		data[i]->ellstr = ellstr;
+		data[i]->newrows = new vector<string>[nt];
+		data[i]->numnewrows = new int[nt];
+		data[i]->fblogs = fblogs;
 	}
 
 	// read relsdel
+	vector<string> relsdel;
 	ifstream file(relsdelfile);
 	getline(file, line);	// first line contains number of relations
 	mark = 1024;
 	t = 0;
 	while (getline(file, line)) {
-		data.relsdel.push_back(line);
+		relsdel.push_back(line);
 		t++;
 		if (t % mark == 0) {
 			cout << string(t) << " relations read..." << endl;
 			mark *= 2;
 		}
 	}
-	data.numrels = t;
-	cout << string(data.numrels) << " relations read." << endl;
+	cout << string(t) << " relations read." << endl;
+	for (int i = 0; i < nt; i++) {
+		data[i].relsdel = &relsdel;
+		data[i].numrels = t;
+	}
 
 	GEN args = cgetg(13, t_VEC);
 	gel(args, 0) = f; 
@@ -354,8 +358,8 @@ int main(int argc, char** argv)
 		// reset newlogs each pass
 		newlogs = 0;
 		for (int i = 0; i < nt; i++) {
-			data[i].newrows.clear();
-			date[i].numnewrows = 0;
+			data[i]->newlogs.clear();
+			data[i]->numnewlogs = 0;
 		}
 		
 		// create nt threads of work
@@ -372,17 +376,13 @@ int main(int argc, char** argv)
 
 		// update factor base logs with new logs
 		for (int i = 0; i < nt; i++) {
-			for (int j = 0; j < data[i].numnewrows; j++) {
-				string newrow = data[i].newrows[j];
-				stream.str("");
-				string colstr = string(atoi(newrow.substr(0, newrow.find(" "))));
-				stream << colstr;
-				int col;
-				stream >> hex >> col;
-				string log = newrow.substr(newrow.find(" ")+1);
-				fblogs[col] = log;
+			for (int j = 0; j < data[i]->numnewlogs; j++) {
+				string newlog = data[i]->newlogs[j];
+				long jcol = hex2long(newlog.substr(0, newlog.find(" ")));
+				string jlog = newlog.substr(newlog.find(" ")+1);
+				fblogs[jcol] = jlog;
 			}
-			newlogs += data[i].numnewrows;
+			newlogs += data[i]->numnewlogs;
 		}
 		
 		// update screen
@@ -421,8 +421,8 @@ int main(int argc, char** argv)
 
 	// tidy up
 	for (int i = 0; i < nt; i++) {
-		delete[] data[i].numnewrows;
-		delete[] data[i].newrows;
+		delete[] data[i]->numnewrows;
+		delete[] data[i]->newrows;
 	}
 	delete[] thread_root_data;
 	delete[] col2id;
@@ -457,6 +457,7 @@ void *thread_root(void* context_data)
 	int nsm0 = itos(gel(args, 11));
 	int nsm1 = itos(gel(args, 12));
 
+	data->numnewlogs = 0;
 	int row = data->startrow;
 	while (row < data->numrels) {
 		string rel = data->relsdel[row];
@@ -502,7 +503,7 @@ void *thread_root(void* context_data)
 			int e = 0;
 			if (jcol != jlast) {
 				if (jlast >= 0) {
-					if (data.fblogs[jlast].empty()) {
+					if (data->fblogs[jlast].empty()) {
 						numunk++;
 						unklogj = jlast;	// found an unknown log, hopefully just 1
 					}
@@ -536,8 +537,9 @@ void *thread_root(void* context_data)
 				sm.push_back(make_pair(1, sm_exp_i);
 			}
 			// deduce single unknown log from the known ones
-			data->fblogs[unklogj] = deduce_from_both_sides(inta, intb, intc, intd, data,
-				knownjlogs, sm);
+			string log = deduce_from_both_sides(inta, intb, intc, intd, data, knownjlogs, sm);
+			data->newlogs.push_back(string(unklogj) + log);
+			data->numnewlogs++;
 		}
 
 		// advance to next relation for this thread
@@ -605,22 +607,13 @@ string deduce_from_both_sides(int64_t a, int64_t b, int64_t c, int64_t d,
 		mpz_add(tlog, tlog, log);
 		mpz_mod(tlog, tlog, ell);	// reduce mod ell		
 	}
-	//if (target_side == 1) {
+	
 	mpz_add(tlog, tlog, logJ);	// account for J ideal (warning - J should be for both sides)
-	//	cout << " + " << mpz_get_str(NULL, 10, logJ);
-	//}
-
-	//cout << endl << "\ttarget side = " << target_side << endl;
-
-	//if (target_side == 0) {
 	mpz_sub(tlog, ell, tlog);	// move known logs to other side
-	//}
-
 	mpz_mod(tlog, tlog, ell);
 
 	tlogstr = mpz_get_str(NULL, 10, tlog);
 
-	//	cout << endl;
 	//cout << "vlog(" << q << ") = " << mpz_get_str(NULL, 10, tlog) << endl;
 
 	mpz_clear(exp);
