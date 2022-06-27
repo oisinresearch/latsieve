@@ -46,7 +46,7 @@ typedef struct struct2 {
 	vector<string> newlogs;
 } thread_root_data;
 
-string deduce_from_both_sides(int64_t a, int64_t b, int64_t c, int64_t d,
+string deduce_from_both_sides(int64_t a, int64_t b, int64_t c, int64_t d, int nsm0, int nsm1,
 	thread_root_arg* data, vector<pair<long, int>> knownlogs, vector<pair<int,string>> sm);
 void *thread_root(void* context_data);
 long hex2long(string str1);
@@ -145,7 +145,7 @@ bool find_log(GEN Ip, GEN K, GEN J1, GEN x, vector<dlog> dloglist,
 int main(int argc, char** argv)
 {
 	if (argc != 12) {
-		cout << "Usage:  ./descend_tnfs polyfile isofile renumberfile knownlogs ";
+		cout << "Usage:  ./reconstructlog-dl-tnfs polyfile isofile renumberfile knownlogs ";
 		cout << "ideals relsdel num_Sch_0 num_Sch_1 numthreads ell outputfile" << endl << endl;
 		return 0;
 	}
@@ -166,7 +166,7 @@ int main(int argc, char** argv)
 	string loadpolystr = "loadpolytnfs(\"" + polyfile + "\");";
 
 	// initialize pari library
-	pari_init(2000000000,65536);
+	pari_init(2000000000, 65536);
 
 	GEN str1 = gp_read_str(loadnfs3dstr.c_str());
 	geval(str1);
@@ -329,7 +329,7 @@ int main(int argc, char** argv)
 	cout << string(t) << " relations read." << endl;
 	for (int i = 0; i < nt; i++) {
 		data[i].relsdel = &relsdel;
-		data[i].numrels = t;
+		data[i].numrels = t - nsm0 - nsm1;
 	}
 
 	GEN args = cgetg(13, t_VEC);
@@ -429,7 +429,7 @@ int main(int argc, char** argv)
 	for (int i = 0; i < nt; i++) pari_thread_free(&pth[i]);
 	delete[] pth;
 	delete[] th;
-	delete[] result;
+	delete[] fblogs;
 	pari_close();
 
 	return 0;
@@ -470,17 +470,12 @@ void *thread_root(void* context_data)
 		GEN b = eval(gel(abcdvec, 2));
 		GEN c = eval(gel(abcdvec, 3));
 		GEN d = eval(gel(abcdvec, 4));
-		int64_t inta = itos(a);
-		int64_t intb = itos(b);
-		int64_t intc = itos(c);
-		int64_t intd = itos(d);
+		int64_t a1 = itos(a);
+		int64_t b1 = itos(b);
+		int64_t c1 = itos(c);
+		int64_t d1 = itos(d);
 
-		GEN I3, I4, I3M, I4M;	
-		GEN g3, g4;
-		GEN Ip, pj, idj, sj;
-		GEN item0 = cgetg(4, t_VEC);
-		long i0; GEN logi0;
-		//cout << inta << " " << intb << " " << intc << " " << intd << endl;
+		//cout << a1 << " " << b1 << " " << c1 << " " << d1 << endl;
 		//cout << "2 J 1 " << GENtostr(log0) << endl;
 		string side0logstr = "";
 		string side1logstr = "";
@@ -518,27 +513,28 @@ void *thread_root(void* context_data)
 				e++;
 			}
 		}
+
 		if (numunk == 1) {
 			// first compute Schirokauer maps for this (a,b,c,d)
-			vector<string> sm;
+			vector<string> sm_exp;
 			sm.clear();
 			// side 0
 			GEN A1 = liftall(gmul(m1, gmodulo(gadd(gadd(a, gmul(b, y3)), gmul(gadd(c, gmul(d, y3)), x3)), f)));
 			GEN feps = gdiv(liftall(gsubgs(gpow(gmodulo(gmodulo(A1, f), gsqr(ell)), eps0, prec), 1)), ell);
 			for (int i = 0; i < nsm0; i++) {
 				string sm_exp_i = string(GENtostr(polcoef(feps, i+1, -1)));
-				sm.push_back(make_pair(0, sm_exp_i);
+				sm_exp.push_back(make_pair(0, sm_exp_i);
 			}
 			// side 1
 			GEN A2 = liftall(gmul(m2, gmodulo(gadd(gadd(a, gmul(b, y4)), gmul(gadd(c, gmul(d, y4)), x4)), g)));
 			GEN geps = gdiv(liftall(gsubgs(gpow(gmodulo(gmodulo(A2, g), gsqr(ell)), eps1, prec), 1)), ell);
 			for (int i = 0; i < nsm1; i++) {
 				string sm_exp_i = string(GENtostr(polcoef(geps, i+1, -1)));
-				sm.push_back(make_pair(1, sm_exp_i);
+				sm_exp.push_back(make_pair(1, sm_exp_i);
 			}
 			// deduce single unknown log from the known ones
-			string log = deduce_from_both_sides(inta, intb, intc, intd, data, knownjlogs, sm);
-			data->newlogs.push_back(string(unklogj) + log);
+			string log = deduce_from_both_sides(a1, b1, c1, d1, data, knownjlogs, sm_exp);
+			data->newlogs.push_back(string(unklogj) + " " + log);
 			data->numnewlogs++;
 		}
 
@@ -562,11 +558,9 @@ long hex2long(string str1)
 	return jcol;
 }
 
-string deduce_from_both_sides(int64_t a, int64_t b, int64_t c, int64_t d,
-	thread_root_arg* data, vector<pair<long, int>> knownlogs, vector<pair<int,string>> sm)
+string deduce_from_both_sides(int64_t a, int64_t b, int64_t c, int64_t d, int nsm0, int nsm1,
+	thread_root_arg* data, vector<pair<long, int>> knownlogs, vector<pair<int,string>> sm_exp)
 {
-	vector<pair<int,string> > sm_exp;
-
 	mpz_t logJ; mpz_init(logJ);
 	mpz_set_str(logJ, data->fblogs[0], 10);
 
@@ -596,10 +590,9 @@ string deduce_from_both_sides(int64_t a, int64_t b, int64_t c, int64_t d,
 	}
 	// then Schirokauer maps
 	int nsm = sm.size();
-	for (int i = 0; i < nsm; i++) {
-		int side = sm[i].first;
+	for (int i = 0; i < nsm0+nsm1; i++) {
 		string eval = sm_exp[i].second;
-		string val = sm[i].second;
+		string val = data->fblogs[i + data->numrels];	// SM logs are last nsm0+nsm1 fblogs
 		//	cout << " + " << eval << "*" << val;
 		mpz_set_str(exp, eval.c_str(), 10);
 		mpz_set_str(log, val.c_str(), 10);
