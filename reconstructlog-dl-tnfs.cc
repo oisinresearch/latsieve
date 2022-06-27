@@ -37,17 +37,19 @@ typedef struct struct1 {
 } dlog;
 
 typedef struct struct2 {
+	int nt;
+	struct pari_thread pth;
 	string ellstr;
 	vector<string>* relsdel;
 	string* fblogs;
 	int numrels;
-	int rowstart;
+	int startrow;
 	int numnewlogs;
 	vector<string> newlogs;
 } thread_root_data;
 
 string deduce_from_both_sides(int64_t a, int64_t b, int64_t c, int64_t d, int nsm0, int nsm1,
-	thread_root_arg* data, vector<pair<long, int>> knownlogs, vector<pair<int,string>> sm);
+	thread_root_data* data, vector<pair<long, int>> knownlogs, vector<string> sm_exp);
 void *thread_root(void* context_data);
 long hex2long(string str1);
 
@@ -160,7 +162,6 @@ int main(int argc, char** argv)
 	int nsm1 = atoi(argv[8]);
 	int nt = atoi(argv[9]);
 	string ellstr = argv[10];
-	string dlogfile = string(argv[11]);
 	
 	string loadnfs3dstr = "\\r ~/nfs3d.gp";
 	string loadpolystr = "loadpolytnfs(\"" + polyfile + "\");";
@@ -209,58 +210,58 @@ int main(int argc, char** argv)
 		gel(idealrow, 3) = si;
 		gel(ideals, i) = idealrow;
 		if (i % mark == 0) {
-			cout << string(i) << " ideals read..." << endl;
+			cout << to_string(i) << " ideals read..." << endl;
 			mark *= 2;
 		}
 	}
-	cout << string(numideals) << " ideals read." << endl;
+	cout << to_string(numideals) << " ideals read." << endl;
 
 	// read known logs
-	GEN knownlogs;
+	GEN knownlogs; GEN logi;
 	GEN mix = readstr(knownlogsfile.c_str());
 	long numknownlogs = glength(mix);
-	GEN v1, idsi, pi, idi, si, idealrow;
 	cout << "Reading known logs..." << endl;
 	mark = 1024;
 	for (long i = 1; i <= numknownlogs; ++i) {
 		v1 = gel(mix, i);
 		logi = geval(v1);
-		gel(knownlogs, i) = logi;
+		gel(knownlogs, i) = gcopy(logi);
 		if (i % mark == 0) {
-			cout << string(i) << " known logs read..." << endl;
+			cout << to_string(i) << " known logs read..." << endl;
 			mark *= 2;
 		}
 	}
-	cout << string(numknownlogs) << " known logs read." << endl;
+	cout << to_string(numknownlogs) << " known logs read." << endl;
 
 	// read ideals
 	cout << "Reading ideals file..." << endl;
 	int numJ = 1;	// watch out - hard coded number of J ideals to 1
-	int col2id = new int[numknownlogs - nsm0 - nsm1];
+	int* col2id = new int[numknownlogs - nsm0 - nsm1];
 	string line;
 	char linebuffer[100];
-	ifstream file(idealsfile);
-	getline(file, line);	// first line contains number of (col,idnum) pairs
+	ifstream file1(idealsfile);
+	getline(file1, line);	// first line contains number of (col,idnum) pairs
 	mark = 1024;
 	int t = 0;
-	while (getline(file, line)) {
-		int col = atoi(line.substr(0, line.find_first_of(" ")));
-		long idnum = strtoll(line.substr(line.find_first_of(" ")+1));
+	while (getline(file1, line)) {
+		int col = atoi(line.substr(0, line.find_first_of(" ")).c_str());
+		long idnum = strtoll(line.substr(line.find_first_of(" ")+1).c_str(), NULL, 10);
 		col2id[col] = idnum - numJ;
 		t++;
 		if (t % mark == 0) {
-			cout << string(t) << " ideal column lookups read..." << endl;
+			cout << to_string(t) << " ideal column lookups read..." << endl;
 			mark *= 2;
 		}
 	}
 	int numlookups = t;
-	cout << string(numlookups) << " ideal column lookups read." << endl;
+	cout << to_string(numlookups) << " ideal column lookups read." << endl;
 
 	// write known logs to fblogs array
 	string* fblogs = new string[numideals]();
 	for (int i = 0; i < numknownlogs; i++) {
 		fblogs[col2id[i]] = string(GENtostr(gel(knownlogs, i+1)));
 	}
+	file1.close();
 
 	// set up number fields and J-ideals
 	long prec = 5;
@@ -306,31 +307,31 @@ int main(int argc, char** argv)
 	// begin threading code
 	thread_root_data* data = new thread_root_data[nt];
 	for (int i = 0; i < nt; i++) {
-		data[i]->ellstr = ellstr;
-		data[i]->newrows = new vector<string>[nt];
-		data[i]->numnewrows = new int[nt];
-		data[i]->fblogs = fblogs;
+		data[i].nt = nt;
+		data[i].ellstr = ellstr;
+		data[i].fblogs = fblogs;
 	}
 
 	// read relsdel
 	vector<string> relsdel;
-	ifstream file(relsdelfile);
-	getline(file, line);	// first line contains number of relations
+	ifstream file2(relsdelfile);
+	getline(file2, line);	// first line contains number of relations
 	mark = 1024;
 	t = 0;
-	while (getline(file, line)) {
+	while (getline(file2, line)) {
 		relsdel.push_back(line);
 		t++;
 		if (t % mark == 0) {
-			cout << string(t) << " relations read..." << endl;
+			cout << to_string(t) << " relations read..." << endl;
 			mark *= 2;
 		}
 	}
-	cout << string(t) << " relations read." << endl;
+	cout << to_string(t) << " relations read." << endl;
 	for (int i = 0; i < nt; i++) {
 		data[i].relsdel = &relsdel;
 		data[i].numrels = t - nsm0 - nsm1;
 	}
+	file2.close();
 
 	GEN args = cgetg(13, t_VEC);
 	gel(args, 0) = f; 
@@ -348,7 +349,6 @@ int main(int argc, char** argv)
 	gel(args, 12) = stoi(nsm1);
 
 	// main loop
-	struct pari_thread* pth = new pari_thread[nt];
 	pthread_t* th = new pthread_t[nt];
 	
 	int pass = 0;
@@ -358,31 +358,31 @@ int main(int argc, char** argv)
 		// reset newlogs each pass
 		newlogs = 0;
 		for (int i = 0; i < nt; i++) {
-			data[i]->newlogs.clear();
-			data[i]->numnewlogs = 0;
+			data[i].newlogs.clear();
+			data[i].numnewlogs = 0;
 		}
 		
 		// create nt threads of work
 		for (int i = 0; i < nt; i++) {
-			datai[i].rowstart = i;
-			pari_thread_alloc(&pth[i], 4000000000, args);
+			data[i].startrow = i;
+			pari_thread_alloc(&data[i].pth, 4000000000, args);
 			pthread_create(&th[i], NULL, &thread_root, (void*)&data[i]);
 		}
 
 		// join nt threads
 		for (int i = 0; i < nt; i++) {
-			pthread_join(th[i], (void*)&data[i]); // this is blocking
+			pthread_join(th[i], (void**)&data[i]); // this is blocking
 		}
 
 		// update factor base logs with new logs
 		for (int i = 0; i < nt; i++) {
-			for (int j = 0; j < data[i]->numnewlogs; j++) {
-				string newlog = data[i]->newlogs[j];
+			for (int j = 0; j < data[i].numnewlogs; j++) {
+				string newlog = data[i].newlogs[j];
 				long jcol = hex2long(newlog.substr(0, newlog.find(" ")));
 				string jlog = newlog.substr(newlog.find(" ")+1);
 				fblogs[jcol] = jlog;
 			}
-			newlogs += data[i]->numnewlogs;
+			newlogs += data[i].numnewlogs;
 		}
 		
 		// update screen
@@ -394,40 +394,34 @@ int main(int argc, char** argv)
 
 	// write output file, ideals linked to known logs
 	FILE* out;
-	out = fopen(dlogfile, "w+");
+	out = fopen(argv[11], "w+");
 	for (int i = 0; i < numideals; i++) {
 		if (!fblogs[i].empty()) {
-			string line = string(i) + " " + fblogs[i] + " " 
+			string line = to_string(i) + " " + fblogs[i] + " " 
 				+ string(GENtostr(gel(ideals, i+1)));
 			fprintf(out, "%s\n", line);
 			t++;
 		}
 		if (t % mark == 0) {
-			cout << string(t) << " ideal logs written..." << endl;
+			cout << to_string(t) << " ideal logs written..." << endl;
 			mark *= 2;
 		}
 	}
-	cout << string(t) << " ideal logs written." << endl;
+	cout << to_string(t) << " ideal logs written." << endl;
 	
 	// write Schirokauer maps
 	for (int i = 0; i < nsm0; i++) {
-		fprintf(out, "%s\n", "sm " + fblogs[numideals+i] + " " + string(i) + " 0");
+		fprintf(out, "%s\n", "sm " + fblogs[numideals+i] + " " + to_string(i) + " 0");
 	}
 	for (int i = 0; i < nsm1; i++) {
-		fprintf(out, "%s\n", "sm " + fblogs[numideals+nsm0+i] + " " + string(nsm0+i) + " 1");
+		fprintf(out, "%s\n", "sm " + fblogs[numideals+nsm0+i] + " " + to_string(nsm0+i) + " 1");
 	}
-	cout << string(nsm0 + nsm1) << " Schirokauer map logs written." << endl;
+	cout << to_string(nsm0 + nsm1) << " Schirokauer map logs written." << endl;
 	fclose(out);
 
 	// tidy up
-	for (int i = 0; i < nt; i++) {
-		delete[] data[i]->numnewrows;
-		delete[] data[i]->newrows;
-	}
-	delete[] thread_root_data;
+	for (int i = 0; i < nt; i++) pari_thread_free(&data[i].pth);
 	delete[] col2id;
-	for (int i = 0; i < nt; i++) pari_thread_free(&pth[i]);
-	delete[] pth;
 	delete[] th;
 	delete[] fblogs;
 	pari_close();
@@ -440,9 +434,10 @@ void *thread_root(void* context_data)
 	thread_root_data* data = (thread_root_data*)context_data;
 
 	// start pari thread
-	GEN args = pari_thread_start(&data->pth[workid]);
+	GEN args = pari_thread_start(&data->pth);
 
 	pari_sp ltop = avma;
+	long prec = 5;
 	GEN f = gel(args, 0); 
 	GEN g = gel(args, 1); 
 	GEN ell = gel(args, 2);
@@ -460,16 +455,16 @@ void *thread_root(void* context_data)
 	data->numnewlogs = 0;
 	int row = data->startrow;
 	while (row < data->numrels) {
-		string rel = data->relsdel[row];
+		string rel = (*data->relsdel)[row];
 		if (rel[rel.length()-1] == ',') rel = rel.substr(0, rel.length()-1);
 		string abcd = rel.substr(0, rel.find(":"));
-		GEN abcdstr = strtoGENstr(abcd);
+		GEN abcdstr = strtoGENstr(abcd.c_str());
 		GEN abcdvec = strsplit(abcdstr, strtoGENstr(","));
 			
-		GEN a = eval(gel(abcdvec, 1));
-		GEN b = eval(gel(abcdvec, 2));
-		GEN c = eval(gel(abcdvec, 3));
-		GEN d = eval(gel(abcdvec, 4));
+		GEN a = geval(gel(abcdvec, 1));
+		GEN b = geval(gel(abcdvec, 2));
+		GEN c = geval(gel(abcdvec, 3));
+		GEN d = geval(gel(abcdvec, 4));
 		int64_t a1 = itos(a);
 		int64_t b1 = itos(b);
 		int64_t c1 = itos(c);
@@ -480,9 +475,9 @@ void *thread_root(void* context_data)
 		string side0logstr = "";
 		string side1logstr = "";
 		// split string of ideals
-		GEN ideals = rel.substr(rel.find(":")+1);
-		GEN strideals = strtoGENstr(ideals);
-		GEN idealsvec = strsplit(strideals, strtoGENstr(",");
+		string ideals = rel.substr(rel.find(":")+1);
+		GEN strideals = strtoGENstr(ideals.c_str());
+		GEN idealsvec = strsplit(strideals, strtoGENstr(","));
 		idealsvec = vecsort0(idealsvec, NULL, 0);	// ideals guaranteed to be hex-sorted
 
 		int numunk = 0;
@@ -517,24 +512,25 @@ void *thread_root(void* context_data)
 		if (numunk == 1) {
 			// first compute Schirokauer maps for this (a,b,c,d)
 			vector<string> sm_exp;
-			sm.clear();
+			sm_exp.clear();
 			// side 0
 			GEN A1 = liftall(gmul(m1, gmodulo(gadd(gadd(a, gmul(b, y3)), gmul(gadd(c, gmul(d, y3)), x3)), f)));
 			GEN feps = gdiv(liftall(gsubgs(gpow(gmodulo(gmodulo(A1, f), gsqr(ell)), eps0, prec), 1)), ell);
 			for (int i = 0; i < nsm0; i++) {
 				string sm_exp_i = string(GENtostr(polcoef(feps, i+1, -1)));
-				sm_exp.push_back(make_pair(0, sm_exp_i);
+				sm_exp.push_back(sm_exp_i);
 			}
 			// side 1
 			GEN A2 = liftall(gmul(m2, gmodulo(gadd(gadd(a, gmul(b, y4)), gmul(gadd(c, gmul(d, y4)), x4)), g)));
 			GEN geps = gdiv(liftall(gsubgs(gpow(gmodulo(gmodulo(A2, g), gsqr(ell)), eps1, prec), 1)), ell);
 			for (int i = 0; i < nsm1; i++) {
 				string sm_exp_i = string(GENtostr(polcoef(geps, i+1, -1)));
-				sm_exp.push_back(make_pair(1, sm_exp_i);
+				sm_exp.push_back(sm_exp_i);
 			}
 			// deduce single unknown log from the known ones
-			string log = deduce_from_both_sides(a1, b1, c1, d1, data, knownjlogs, sm_exp);
-			data->newlogs.push_back(string(unklogj) + " " + log);
+			string log = deduce_from_both_sides(a1, b1, c1, d1, nsm0, nsm1, data,
+				knownjlogs, sm_exp);
+			data->newlogs.push_back(to_string(unklogj) + " " + log);
 			data->numnewlogs++;
 		}
 
@@ -559,13 +555,12 @@ long hex2long(string str1)
 }
 
 string deduce_from_both_sides(int64_t a, int64_t b, int64_t c, int64_t d, int nsm0, int nsm1,
-	thread_root_arg* data, vector<pair<long, int>> knownlogs, vector<pair<int,string>> sm_exp)
+	thread_root_data* data, vector<pair<long, int>> knownlogs, vector<string> sm_exp)
 {
 	mpz_t logJ; mpz_init(logJ);
-	mpz_set_str(logJ, data->fblogs[0], 10);
+	mpz_set_str(logJ, data->fblogs[0].c_str(), 10);
 
 	// deduce target
-	int64_t q = 0;
 	mpz_t tlog; mpz_init(tlog);
 	mpz_t log; mpz_init(log);
 	mpz_t ell; mpz_init(ell);
@@ -584,14 +579,10 @@ string deduce_from_both_sides(int64_t a, int64_t b, int64_t c, int64_t d, int ns
 			mpz_add(tlog, tlog, log);
 			mpz_mod(tlog, tlog, ell);	// reduce mod ell
 		}
-		else {
-			q = p;
-		}
 	}
 	// then Schirokauer maps
-	int nsm = sm.size();
 	for (int i = 0; i < nsm0+nsm1; i++) {
-		string eval = sm_exp[i].second;
+		string eval = sm_exp[i];
 		string val = data->fblogs[i + data->numrels];	// SM logs are last nsm0+nsm1 fblogs
 		//	cout << " + " << eval << "*" << val;
 		mpz_set_str(exp, eval.c_str(), 10);
@@ -605,7 +596,7 @@ string deduce_from_both_sides(int64_t a, int64_t b, int64_t c, int64_t d, int ns
 	mpz_sub(tlog, ell, tlog);	// move known logs to other side
 	mpz_mod(tlog, tlog, ell);
 
-	tlogstr = mpz_get_str(NULL, 10, tlog);
+	string tlogstr = mpz_get_str(NULL, 10, tlog);
 
 	//cout << "vlog(" << q << ") = " << mpz_get_str(NULL, 10, tlog) << endl;
 
