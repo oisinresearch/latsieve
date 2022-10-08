@@ -1249,7 +1249,6 @@ int latsieve4d(int n, sievedata info, int side, int* allp, int nump,
 			i++;
 		}
 	}
-	cout << "sieving completed." << endl;
 
 	// clear memory
 	delete[] qinvmodp;

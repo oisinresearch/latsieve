@@ -256,9 +256,12 @@ void *thread_root(void* context_data)
 
 	// set up number fields and J-ideals
 	GEN x = pol_x(0);
-	GEN L3 = nfinit0(f, 3, prec);
+	GEN L3 = nfinit(f, prec);
 	GEN L4 = nfinit(g, prec);
 	GEN J3 = idealinv(L3, idealhnf0(L3, gen_1, gsubst(x3, gvar(x3), gel(L3, 2))));
+	GEN x3inv = gsubst(x3, gvar(x3), gel(L3, 2));
+	long x3var = gvar(x3);
+	GEN L3iso = gel(L3,2);
 	//GEN J4 = idealinv(L4, idealhnf0(L4, gen_1, gsubst(x4, gvar(x4), gel(L4, 2))));
 	
 	int mark = 1024;

@@ -26,7 +26,7 @@ bool compareHexa(string x, string y);
 int main (int argc, char** argv)
 {
 	if (argc == 1) {
-		cout << endl << "Usage: ./rootsofunity relations" << endl;
+		cout << endl << "Usage: ./rootsofunity4d relations" << endl;
 		return 0;
 	}
 
@@ -64,7 +64,15 @@ int main (int argc, char** argv)
 		side0 = commaSeparate(v1);
 		side1 = commaSeparate(v2);
 
-		if (a < 0) { a = -a; b = -b; c = -c; d = -d; }
+		// make a non-negative
+		if (a == 0) {
+			if (b < 0) {
+				b = -b; c = -c; d = -d;
+			}
+		}
+		if (a < 0) {
+			a = -a; b = -b; c = -c; d = -d;
+		}
 
 		cout << a << "," << b << "," << c << "," << d << ":" << side0 << ":" << side1 << endl;
 	}

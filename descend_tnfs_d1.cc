@@ -140,8 +140,8 @@ vector< pair<int,string> > sm;
 int main(int argc, char** argv)
 {
 	if (argc != 12) {
-		cout << "Usage:  ./descend_tnfs polyfile isofile dlogfile a b c d ell " << endl;
-		cout << "             num_Sch_0 num_Sch_1 side" << endl << endl;
+		cout << "Usage:  ./descend_tnfs polyfile isofile dlogfile ell " << endl;
+		cout << "             num_Sch_0 num_Sch_1 side a b c d" << endl << endl;
 		cout << "Output:  Lines of the form" << endl;
 		cout << "side prime root exponent log" << endl;
 		cout << "followed by global Schirokauer maps" << endl;
@@ -151,20 +151,22 @@ int main(int argc, char** argv)
 	}
 
 	// initialize pari library
-	pari_init(8000000000,65536);
+	pari_init(20000000000,65536);
+
+	pari_sp ltop = avma;
 
 	string polyfile = string(argv[1]);
 	string isofile = string(argv[2]);
 	string dlogfile = string(argv[3]);
 	// read a,b,c, side
-	int64_t inta = strtoll(argv[4], NULL, 10);
-	int64_t intb = strtoll(argv[5], NULL, 10);
-	int64_t intc = strtoll(argv[6], NULL, 10);
-	int64_t intd = strtoll(argv[7], NULL, 10);
-	string ellstr = argv[8];
-	int numsch0 = atoi(argv[9]);
-	int numsch1 = atoi(argv[10]);
-	int side = atoi(argv[11]);
+	//int64_t inta = strtoll(argv[8], NULL, 10);
+	//int64_t intb = strtoll(argv[9], NULL, 10);
+	//int64_t intc = strtoll(argv[10], NULL, 10);
+	//int64_t intd = strtoll(argv[11], NULL, 10);
+	string ellstr = argv[4];
+	int numsch0 = atoi(argv[5]);
+	int numsch1 = atoi(argv[6]);
+	int side = atoi(argv[7]);
 	
 	string loadnfs3dstr = "\\r ~/nfs3d.gp";
 	string loadpolystr = "loadpolytnfs(\"" + polyfile + "\");";
@@ -193,21 +195,23 @@ int main(int argc, char** argv)
 	GEN mix = cgetg(numlogs+1, t_VEC);
 	GEN v0 = strsplit(gel(mix0, 1), strtoGENstr(" "));
 	GEN log0 = geval(gel(v0, 2));
-	string row1str = "[0,[0]~,0," + string(GENtostr(log0)) + "]";
+	string row1str = "[0,[0]~,0,0," + string(GENtostr(log0)) + "]";
 	gel(mix, 1) = geval(strtoGENstr(row1str.c_str()));
-	GEN v1, logi, idsi, pi, idi, si, logrow;
+	GEN v1, logi, idsi, pi, idi, fi, si, logrow;
 	for (long i = 2; i <= numlogs; ++i) {
 		v1 = strsplit(gel(mix0, i), strtoGENstr(" "));
 		logi = geval(gel(v1, 2));
 		idsi = geval(gconcat1(vecslice0(v1, 3, glength(v1))));
 		pi = gcopy(gel(gel(idsi, 1), 1));
 		idi = gcopy(gel(gel(idsi, 1), 2));
-		si = gcopy(gel(idsi, 2));
-		logrow = cgetg(5, t_VEC);
+		fi = gcopy(gel(idsi, 2));
+		si = gcopy(gel(idsi, 3));
+		logrow = cgetg(6, t_VEC);
 		gel(logrow, 1) = pi;
 		gel(logrow, 2) = idi;
-		gel(logrow, 3) = si;
-		gel(logrow, 4) = logi;
+		gel(logrow, 3) = fi;
+		gel(logrow, 4) = si;
+		gel(logrow, 5) = logi;
 		gel(mix, i) = logrow;
 		//if (i % 1000 == 0) cout << i << endl;
 	}
@@ -227,12 +231,14 @@ int main(int argc, char** argv)
 	for (long i = 1; i <= numlogs; ++i) {
 		GEN pi = gcopy(gel(gel(mix, i),1));
 		GEN idi = gcopy(gel(gel(mix, i),2));
-		GEN si = gcopy(gel(gel(mix, i),3));
-		GEN logi = gcopy(gel(gel(mix, i),4));
-		GEN idealrow = cgetg(4, t_VEC);
+		GEN fi = gcopy(gel(gel(mix, i),3));
+		GEN si = gcopy(gel(gel(mix, i),4));
+		GEN logi = gcopy(gel(gel(mix, i),5));
+		GEN idealrow = cgetg(5, t_VEC);
 		gel(idealrow, 1) = pi;
 		gel(idealrow, 2) = idi;
-		gel(idealrow, 3) = si;
+		gel(idealrow, 3) = fi;
+		gel(idealrow, 4) = si;
 		gel(ideals, i) = idealrow;
 		gel(logs, i) = logi;
 	}
@@ -241,9 +247,9 @@ int main(int argc, char** argv)
 	long prec = 5;
 	GEN x = pol_x(0);
 	GEN L3 = nfinit0(f, 3, prec);
-	GEN L4 = nfinit0(g, 3, prec);
+	GEN L4 = nfinit(g, prec);
 	GEN J3 = idealinv(L3, idealhnf0(L3, gen_1, gsubst(x3, gvar(x3), gel(L3, 2))));
-	GEN J4 = idealinv(L4, idealhnf0(L4, gen_1, gsubst(x4, gvar(x4), gel(L4, 2))));
+	//GEN J4 = idealinv(L4, idealhnf0(L4, gen_1, gsubst(x4, gvar(x4), gel(L4, 2))));
 
 	// set up Schirokauer map data
 	GEN ff = factor(gaddgs(gsqr(p), 1));
@@ -278,17 +284,21 @@ int main(int argc, char** argv)
 	gel(v4, 2) = vx4;
 	GEN m2 = glcm0(gconcat1(v4), NULL);
 
-	GEN a = stoi(inta);
-	GEN b = stoi(intb);
-	GEN c = stoi(intc);
-	GEN d = stoi(intd);
+	GEN gena = strtoGENstr(argv[8]);
+	GEN genb = strtoGENstr(argv[9]);
+	GEN genc = strtoGENstr(argv[10]);
+	GEN gend = strtoGENstr(argv[11]);
+	GEN a = geval(gena); //stoi(inta);
+	GEN b = geval(genb); //stoi(intb);
+	GEN c = geval(genc); //stoi(intc);
+	GEN d = geval(gend); //stoi(intd);
 
 	GEN I3, I4, I3M, I4M;	
 	GEN g3, g4;
-	GEN Ip, pj, idj, sj;
-	GEN item0 = cgetg(4, t_VEC);
+	GEN Ip, pj, idj, fj, sj;
+	GEN item0 = cgetg(5, t_VEC);
 	long i0; GEN logi0;
-	cout << inta << " " << intb << " " << intc << " " << intd << endl;
+	cout << argv[8] << " " << argv[9] << " " << argv[10] << " " << argv[11] << endl;
 	cout << "2 J 1 " << GENtostr(log0) << endl;
 	string side0logstr = "";
 	string side1logstr = "";
@@ -304,10 +314,12 @@ int main(int argc, char** argv)
 			int v = itos(gcoeff(I3M, j+1, 2));
 			pj = gel(Ip, 1);
 			idj = gel(Ip, 2);
+			fj = gel(Ip, 4);
 			sj = gen_0;
 			gel(item0, 1) = gcopy(pj);
 			gel(item0, 2) = gcopy(idj);
-			gel(item0, 3) = gcopy(sj);
+			gel(item0, 3) = gcopy(fj);
+			gel(item0, 4) = gcopy(sj);
 			i0 = gtos(stoi(vecsearch(ideals, item0, NULL)));
 			if (i0 != 0) {
 				logi0 = gcopy(gel(logs, i0));			 
@@ -338,7 +350,8 @@ int main(int argc, char** argv)
 	if (side == 1 || side == 2) {
 		cout << "side 1:" << endl;
 		g4 = gadd(gadd(a, gmul(b, y4)), gmul(gadd(c, gmul(d, y4)), x4));
-		I4 = idealmul(L4, idealhnf0(L4, gsubst(g4, gvar(g4), gel(L4, 2)), NULL), J4);
+		//I4 = idealmul(L4, idealhnf0(L4, gsubst(g4, gvar(g4), gel(L4, 2)), NULL), J4);
+		I4 = idealhnf(L4, g4);
 		I4M = idealfactor(L4, I4);
 		dims = matsize(I4M);
 		int nv = itos(gel(dims,1));
@@ -347,10 +360,12 @@ int main(int argc, char** argv)
 			int v = itos(gcoeff(I4M, j+1, 2));
 			pj = gel(Ip, 1);
 			idj = gel(Ip, 2);
+			fj = gel(Ip, 4);
 			sj = gen_1;
 			gel(item0, 1) = gcopy(pj);
 			gel(item0, 2) = gcopy(idj);
-			gel(item0, 3) = gcopy(sj);
+			gel(item0, 3) = gcopy(fj);
+			gel(item0, 4) = gcopy(sj);
 			i0 = gtos(stoi(vecsearch(ideals, item0, NULL)));
 			if (i0 != 0) {
 				logi0 = gcopy(gel(logs, i0));			 
@@ -386,6 +401,9 @@ int main(int argc, char** argv)
 	}
 	if (side == 0) cout << side0logstr;
 	if (side == 1) cout << side1logstr;
+
+	avma = ltop;
+	pari_close();
 }
 
 
@@ -402,6 +420,7 @@ string deduce_from_both_sides(string ellstr, string filename)
 	string separator5 = "~";
 	string line;
 	string tlogstr = "";
+	bool blanklog = false;
 
 	ifstream file(filename);
 	if (file.good()) {
@@ -458,6 +477,7 @@ string deduce_from_both_sides(string ellstr, string filename)
 				if (val == "" && p != pfile) {
 					val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt");
 					//cout << "\tvlog(" << p << ") = " << val << " on side " << 0 << endl;
+					if (val == "") blanklog = true;
 				}
 				dlogs.push_back((dlog){ side, p, gcopy(id), e, val });
 			}
@@ -490,6 +510,7 @@ string deduce_from_both_sides(string ellstr, string filename)
 				if (val == "" && p != pfile) {
 					val = deduce_from_both_sides(ellstr, "deduce_" + to_string(p) + ".txt");
 					//cout << "\tvlog(" << p << ") = " << val << " on side " << 1 << endl;
+					if (val == "") blanklog = true;
 				}
 				dlogs.push_back((dlog){ side, p, gcopy(id), e, val });
 			}
@@ -571,7 +592,10 @@ string deduce_from_both_sides(string ellstr, string filename)
 		mpz_clear(ell);
 		mpz_clear(log);
 		mpz_clear(tlog);
+		mpz_clear(logJ);
 	}
+
+	if (blanklog) tlogstr = "";
 
 	return tlogstr;
 }

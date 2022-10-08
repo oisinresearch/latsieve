@@ -30,8 +30,8 @@ using std::stringstream;
 
 int main(int argc, char** argv)
 {
-	if (argc == 1) {
-		cout << "usage: ./makefbtnfs polyfile.poly fbb factorbasefile" << endl;
+	if (argc != 4) {
+		cout << "usage: ./makefbtnfsi4d polyfile.poly sieve_bound factorbasefile" << endl;
 		return 0;
 	}
 
@@ -163,7 +163,7 @@ int main(int argc, char** argv)
 	if (verbose) cout << endl << "Complete.  Degree fh_y = " << degfhy << ", degree gh_y = " << degghy << "." << endl;
 
 	if (verbose) cout << endl << "Starting sieve of Eratosthenes for small primes..." << endl << flush;
-	int64_t fbb = 1<<21;
+	int64_t fbb = 0;
 	if (argc >=3) fbb = atoi(argv[2]);
 	int64_t max = fbb; // 10000000;// 65536;
 	char* sieve = new char[max+1]();
@@ -176,6 +176,7 @@ int main(int argc, char** argv)
 	for (int64_t i = 2; i <= max-1; i++)
 		if (!sieve[i])
 			primes[nump++] = i;
+	if (verbose) cout << "nump = " << nump << endl;
 	if (verbose) cout << "Complete." << endl;
 
 	// set up constants

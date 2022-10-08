@@ -101,6 +101,7 @@ bool EECM_mpz(mpz_t N, mpz_t S, mpz_t factor, int d, int a, int X0, int Y0, int 
 bool EECM_int128(__int128 N, mpz_t S, __int128 &factor, int d, int a, int X0, int Y0, int Z0, int64_t mulo, int64_t muhi);
 int findfirst3(int64_t* list, int n3, int64_t t);
 int bisection(int* list, int n, int t);
+time_t day_seconds();
 
 static void wait_for_debugger(int myrank)
 {
@@ -459,7 +460,7 @@ int main(int argc, char** argv)
 	}
 	// read q2sieve0
 	fbinfo.q2sieve0 = new int64_t[imax0*3]();
-	fbinfo.q2sieve0hits = new int[imax0*3]();
+	fbinfo.q2sieve0hits = new int[imax0]();
 	//fill_n(fbinfo.q2sieve0hits, fbinfo.k[0][2], -1);
 	for (int i = 0; i < fbinfo.k[0][2]; i++) {
 		getline(fbfile, line);
@@ -518,7 +519,7 @@ int main(int argc, char** argv)
 	}
 	// read q2sieve1
 	fbinfo.q2sieve1 = new int64_t[imax1*3]();
-	fbinfo.q2sieve1hits = new int[imax1*3]();
+	fbinfo.q2sieve1hits = new int[imax1]();
 	//fill_n(fbinfo.q2sieve1hits, fbinfo.k[1][2], -1);
 	for (int i = 0; i < fbinfo.k[1][2]; i++) {
 		getline(fbfile, line);
@@ -617,40 +618,53 @@ int main(int argc, char** argv)
 	mpz_poly res; mpz_poly_init(res, 0);
 	for (int i = 0; i <= degh; i++) mpz_poly_setcoeff(h0, i, hpoly[i]);
 
-	int* buffer = new int[np*2*NQ]();
+	int* buffer0 = new int[np*fbinfo.k[0][2]]();
+	int* buffer1 = new int[np*fbinfo.k[1][2]]();
 	int* myideals = new int[2*NQ]();
-	int myimax0 = 3*(fbinfo.k[0][2] - 1 - myrank);
-	int myimax1 = 3*(fbinfo.k[1][2] - 1 - myrank);
+	int myimax0 = fbinfo.k[0][2] - 1 - myrank;
+	int myimax1 = fbinfo.k[1][2] - 1 - myrank;
 	bool flip = true;
 	int64_t q = fbinfo.q2sieve0[myimax0];
 	int NRtotal = 0;
-	while (q > qlower && NRtotal < nrel) {
+	time_t interval = 600;	// 10 minutes
+	time_t barrier = day_seconds() + interval;
+	if (myrank == 0)
+		cout << "Next barrier at " << barrier << " seconds since start of day." << endl;
+	int skipped0 = 0;
+	int skipped1 = 0;
+	while (q > qlower) { // && NRtotal < nrel) {
 		int n = 0;
 		info.qtype[n] = 2;
 		int m = 0;
 		// we only allow degree-1 special-q ideals for the moment (note: sieve has all)
 		for (int iflip = 0; iflip <= 1; iflip++) {
 			// find next special-q
-			if (flip) {
-				while (myimax0 > 0 && fbinfo.q2sieve0hits[myimax0]) myimax0 -= 3*np;
+			if (flip) {	
+				while (myimax0 > 0 && fbinfo.q2sieve0hits[myimax0]) {
+					myimax0 -= np;
+					skipped0++;
+				}
 				if (myimax0 >= 0) {
-					q = fbinfo.q2sieve0[myimax0];
+					q = fbinfo.q2sieve0[3*myimax0];
 					info.q = q;
-					info.r[n] = fbinfo.q2sieve0[myimax0+1];
-					info.R[n] = fbinfo.q2sieve0[myimax0+2];
+					info.r[n] = fbinfo.q2sieve0[3*myimax0+1];
+					info.R[n] = fbinfo.q2sieve0[3*myimax0+2];
 					qside = 0;
-					myimax0 -= 3*np;
+					myimax0 -= np;
 				}
 			}
 			else {
-				while (myimax1 > 0 && fbinfo.q2sieve1hits[myimax1]) myimax1 -= 3*np;
+				while (myimax1 > 0 && fbinfo.q2sieve1hits[myimax1]) {
+					myimax1 -= np;
+					skipped1++;
+				}
 				if (myimax1 >= 0) {
-					q = fbinfo.q2sieve1[myimax1];
+					q = fbinfo.q2sieve1[3*myimax1];
 					info.q = q;
-					info.r[n] = fbinfo.q2sieve1[myimax1+1];
-					info.R[n] = fbinfo.q2sieve1[myimax1+2];
+					info.r[n] = fbinfo.q2sieve1[3*myimax1+1];
+					info.R[n] = fbinfo.q2sieve1[3*myimax1+2];
 					qside = 1;
-					myimax1 -= 3*np;
+					myimax1 -= np;
 				}
 			}
 			flip = !flip;
@@ -659,7 +673,7 @@ int main(int argc, char** argv)
 			int mn = 0; int rn = info.r[n]; int Rn = info.R[n];
 			int a0 = 0; int a1 = 0; int b0 = 0; int b1 = 0;
 
-			// sieve side for flip false
+			// sieve side 0
 			myout << "# Starting sieve on side " << 0 << flush;
 			start = clock();
 			string sqstr = "";
@@ -698,7 +712,7 @@ int main(int argc, char** argv)
 				}
 			}
 			myout << "# " << R0 << " candidates on side " << 0 << "." << endl;
-			// sieve side for flip true
+			// sieve side 1
 			myout << "# Starting sieve on side " << 1 << flush;
 			if (qside == 1) {
 				myout << " for special-q ";
@@ -794,7 +808,8 @@ int main(int argc, char** argv)
 			for (int i = 0; i < potR; i++)
 			{
 				// zero buffers first.  even if there is no relation, buffer = { 0 }
-				for (int j = 0; j < np*2*NQ; j++) buffer[j] = 0;
+				for (int j = 0; j < np*fbinfo.k[0][2]; j++) buffer0[j] = 0;
+				for (int j = 0; j < np*fbinfo.k[1][2]; j++) buffer1[j] = 0;
 				for (int j = 0; j < 2*NQ; j++) myideals[j] = 0;
 
 				int reli = potrel[i];
@@ -1097,21 +1112,46 @@ int main(int argc, char** argv)
 						}
 					}
 				}
-				// we go to great lengths to avoid MPI calls in if block, so it goes here.
+				// update our local copies of q2sievehits
+				for (int k = 0; k < NQ; k++) {
+					int ipk0 = myideals[k];
+					if (ipk0 > 0) fbinfo.q2sieve0hits[ipk0]++;
+					int ipk1 = myideals[NQ + k];
+					if (ipk1 > 0) fbinfo.q2sieve1hits[ipk1]++;
+				}
+
 				MPI_Comm_rank(comm1, &myrank);
 				MPI_Comm_size(comm1, &np);
 
-				// now send this rank's rel to all ranks
-				MPI_Allgather(myideals, 2*NQ, MPI_INT, buffer, 2*NQ, MPI_INT, comm1);
-				// now update local lists of primes from buffer
-				int off = 0;
-				for (int j = 0; j < np; j++) {
-					for (int k = 0; k < NQ; k++) {
-						int ipk0 = buffer[2*j*NQ + k];
-						if (ipk0 > 0) fbinfo.q2sieve0hits[ipk0]++;
-						int ipk1 = buffer[(2*j+1)*NQ + k];
-						if (ipk1 > 0) fbinfo.q2sieve1hits[ipk1]++;
+				time_t time = day_seconds();
+				if (time < interval && barrier > 2*interval)
+					barrier = time + interval; // if past midnight
+				if (time > barrier) {
+					// now synchronize q2sievehits if past time of day barrier
+					int n0 = fbinfo.k[0][2];
+					int n1 = fbinfo.k[1][2];
+					cout << "# starting synchronization at " << time << " seconds since "
+					"start of day..." << endl;
+					MPI_Allgather(fbinfo.q2sieve0hits, n0, MPI_INT, buffer0, n0,
+						MPI_INT, comm1);
+					MPI_Allgather(fbinfo.q2sieve1hits, n1, MPI_INT, buffer1, n1,
+						MPI_INT, comm1);
+					cout << "# synchronization complete." << endl;
+					for (int j = 0; j < np; j++) {
+						for (int k = 0; k < n0; k++) {
+							int oldval = fbinfo.q2sieve0hits[k];
+							int newval = buffer0[j*n0+k];
+							if (oldval | newval)
+								fbinfo.q2sieve0hits[k] = oldval > newval ? oldval : newval;
+						}
+						for (int k = 0; k < n1; k++) {
+							int oldval = fbinfo.q2sieve1hits[k];
+							int newval = buffer1[j*n1+k];
+							if (oldval | newval)
+								fbinfo.q2sieve1hits[k] = oldval > newval ? oldval : newval;
+						}
 					}
+					barrier += interval;
 				}
 
 				// now remove this rank from communicator if no work left
@@ -1127,8 +1167,11 @@ int main(int argc, char** argv)
 				if ((nump-1-j)%np == myrank)
 					cout << allp[j] << ":" << allp0hits[j] << ":" << allp1hits[j] << endl;
 			}*/
-			cout << endl << "special-q " << sqstr << " on side " << qside
-				<< " processed." << endl;
+			cout << "special-q " << sqstr << " on side " << qside
+				<< " done. " << (qside==0?skipped0:skipped1) << " skipped. " << NR
+				<< " rels." << endl;
+			if (qside == 0) skipped0 = 0;
+			if (qside == 1) skipped1 = 0;
 
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			myout << "# Finished! Cofactorization took " << timetaken << "s" << endl << flush;
@@ -1136,11 +1179,14 @@ int main(int argc, char** argv)
 			//myout << "lpb = " << mpz_get_str(NULL, 10, lpb) << endl << flush;
 		}
 	}
-
+	
+	cout << "Finished on rank #" << myrank << "." << endl;
+	MPI_Barrier(comm1);
 	MPI_Finalize();
 
 	delete[] myideals;
-	delete[] buffer;
+	delete[] buffer1;
+	delete[] buffer0;
 	mpz_clear(dummy);
 	free(str2);
 	mpz_poly_clear(res);
@@ -2696,5 +2742,18 @@ int bisection(int* list, int n, int t)
 		else { i = mid; break; }
 	}
 	return i;
+}
+
+time_t day_seconds()
+{
+    time_t t1, t2;
+    struct tm tms;
+    time(&t1);
+    localtime_r(&t1, &tms);
+    tms.tm_hour = 0;
+    tms.tm_min = 0;
+    tms.tm_sec = 0;
+    t2 = mktime(&tms);
+    return t1 - t2;
 }
 

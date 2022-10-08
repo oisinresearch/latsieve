@@ -541,7 +541,7 @@ void mpz_poly_setcoeff(mpz_poly f, int i, mpz_t z)
 }
 
 /* Set mpz_t coefficient for the i-th term. */
-void mpz_poly_setcoeff_ui(mpz_poly f, int i, unsigned int z)
+void mpz_poly_setcoeff_ui(mpz_poly f, int i, uint64_t z)
 {
 	mpz_poly_realloc(f, i + 1);
 	mpz_set_ui(f->coeff[i], z);

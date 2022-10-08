@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
  
 	int* buffer = new int[np]();  // buffer to hold all relations from a loop iteration
 	srand(time(NULL)^my_rank);  // seed RNG from time, rank
-	int n = 65536 + (rand() % 5);  // choose a random loop length in {5,6,7,8,9}
+	int n = /*65536*/ 10 + (rand() % 5);  // choose a random loop length in {5,6,7,8,9}
 
 	MPI_Comm comm1 = MPI_COMM_WORLD;
 	MPI_Comm comm2;
@@ -44,6 +44,8 @@ int main(int argc, char* argv[])
 		int col = 0; int key = 1;
 		if (i == n-1) col = 0;
 		else col = 1;
+
+		if (i == n-1) break;
 		
 		MPI_Comm_split(comm1, col, key, &comm2);
 		comm1 = comm2;

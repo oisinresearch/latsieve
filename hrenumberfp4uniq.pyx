@@ -35,24 +35,35 @@ if len(sys.argv) != 3:
 inputfilename = sys.argv[1]
 outputfilename = sys.argv[2]
 
+hh = 18446744073709551616
 list0 = []
+g = 0
 t = 0
 with open(inputfilename,'r') as inputfile:
     for line in inputfile:
-        abcd = line.split(":")[0]
+        [Astr,Bstr] = line.split(":")[0].split(",")
+        [A,B]=[int(Astr,16),int(Bstr,16)]
+        [a,b,c,d]=[(A>>24)-2**23,(A & (2**24-1))-2**23,(B>>24)-2**23,(B & (2**24-1))-2**23]
+        abcd = str(a)+","+str(b)+","+str(c)+","+str(d)
+        #abcd = line.split(":")[0]
         relstr = line.split(":")[1]
-        [a,b,c,d]=[Integer(abcd.split(",")[i]) for i in (ellipsis_range(0,Ellipsis,3))]
+        #[a,b,c,d]=[Integer(abcd.split(",")[i]) for i in (ellipsis_range(0,Ellipsis,3))]
         A1 = ((a+b*y)+(c+d*y)*x1)*J1
         A2 = ((a+b*y)+(c+d*y)*x2)*J2
         N1 = A1.absolute_norm()
         N2 = A2.absolute_norm()
-        h = hash((a+b*y)/(c+d*y)) % (1<<64)
-        list0.append([h,abs(N1*N2),abcd,relstr])
+        if gcd(N1,N2) == 1:
+            h = hash((a+b*y)/(c+d*y)) % hh
+            list0.append([h,abs(N1*N2),abcd,relstr])
+        else:
+            g += 1
         t += 1
         if t % 10000 == 0:
-            print str(t) + " relations opened..."
+            print str(t) + " relations read..."
 
-print "\nfinished reading input.\n\n"
+print str(t) + " relations read.\n"
+print str(g) + " relations with gcd(N1,N2) > 1."
+print "\nfinished reading input.\n"
 list0.sort()
 h1 = 0
 t = 0
@@ -67,4 +78,6 @@ with open(outputfilename,'w') as outputfile:
             t += 1
             if t % 10000 == 0:
                 print str(t) + " relations written..."
+
+print str(t) + " relations written.\n"
 

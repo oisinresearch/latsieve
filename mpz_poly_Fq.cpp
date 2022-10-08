@@ -14,6 +14,9 @@ using std::endl;
 void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, int64_t q, mpz_poly h,
 	mpz_poly_bivariate* factors)
 {
+	// seed random number generator
+	srand(1);
+
 	// compute r = (q^(2*d) - 1)/2, finite field has order q^2 for now
 	int64_t r = 1;
 	for (int i = 0; i < 2*d; i++) r *= q;

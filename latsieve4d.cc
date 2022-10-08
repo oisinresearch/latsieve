@@ -64,10 +64,10 @@ int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 void histogram(keyval*M, uint8_t* H, int len);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
 void csort(keyval* M, keyval* L, int* H, int len);
-inline int floordiv(int a, int b);
+inline int64_t floordiv(int64_t a, int64_t b);
 inline int64_t modinv(int64_t x, int64_t m);
 inline int nonzerolcm(int u1, int u2, int u3);
-inline int nonzerolcm4d(int u1, int u2, int u3, int u4);
+inline int64_t nonzerolcm4d(int u1, int u2, int u3, int u4);
 inline int gcd(int a, int b);
 inline __int128 gcd128(__int128 a, __int128 b);
 inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, 
@@ -105,7 +105,7 @@ int main(int argc, char** argv)
 	//cout << (uint64_t)(MASK64) << " " << (uint64_t)(MASK64 >> 64) << endl;
 
 	if (argc != 15) {
-		cout << endl << "Usage: ./latsieve4d inputpoly fbbits factorbasefile B1 B2 B3 B4 qmin qmax th0 th1 lpbbits cofacscalar qside" << endl << endl;
+		cout << endl << "Usage: ./latsieve4d inputpoly sieve_bound factorbasefile B1 B2 B3 B4 qmin qmax th0 th1 lp_bound cofacscalar qside" << endl << endl;
 		return 0;
 	}
 
@@ -235,11 +235,11 @@ int main(int argc, char** argv)
 	if (verbose) cout << endl << "Complete.  Degree fh_t = " << degfht << ", degree gh_t = " << degght << "." << endl;
 
 	if (verbose) cout << endl << "Starting sieve of Eratosthenes for small primes..." << endl << flush;
-	int fbbits = 21;
-	if (argc >=3) fbbits = atoi(argv[2]);
-	int max = 1<<fbbits; // 10000000;// 65536;
+	int fbb = 0;
+	if (argc >=3) fbb = atoi(argv[2]);
+	int max = fbb; // 10000000;// 65536;
 	char* sieve = new char[max+1]();
-	int* primes = new int[2097152]; //int[1077871]; // int[155611]; //new int[809228];	//new int[6542]; 	// 2039 is the 309th prime, largest below 2048
+	int* allp = new int[2097152]; //int[1077871]; // int[155611]; //new int[809228];	//new int[6542]; 	// 2039 is the 309th prime, largest below 2048
 	for (int i = 2; i <= sqrt(max); i++)
 		if(!sieve[i])
 			for (int j = i*i; j <= max; j += i)
@@ -247,7 +247,7 @@ int main(int argc, char** argv)
 	int nump = 0;
 	for (int i = 2; i <= max-1; i++)
 		if (!sieve[i])
-			primes[nump++] = i;
+			allp[nump++] = i;
 	if (verbose) cout << "Complete." << endl;
 
 	// load factor base
@@ -391,8 +391,8 @@ int main(int argc, char** argv)
 	if (argc >= 8) B[3] = atoi(argv[7]);
 	int B1bits = B[0]; int B2bits = B[1]; int B3bits = B[2]; int B4bits = B[3];
 	int B1 = 1<<B1bits; int B2 = 1<<B2bits; int B3 = 1<<B3bits; int B4 = 1<<B4bits;
-	int Mlen = (B1*2*B2*2*B3*2*B4*2);	// DO NOT! require positive z coordinate
-	Mlen = (int)(2.3f * Mlen);	// upper bound on number of vectors in sieve box
+	uint32_t Mlen = (B1*2*B2*2*B3*2*B4*2);	// DO NOT! require positive z coordinate
+	Mlen = (uint32_t)(2.3f * Mlen);	// upper bound on number of vectors in sieve box
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
 	uint8_t* H = new uint8_t[Mlen];	// histogram
@@ -425,11 +425,11 @@ int main(int argc, char** argv)
 	if (argc >= 11) th0 = atoi(argv[10]);
 	uint8_t th1 = 70;
 	if (argc >= 12) th1 = atoi(argv[11]);
-	int lpbits = 29;
-	if (argc >= 13) lpbits = atoi(argv[12]);
+	int64_t lpb0 = 0;
+	if (argc >= 13) lpb0 = strtoll(argv[12], NULL, 10);
 	int cofacS = 1000;
 	if (argc >= 14) cofacS = atoi(argv[13]);
-	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, primes, 669);	// max S = 5000
+	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, allp, 669);	// max S = 5000
 	char* str2 = (char*)malloc(20*sizeof(char));
 	int qside = atoi(argv[14]);
 	mpz_poly Fqh_x; mpz_poly_init(Fqh_x, 0);
@@ -475,7 +475,7 @@ int main(int argc, char** argv)
 			// we only allow degree-1 special-q ideals for the moment (note: sieve has all)
 			if (info.qtype[n] != 2) continue;
 
-			m = latsieve4d(n, info, 0, primes, nump, M, Mlen, B);
+			m = latsieve4d(n, info, 0, allp, nump, M, Mlen, B);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Time taken: " << timetaken << "s" << endl;
 			cout << "# Size of lattice point list is " << m << "." << endl;
@@ -515,7 +515,7 @@ int main(int argc, char** argv)
 			cout << "..." << endl;
 			start = clock();
 			//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-			m = latsieve4d(n, info, 1, primes, nump, M, Mlen, B);
+			m = latsieve4d(n, info, 1, allp, nump, M, Mlen, B);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			cout << "# Size of lattice point list is " << m << "." << endl << flush;
@@ -590,7 +590,8 @@ int main(int argc, char** argv)
 			cout << "# " << R << " potential relations found." << endl << flush;
 		   
 			// compute and factor resultants as much as possible, leave large gcd computation till later.
-			mpz_ui_pow_ui(lpb, 2, lpbits);
+			mpz_set_ui(lpb, lpb0);
+			//mpz_ui_pow_ui(lpb, 2, lpbits);
 			int BASE = 16;
 			stack<mpz_t*> QN; stack<int> Q; int algarr[3]; mpz_t* N;
 			start = clock();
@@ -645,8 +646,8 @@ int main(int argc, char** argv)
 							to_string(c) + "," + to_string(d) + ":";
 						
 						// trial division on side 0
-						int p = primes[0]; int k = 0; 
-						while (p < primes[nump-1]) {
+						int p = allp[0]; int k = 0; 
+						while (p < allp[nump-1]) {
 							int valp = 0;
 							while (mpz_fdiv_ui(N0, p) == 0) {
 								mpz_divexact_ui(N0, N0, p);
@@ -655,7 +656,7 @@ int main(int argc, char** argv)
 								stream << hex << p;
 								str += stream.str() + ",";
 							}
-							p = primes[++k];
+							p = allp[++k];
 						}
 						if (mpz_fdiv_ui(N0, q) == 0 && qside == 0) {
 							mpz_divexact_ui(N0, N0, q);
@@ -736,8 +737,8 @@ int main(int argc, char** argv)
 
 						// trial division on side 1
 						if (isrel) {
-							p = primes[0]; k = 0;
-							while (p < primes[nump-1]) {
+							p = allp[0]; k = 0;
+							while (p < allp[nump-1]) {
 								int valp = 0;
 								while (mpz_fdiv_ui(N1, p) == 0) {
 									mpz_divexact_ui(N1, N1, p);
@@ -746,7 +747,7 @@ int main(int argc, char** argv)
 									stream << hex << p;
 									str += stream.str() + ",";
 								}
-								p = primes[++k];
+								p = allp[++k];
 							}
 							if (mpz_fdiv_ui(N1, q) == 0 && qside == 1)  {
 								mpz_divexact_ui(N1, N1, q);
@@ -853,7 +854,7 @@ int main(int argc, char** argv)
 	//delete[] L;
 	delete[] M;
 	mpz_clear(r0);
-	delete[] primes;
+	delete[] allp;
 	delete[] sieve;
 	mpz_clear(F1ij);
 	mpz_poly_clear(F1i);
@@ -991,20 +992,32 @@ int latsieve4d(int n, sievedata info, int side, int* allp, int nump,
 		int64_t q2 = side == 0 ? info.q2sieve0[3*k2] : info.q2sieve1[3*k2];
 		int64_t q4 = side == 0 ? info.q4sieve0[5*k4] : info.q4sieve1[5*k4];
 		if (k0 < info.k[side][0] && p0 == q0) {
-			qinvmodp[k0] = modinv(q, p0);
-			pinvmodq[k0++] = modinv(p0, q);
+			if (p0 != q) {
+				qinvmodp[k0] = modinv(q, p0);
+				pinvmodq[k0] = modinv(p0, q);
+			}
+			k0++;
 		}
 		if (k1 < info.k[side][1] && p1 == q1) {
-			qinvmodp[imax + k1] = modinv(q, p1);
-			pinvmodq[imax + k1++] = modinv(p1, q);
+			if (p1 != q) {
+				qinvmodp[imax + k1] = modinv(q, p1);
+				pinvmodq[imax + k1] = modinv(p1, q);
+			}
+			k1++;
 		}
 		if (k2 < info.k[side][2] && p2 == q2) {
-			qinvmodp[2*imax + k2] = modinv(q, p2);
-			pinvmodq[2*imax + k2++] = modinv(p2, q);
+			if (p2 != q) {
+				qinvmodp[2*imax + k2] = modinv(q, p2);
+				pinvmodq[2*imax + k2] = modinv(p2, q);
+			}
+			k2++;
 		}
 		if (k4 < info.k[side][3] && p4 == q4) {
-			qinvmodp[3*imax + k4] = modinv(q, p4);
-			pinvmodq[3*imax + k4++] = modinv(p4, q);
+			if (p4 != q) {
+				qinvmodp[3*imax + k4] = modinv(q, p4);
+				pinvmodq[3*imax + k4] = modinv(p4, q);
+			}
+			k4++;
 		}
 		if (q0 > p0) i0++;
 		if (q1 > p1) i1++;
@@ -1422,9 +1435,9 @@ bool planeintersectsbox4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3
 }
 */
 
-inline int floordiv(int a, int b)
+inline int64_t floordiv(int64_t a, int64_t b)
 {
-    int d = a / b;
+    int64_t d = a / b;
     return d * b == a ? d : d - ((a < 0) ^ (b < 0));
 }
 
@@ -1487,7 +1500,7 @@ inline void getab4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3, int 
 	int C[8] = { B1-x-1, B2-y-1, B3-z-1, B4-t-1, B1+x, B2+y, B3+z, B4+t };
 	*a = B1; *b = B1;
 
-	int L = abs(nonzerolcm4d(u1, u2, u3, u4));
+	int64_t L = abs(nonzerolcm4d(u1, u2, u3, u4));
 
 	for (int i = 0; i < 8; i++) {
 		int s = abs(U[i]);
@@ -1552,7 +1565,7 @@ inline int gcd(int a, int b)
 }
 
 
-inline int nonzerolcm4d(int u1, int u2, int u3, int u4)
+inline int64_t nonzerolcm4d(int u1, int u2, int u3, int u4)
 {
 	if (u1 == 0) u1 = 1;
 	if (u2 == 0) u2 = 1;
@@ -1562,7 +1575,7 @@ inline int nonzerolcm4d(int u1, int u2, int u3, int u4)
 	int g2 = gcd(u2, u3);
 	int g3 = gcd(g1, g2);
 	int g4 = gcd(g3, u4);
-	return (u1 * u2 * u3 * u4) / g4;
+	return ((int64_t)u1 * u2 * u3 * u4) / g4;
 }
 
 
