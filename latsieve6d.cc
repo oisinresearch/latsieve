@@ -137,7 +137,7 @@ int main(int argc, char** argv)
 	for (int i = 0; i < argc; i++) cout << argv[i] << " ";
 	cout << endl;
 
-	bool verbose = false;
+	bool verbose = true;// false;
 		
 	if (verbose) cout << endl << "Reading input polynomial in file " << argv[1] << "..." << flush;
 	//vector<mpz_class> fpoly;
@@ -328,7 +328,7 @@ int main(int argc, char** argv)
 	fbfile.close();
 
 	mpz_t r0; mpz_init(r0);
-	int B[4] = { 7, 7, 7, 7 };
+	int B[6] = { 3, 3, 3, 3, 3, 3 };
 	if (argc >= 5) B[0] = atoi(argv[4]);
 	if (argc >= 6) B[1] = atoi(argv[5]);
 	if (argc >= 7) B[2] = atoi(argv[6]);
@@ -379,7 +379,7 @@ int main(int argc, char** argv)
 	if (argc >= 16) cofacS = atoi(argv[15]);
 	mpz_t S; mpz_init(S); GetlcmScalar(cofacS, S, allp, 669);	// max S = 5000
 	char* str2 = (char*)malloc(20*sizeof(char));
-	int qside = atoi(argv[14]);
+	int qside = atoi(argv[16]);
 	mpz_poly Fqh_x; mpz_poly_init(Fqh_x, 0);
 	mpz_poly_bivariate Aq; mpz_poly_bivariate_init(Aq, 0);
 	mpz_poly Aq0; mpz_poly_init(Aq0, 0);
@@ -905,9 +905,9 @@ int latsieve6d(int n, sievedata info, int side, int* allp, int nump,
 	int B1x2xB2x2bits = B1bits + 1 + B2bits + 1;
 	int B1x2xB2x2xB3x2bits = B1bits + 1 + B2bits + 1 + B3bits + 1;
 	int B1x2xB2x2xB3x2xB4x2bits = B1x2xB2x2xB3x2bits + B4bits + 1;
-	int B1x2xB2x2xB3x2xB4x2xB5x2 = B1x2xB2x2xB3x2xB4x2bits + B5bits + 1;
+	int B1x2xB2x2xB3x2xB4x2xB5x2bits = B1x2xB2x2xB3x2xB4x2bits + B5bits + 1;
 
-	int64_t q = info.q; int64_t r = info.r[n]; int64_t R = info.R[n];
+	int64_t q = info.q; int64_t r0 = info.r[n]; int64_t R0 = info.R[n];
 	// print (q,r) ideal
 	//cout << "special-q (" << q << "," << rl << ")" << endl;
 
@@ -930,21 +930,19 @@ int latsieve6d(int n, sievedata info, int side, int* allp, int nump,
 		if (k2 == info.k[side]) break;
 	}
 
-	L[0]  = q; L[1]  = r; L[2]  = 0; L[3]  = R; L[4]  = 0; L[5]  = 0;
-	L[6]  = 0; L[7]  = 1; L[8]  = r; L[9]  = 0; L[10] = R; L[11] = 0;
-	L[12] = 0; L[13] = 0; L[14] = 1; L[15] = 0; L[16] = 0; L[17] = R;
-	L[18] = 0; L[19] = 0; L[20] = 0; L[21] = 1; L[22] = 0; L[23] = 0;
-	L[24] = 0; L[25] = 0; L[26] = 0; L[27] = 0; L[28] = 1; L[29] = 0;
-	L[30] = 0; L[31] = 0; L[32] = 0; L[33] = 0; L[34] = 0; L[35] = 1;
+	L[0]  = q; L[1]  = r0; L[2]  = 0;  L[3]  = R0; L[4]  = 0;  L[5]  = 0;
+	L[6]  = 0; L[7]  = 1;  L[8]  = r0; L[9]  = 0;  L[10] = R0; L[11] = 0;
+	L[12] = 0; L[13] = 0;  L[14] = 1;  L[15] = 0;  L[16] = 0;  L[17] = R0;
+	L[18] = 0; L[19] = 0;  L[20] = 0;  L[21] = 1;  L[22] = 0;  L[23] = 0;
+	L[24] = 0; L[25] = 0;  L[26] = 0;  L[27] = 0;  L[28] = 1;  L[29] = 0;
+	L[30] = 0; L[31] = 0;  L[32] = 0;  L[33] = 0;  L[34] = 0;  L[35] = 1;
 
 	for (int jj = 0; jj < 36; jj++) L0[jj] = L[jj];
 	int64L2(L, 6);	// LLL reduce L, time log(q)^2
 
-	printmat6x6(L);
-	
 	// compute adjugate of L^-1
 	int64_t qLinv[36];
-	matadj6x6(qLinv, L);
+	matadj6x6(L, qLinv);
 
 	int mm = 0;
     int i = 40;
@@ -958,18 +956,18 @@ int latsieve6d(int n, sievedata info, int side, int* allp, int nump,
         __int128 _r1 = side == 0 ? info.q2sieve0[3*i+1] : info.q2sieve1[3*i+1];
         __int128 _R1 = side == 0 ? info.q2sieve0[3*i+2] : info.q2sieve1[3*i+2];
         int64_t h0, h1;
-        h0 = q*( (_r1 * qinvmodp[i]) % p ) + p*( (L0[1] * pinvmodq[i]) % q );
-        h1 = q*( (_R1 * qinvmodp[i]) % p ) + p*( (L0[2] * pinvmodq[i]) % q );					
+        h0 = q*( (_r1 * qinvmodp[i]) % p ) + p*( (r0 * pinvmodq[i]) % q );
+        h1 = q*( (_R1 * qinvmodp[i]) % p ) + p*( (R0 * pinvmodq[i]) % q );	
         L2[0]  = p*q; L2[1]  = h0; L2[2]  = 0;  L2[3]  = h1; L2[4]  = 0;  L2[5]  = 0;
         L2[6]  = 0;   L2[7]  = 1;  L2[8]  = h0; L2[9]  = 0;  L2[10] = h1; L2[11] = 0;
         L2[12] = 0;   L2[13] = 0;  L2[14] = 1;  L2[15] = 0;  L2[16] = 0;  L2[17] = h1;
         L2[18] = 0;   L2[19] = 0;  L2[20] = 0;  L2[21] = 1;  L2[22] = 0;  L2[23] = 0;
         L2[24] = 0;   L2[25] = 0;  L2[26] = 0;  L2[27] = 0;  L2[28] = 1;  L2[29] = 0;
         L2[30] = 0;   L2[31] = 0;  L2[32] = 0;  L2[33] = 0;  L2[34] = 0;  L2[35] = 1;
-        int64L2(L2, 4);	// LLL reduce L, time log(n)^2
-        mat4x4prod(qLinv, L2, L3);	// L3 =  qLinv*L2
+        int64L2(L2, 6);	// LLL reduce L, time log(n)^2
+        matmul6x6(L3, qLinv, L2);	// L3 =  qLinv*L2
         for (int jj = 0; jj < 36; jj++) L3[jj] /= q;
-        int64L2(L3,4);
+        int64L2(L3, 6);
         int u1, u2, u3, u4, u5, u6;
         int v1, v2, v3, v4, v5, v6;
         int w1, w2, w3, w4, w5, w6;
@@ -1054,39 +1052,50 @@ int latsieve6d(int n, sievedata info, int side, int* allp, int nump,
                                     // pin vector to start of row
                                     int u1B = u1 < 0 ? B1max : -B1; int u2B = u2 < 0 ? B2max : -B2;
                                     int u3B = u3 < 0 ? B3max : -B3; int u4B = u4 < 0 ? B4max : -B4;
+                                    int u5B = u3 < 0 ? B3max : -B5; int u6B = u4 < 0 ? B6max : -B6;
                                     j1 = u1 == 0 ? -1 : (x - u1B) / u1;
                                     j2 = u2 == 0 ? -1 : (y - u2B) / u2;
                                     j3 = u3 == 0 ? -1 : (z - u3B) / u3;
-                                    j4 = u4 == 0 ? -1 : (t - u4B) / u4;
-                                    jmin = minnonneg4d(j1, j2, j3, j4);
-                                    x -= jmin*u1; y -= jmin*u2; z -= jmin*u3; t -= jmin*u4;
+                                    j4 = u4 == 0 ? -1 : (r - u4B) / u4;
+                                    j5 = u5 == 0 ? -1 : (s - u5B) / u5;
+                                    j6 = u6 == 0 ? -1 : (t - u6B) / u6;
+                                    jmin = minnonneg6d(j1, j2, j3, j4, j5, j6);
+                                    x -= jmin*u1; y -= jmin*u2; z -= jmin*u3;
+									r -= jmin*u4; s -= jmin*u5; t -= jmin*u4;
                                     if (x >= -B1 && x < B1 && y >= -B2 && y < B2
-                                          && z >= -B3 && z < B3 && t >= -B4 && t < B4) {
+                                          && z >= -B3 && z < B3 && r >= -B4 && r < B4
+										  	&& s >= -B5 && s < B5 && t >= -B6 && t < B6) {
                                         int u1B = u1 < 0 ? -B1 : B1max; int u2B = u2 < 0 ? -B2 : B2max;
                                         int u3B = u3 < 0 ? -B3 : B3max; int u4B = u4 < 0 ? -B4 : B4max;
+                                        int u5B = u5 < 0 ? -B5 : B5max; int u6B = u6 < 0 ? -B6 : B6max;
                                         j1 = u1 == 0 ? -1 : (u1B - x) / u1;
                                         j2 = u2 == 0 ? -1 : (u2B - y) / u2;
                                         j3 = u3 == 0 ? -1 : (u3B - z) / u3;
-                                        j4 = u4 == 0 ? -1 : (u4B - t) / u4;
-                                        jmin = minnonneg4d(j1, j2, j3, j4);
+                                        j4 = u4 == 0 ? -1 : (u4B - r) / u4;
+                                        j5 = u5 == 0 ? -1 : (u5B - s) / u5;
+                                        j6 = u6 == 0 ? -1 : (u6B - t) / u6;
+                                        jmin = minnonneg6d(j1, j2, j3, j4, j5, j6);
                                         for (int j = 0; j <= jmin; j++) {
                                             int id = (x + B1) + ((y + B2) << B1x2bits) + ((z + B3) << B1x2xB2x2bits)
-                                              + ((t + B4) << B1x2xB2x2xB3x2bits);
+                                              + ((r + B4) << B1x2xB2x2xB3x2bits)
+											  + ((s + B5) << B1x2xB2x2xB3x2xB4x2bits)
+											  + ((t + B6) << B1x2xB2x2xB3x2xB4x2xB5x2bits);
                                             M[mm++] = (keyval){ id, logp };
-                                            x += u1; y += u2; z += u3; t += u4;
+                                            x += u1; y += u2; z += u3; r += u4; s += u5; t += u6;
                                         }
                                         // move by '1-transition' vector
-                                        if (dir == -1) { x += v1; y += v2; z += v3; t += v4; }
-                                        else		   { x -= v1; y -= v2; z -= v3; t -= v4; }
+                                        if (dir == -1) { x += v1; y += v2; z += v3; r += v4; s += v5; t += v6; }
+                                        else		   { x -= v1; y -= v2; z -= v3; r -= v4; s -= v5; t -= v6; }
                                     }
                                     else {
                                         inplane = false;	
                                     }
                                 }
-                                x = s1 - v1; y = s2 - v2; z = s3 - v3; t = s4 - v4;
+                                x = s1 - v1; y = s2 - v2; z = s3 - v3; r = s4 - v4; s = s5 - v5; t = s6 - v6;
                             }
                             // advance to next w grid plane
-                            ws1 += w1; ws2 += w2; ws3 += w3; ws4 += w4; x = ws1; y = ws2; z = ws3; t = ws4;
+                            ws1 += w1; ws2 += w2; ws3 += w3; ws4 += w4; ws5 += w5; ws6 += w6;
+							x = ws1; y = ws2; z = ws3; r = ws4; s = ws5; t = ws6;
                         }
                         else {
                             inspace = false;
@@ -1117,11 +1126,12 @@ int latsieve6d(int n, sievedata info, int side, int* allp, int nump,
 
 void printmat6x6(int64_t M[36])
 {
+	cout << "[";
 	for (int i = 0; i < 6; i++) {
 		for (int j = 0; j < 6; j++) {
 			cout << M[6*i+j];
 			if (j < 5) cout << ",";
-			else if (i < 5) cout << ";\\";
+			else if (i < 5) cout << ";\\\n";
 			else cout << "]" << endl;
 		}
 	}
@@ -1193,9 +1203,9 @@ int64_t matdet(int64_t M[36], int d)
         int64_t p = M[7*k - 7];
         if (p == 0) {
             det = 0;
-            for (int i = 1; i <= d; i++) {
+            for (int i = k+1; i <= d; i++) {
                 det = M[6*(i-1) + k - 1];
-                if (det == 0) {
+                if (det != 0) {
                     for (int j = k; j <= d; j++) {
                         int64_t t = M[6*(i-1) + j - 1];
                         M[6*(i-1) + j - 1] = M[6*(k-1) + j - 1];
@@ -2190,7 +2200,7 @@ int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 	mpz_t dummy; mpz_init(dummy);
 	mpz_poly_discriminant(Df0, f0);
 	mpz_poly_discriminant(Df1, f1);
-	bool allh1, allf1, allf2, allf4;
+	bool allh1, allh3, allf1, allf2, allf3, allf6;
 	int n = 0;	// number of special-q's found
 
 	int64_t q0 = info->q;
@@ -2202,14 +2212,22 @@ int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 
 		// determine which type of special-q we have, first factor f mod q
 		mpz_poly_factor(lf, f0, q, rstate);
-		allf4 = true;
+		allf6 = true;
 		for (int j = 0; j < lf->size; j++)
-			if (lf->factors[j]->f->deg != 4) {
-				allf4 = false;
+			if (lf->factors[j]->f->deg != 6) {
+				allf6 = false;
 				break;
 			}
+		allf3 = true;
+		if (allf6) allf3 = false;
+		for (int j = 0; j < lf->size; j++)
+			if (lf->factors[j]->f->deg != 3) {
+				allf3 = false;
+				break;
+			}
+		
 		allf2 = true;
-		if (allf4) allf2 = false;
+		if (allf6 || allf3) allf2 = false;
 		else
 			for (int j = 0; j < lf->size; j++)
 				if (lf->factors[j]->f->deg != 2) {
@@ -2217,7 +2235,7 @@ int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 					break;
 				}
 		allf1 = true;
-		if (allf4 || allf2) allf1 = false;
+		if (allf6 || allf3 || allf2) allf1 = false;
 		else
 			for (int j = 0; j < lf->size; j++)
 				if (lf->factors[j]->f->deg != 1) {
@@ -2225,7 +2243,14 @@ int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 					break;
 				}
 		mpz_poly_factor(lh, h0, q, rstate);
+		allh3 = true;
+		for (int j = 0; j < lh->size; j++)
+			if (lh->factors[j]->f->deg != 3) {
+				allh3 = false;
+				break;
+			}
 		allh1 = true;
+		if (allh3) allh1 = false;
 		for (int j = 0; j < lh->size; j++)
 			if (lh->factors[j]->f->deg != 1) {
 				allh1 = false;
@@ -2233,35 +2258,7 @@ int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 			}
 
 		// categorize special-q by allf4, allf2, allf1, allh1
-		if (allf4) { // q inert, 0 roots
-			info->qtype[n] = 0;
-			n = 1;
-		}
-		else if (allf2 && allh1)  { // 1 root 
-			for (int j = 0; j < lh->size; j++) {
-				int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
-				info->qtype[n] = 1;
-				info->m[n++] = m;
-			}
-		}
-		else if (!allf4 && !allf2) {
-			for (int j = 0; j < lh->size; j++) {
-				int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
-				mpz_poly_setcoeff_ui(hlin, 0, m);
-				mpz_poly_setcoeff_ui(hlin, 1, 1);
-				mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
-				mpz_poly_set_zero(fhlin);
-				mpz_poly_bivariate_resultant_x(fhlin, F0, Hlin);
-				// now factor fhlin mod q
-				mpz_poly_factor(l3, fhlin, q, rstate);
-				if (l3->factors[0]->f->deg == 2) {	// smallest degree is 2
-					info->qtype[n] = 1;
-					info->m[n++] = m;
-				}
-				mpz_poly_factor_list_flush(l3);
-			}
-			int joff = 0;
-			if (allf1 == false) joff = 4;  // note if lf->size==3, for j below 0..1, not 2
+		if (!allf6 && !allf3 && !allf2 && !allh3) {
 			for (int j = 0; j < lf->size; j++) { // lf sorted by deg increasing
 				if (lf->factors[j]->f->deg == 1) {
 					int64_t R = mpz_get_ui(lf->factors[j]->f->coeff[0]);
@@ -2293,25 +2290,6 @@ int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 				}
 			}
 		}
-		else { // mpz_poly_Fq_factor, 4 values
-			mpz_poly_Fq_factor_edf(1, F0, q0, h0, factors0);
-			for (int j = 0; j < f0->deg / 2; j++) {
-				int64_t a0 = mpz_get_ui(factors0[j]->coeff[0]->coeff[0]);
-				int64_t a1 = mpz_get_ui(factors0[j]->coeff[0]->coeff[1]);
-				// rel1 = x + a1*y + a0
-				// rel2 = rel1*y + rel1
-				int64_t h0_0 = mpz_get_si(h0->coeff[0]);
-				int64_t h0_1 = mpz_get_si(h0->coeff[1]);
-				int64_t b0 = a0 + (-h0_0*a1);
-				int64_t b1 = a0 + a1 + (-h0_1*a1);
-				// Note:  The above only works for monic, quadratic h0
-				info->qtype[n] = 3;
-				info->a0[n] = a0;
-				info->a1[n] = a1;
-				info->b0[n] = b0;
-				info->b1[n++] = b1;
-			}
-		}
 	}
 	else {	// side == 1
 		// skip q0 if it is ramified in K[x]/<f1>
@@ -2319,14 +2297,22 @@ int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 
 		// determine which type of special-q we have, first factor f mod q
 		mpz_poly_factor(lf, f1, q, rstate);
-		allf4 = true;
+		allf6 = true;
 		for (int j = 0; j < lf->size; j++)
-			if (lf->factors[j]->f->deg != 4) {
-				allf4 = false;
+			if (lf->factors[j]->f->deg != 6) {
+				allf6 = false;
 				break;
 			}
+		allf3 = true;
+		if (allf6) allf3 = false;
+		for (int j = 0; j < lf->size; j++)
+			if (lf->factors[j]->f->deg != 3) {
+				allf3 = false;
+				break;
+			}
+		
 		allf2 = true;
-		if (allf4) allf2 = false;
+		if (allf6 || allf3) allf2 = false;
 		else
 			for (int j = 0; j < lf->size; j++)
 				if (lf->factors[j]->f->deg != 2) {
@@ -2334,7 +2320,7 @@ int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 					break;
 				}
 		allf1 = true;
-		if (allf4 || allf2) allf1 = false;
+		if (allf6 || allf3 || allf2) allf1 = false;
 		else
 			for (int j = 0; j < lf->size; j++)
 				if (lf->factors[j]->f->deg != 1) {
@@ -2342,7 +2328,14 @@ int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 					break;
 				}
 		mpz_poly_factor(lh, h0, q, rstate);
+		allh3 = true;
+		for (int j = 0; j < lh->size; j++)
+			if (lh->factors[j]->f->deg != 3) {
+				allh3 = false;
+				break;
+			}
 		allh1 = true;
+		if (allh3) allh1 = false;
 		for (int j = 0; j < lh->size; j++)
 			if (lh->factors[j]->f->deg != 1) {
 				allh1 = false;
@@ -2350,35 +2343,7 @@ int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 			}
 
 		// categorize special-q by allf4, allf2, allf1, allh1
-		if (allf4) { // q inert, 0 roots
-			info->qtype[n] = 0;
-			n = 1;
-		}
-		else if (allf2 && allh1)  { // 1 root 
-			for (int j = 0; j < lh->size; j++) {
-				int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
-				info->qtype[n] = 1;
-				info->m[n++] = m;
-			}
-		}
-		else if (!allf4 && !allf2) {
-			for (int j = 0; j < lh->size; j++) {
-				int64_t m = mpz_get_ui(lh->factors[j]->f->coeff[0]);
-				mpz_poly_setcoeff_ui(hlin, 0, m);
-				mpz_poly_setcoeff_ui(hlin, 1, 1);
-				mpz_poly_bivariate_setcoeff(Hlin, 0, hlin);
-				mpz_poly_set_zero(fhlin);
-				mpz_poly_bivariate_resultant_x(fhlin, F1, Hlin);
-				// now factor fhlin mod q
-				mpz_poly_factor(l3, fhlin, q, rstate);
-				if (l3->factors[0]->f->deg == 2) {	// smallest degree is 2
-					info->qtype[n] = 1;
-					info->m[n++] = m;
-				}
-				mpz_poly_factor_list_flush(l3);
-			}
-			int joff = 0;
-			if (allf1 == false) joff = 8;  // if lf->size==6, for j below 0..3, not 4,5
+		if (!allf6 && !allf3 && !allf2 && !allh3) {
 			for (int j = 0; j < lf->size; j++) { // lf sorted by deg increasing
 				if (lf->factors[j]->f->deg == 1) {
 					int64_t R = mpz_get_ui(lf->factors[j]->f->coeff[0]);
@@ -2408,25 +2373,6 @@ int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 						if (foundR) break;
 					}
 				}
-			}
-		}
-		else { // mpz_poly_Fq_factor, 4 values
-			mpz_poly_Fq_factor_edf(1, F1, q0, h0, factors1);
-			for (int j = 0; j < f1->deg / 2; j++) {
-				int64_t a0 = mpz_get_ui(factors1[j]->coeff[0]->coeff[0]);
-				int64_t a1 = mpz_get_ui(factors1[j]->coeff[0]->coeff[1]);
-				// rel1 = x + a1*y + a0
-				// rel2 = rel1*y + rel1
-				int64_t h0_0 = mpz_get_si(h0->coeff[0]);
-				int64_t h0_1 = mpz_get_si(h0->coeff[1]);
-				int64_t b0 = a0 + (-h0_0*a1);
-				int64_t b1 = a0 + a1 + (-h0_1*a1);
-				// Note:  The above only works for monic, quadratic h0
-				info->qtype[n] = 3;
-				info->a0[n] = a0;
-				info->a1[n] = a1;
-				info->b0[n] = b0;
-				info->b1[n++] = b1;
 			}
 		}
 	}
