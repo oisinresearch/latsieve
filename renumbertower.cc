@@ -1,15 +1,12 @@
 #include <stdint.h>	// int64_t
 #include <iostream> // cout
-#include <gmpxx.h>
-#include "intpoly.h"
 #include <math.h>	// sqrt
+#include <algorithm> // sort
 #include <fstream>	// file
 #include <ctime>	// clock_t
-#include "mpz_poly.h"
 #include <sstream>	// stringstream
 #include <stack>	// stack
 #include <string>
-#include "factorsmall.h"
 #include <assert.h>
 #include <pthread.h>
 #include <pari/pari.h>
@@ -49,42 +46,41 @@ string long2hex(long n);
 int main(int argc, char** argv)
 {
 	if (argc != 7) {
-		cout << "Usage:  ./renumber4d-dl polyfile isofile renumberfile relationsfile ";
+		cout << "Usage:  ./renumbertower polyfile1 polyfile2 renumberfile relationsfile ";
 		cout << "numthreads outputfile" << endl << endl;
 		return 0;
 	}
 
-	string polyfile = string(argv[1]);
-	string isofile = string(argv[2]);
+	string polyfile1 = string(argv[1]);
+	string polyfile2 = string(argv[2]);
 	string renumberfile = string(argv[3]);
 	string relsfile = string(argv[4]);
 	int nt = atoi(argv[5]);
 	string outputfile = argv[6];
 	
 	string loadnfs3dstr = "\\r ~/nfs3d.gp";
-	string loadpolystr = "loadpolytnfs(\"" + polyfile + "\");";
+	string loadpoly1str = "loadpolymono(\"" + polyfile1 + "\");";
+	string loadpoly2str = "loadpolymono(\"" + polyfile2 + "\");";
 
 	// initialize pari library
 	pari_init(2000000000, 65536);
 
-	GEN str1 = gp_read_str(loadnfs3dstr.c_str());
-	geval(str1);
-	GEN str2 = gp_read_str(loadpolystr.c_str());
-	GEN vec1 = geval(str2);
-	GEN p = gel(vec1,1);
-	GEN f = gel(vec1,2);
-	GEN g = gel(vec1,3);
-	GEN h = gel(vec1,4);
-	GEN f0 = gel(vec1,5);
-	GEN g0 = gel(vec1,6);
+GEN verstr = gp_read_str("\\v");
+GEN ver = geval(verstr);
 
-	// read isofile
-	GEN iso1 = readstr(isofile.c_str());
-	GEN y3 = geval(gel(iso1,1));
-	GEN x3 = geval(gel(iso1,2));
-	GEN y4 = geval(gel(iso1,3));
-	GEN x4 = geval(gel(iso1,4));
-
+	GEN y = pol_x(0);
+	GEN x = pol_x(1);
+	GEN str0 = gp_read_str(loadnfs3dstr.c_str());
+	geval(str0);
+	GEN str1 = gp_read_str(loadpoly1str.c_str());
+	GEN vec1 = geval(str1);
+	GEN f1 = gel(vec1,2);
+	GEN str2 = gp_read_str(loadpoly2str.c_str());
+	GEN vec2 = geval(str2);
+	GEN f2 = gel(vec2,2);	// Must be monic!
+	f1 = gsubst(f1, gvar(f1), x);
+	f2 = gsubst(f2, gvar(f2), y);
+	
 	// read factor base (renumber file)
 	cout << "Reading factor base (renumber file)..." << endl;
 	int nideals = 0;
@@ -111,11 +107,14 @@ int main(int argc, char** argv)
 	// set up number fields and J-ideals
 	cout << "Constructing number fields and J-ideals in pari-gp..." << endl;
 	long prec = 5;
-	GEN x = pol_x(0);
-	GEN L3 = nfinit0(f, 3, prec);
-	GEN L4 = nfinit0(g, 3, prec);
-	GEN J3 = idealinv(L3, idealhnf0(L3, gen_1, gsubst(x3, gvar(x3), gel(L3, 2))));
-	GEN J4 = idealinv(L4, idealhnf0(L4, gen_1, gsubst(x4, gvar(x4), gel(L4, 2))));
+	GEN Kx3 = nfinit0(f1, 3, prec);
+	GEN K = gel(Kx3, 1);
+	GEN x3 = gel(Kx3, 2);
+	GEN f2v = cgetg(3, t_VEC);
+	gel(f2v, 1) = f2;
+	gel(f2v, 2) = gen_1;
+	GEN L = rnfinit(K, f2v);
+	GEN J1 = idealinv(K, idealhnf0(K, gen_1, x3));
 
 	// read relations file
 	cout << "Reading relations file..." << endl;
@@ -144,13 +143,9 @@ int main(int argc, char** argv)
 		data[i].ideals = &ideals;
 	}
 
-	GEN args = cgetg(7, t_VEC);
-	gel(args, 1) = f; 
-	gel(args, 2) = g; 
-	gel(args, 3) = y3; 
-	gel(args, 4) = x3; 
-	gel(args, 5) = y4; 
-	gel(args, 6) = x4; 
+	GEN args = cgetg(3, t_VEC);
+	gel(args, 1) = f1; 
+	gel(args, 2) = f2; 
 
 	// main loop
 	pthread_t* th = new pthread_t[nt];
@@ -170,7 +165,7 @@ int main(int argc, char** argv)
 	t = 0;
 	mark = 1024;
 	cout << "Renumbering relations..." << endl;
-	while (t < nrels) {
+	while (t < 2*nrels) {
 		// create nt threads of work
 		for (int i = 0; i < nt; i++) {
 			pthread_create(&th[i], NULL, &thread_root, (void*)&data[i]);
@@ -192,7 +187,7 @@ int main(int argc, char** argv)
 		}
 
 		// continue only if t < nrels
-		if (t < nrels) {
+		if (t < 2*nrels) {
 			for (int i = 0; i < nt; i++) {
 				data[i].startrow += iters;
 				data[i].endrow += iters;
@@ -242,27 +237,28 @@ void *thread_root(void* context_data)
 
 	//pari_sp ltop = avma;
 	long prec = 5;
-	GEN f = gel(args, 1); 
-	GEN g = gel(args, 2); 
-	GEN y3 = gel(args, 3); 
-	GEN x3 = gel(args, 4); 
-	GEN y4 = gel(args, 5); 
-	GEN x4 = gel(args, 6); 
-	GEN I3, I4, I3M, I4M;	
-	GEN g3, g4;
+	GEN I1, I1M;
+	GEN I2, I2M;
+	GEN g1;
 	GEN Ip, pj, idj, fj, sj;
 	GEN item0 = cgetg(5, t_VEC);
 	long i0; GEN logi0; GEN dims;
 
 	// set up number fields and J-ideals
-	GEN x = pol_x(0);
-	GEN L4 = nfinit(g, prec);
-    //cout << "L4 initialized." << endl;
-	GEN L3 = nfinit(f, prec);
-    //cout << "L3 initialized." << endl;
-	GEN J3 = idealinv(L3, idealhnf0(L3, gen_1, gsubst(x3, gvar(x3), gel(L3, 2))));
-    //cout << "J3 initialized." << endl;
-	//GEN J4 = idealinv(L4, idealhnf0(L4, gen_1, gsubst(x4, gvar(x4), gel(L4, 2))));
+	GEN f1 = gel(args, 1);
+	GEN f2 = gel(args, 2);
+	GEN y = pol_x(0);
+	GEN x = pol_x(1);
+	GEN Kx3 = nfinit0(f1, 3, prec);
+	GEN K = gel(Kx3, 1);
+	GEN x3 = gel(Kx3, 2);
+	GEN f2v = cgetg(3, t_VEC);
+	f2 = gsubst(f2, gvar(f2), y);
+	gel(f2v, 1) = f2;
+	gel(f2v, 2) = gen_1;
+	GEN L = rnfinit(K, f2v);
+	GEN J1 = idealinv(K, idealhnf0(K, gen_1, x3));
+	GEN i1;
 	
 	int mark = 1024;
 	int row = data->startrow;
@@ -274,30 +270,27 @@ void *thread_root(void* context_data)
 		string Bhex = ABhex.substr(ABhex.find(",")+1);
 		int64_t A = stol(Ahex, NULL, 16);
 		int64_t B = stol(Bhex, NULL, 16);
+		int64_t a1 = A - (1l<<46);
+		int64_t b1 = B - (1l<<46);
 		
-		int64_t a1 = (A>>24) - (1l<<23);
-		int64_t b1 = (A&((1l<<24)-1)) - (1l<<23);
-		int64_t c1 = (B>>24) - (1l<<23);
-		int64_t d1 = (B&((1l<<24)-1)) - (1l<<23);
-
 		GEN a = stoi(a1);
 		GEN b = stoi(b1);
-		GEN c = stoi(c1);
-		GEN d = stoi(d1);
 
 		vector<int> idealcols;
-		idealcols.clear();
-		idealcols.push_back(0);	// J ideal
+		g1 = gadd(a, gmul(b, x3));
+		i1 = idealmul(K, idealhnf0(K, g1, gen_0), J1);
 
 		// side 0
-		g3 = gadd(gadd(a, gmul(b, y3)), gmul(gadd(c, gmul(d, y3)), x3));
-		I3 = idealmul(L3, idealhnf0(L3, gsubst(g3, gvar(g3), gel(L3, 2)), NULL), J3);
-		I3M = idealfactor(L3, I3);
-		dims = matsize(I3M);
+		idealcols.clear();
+		idealcols.push_back(0);	// J ideal
+		I1 = rnfidealup(L, galoisapply(K, gel(galoisconj(K, NULL),1), i1));
+		I1M = rnfidealfactor(L, I1);
+		dims = matsize(I1M);
 		int nv = itos(gel(dims,1));
+		int t = 0;
 		for (int j = 0; j < nv; ++j) {
-			Ip = gcoeff(I3M, j+1, 1);
-			int v = itos(gcoeff(I3M, j+1, 2));
+			Ip = gcoeff(I1M, j+1, 1);
+			int v = itos(gcoeff(I1M, j+1, 2));
 			pj = gel(Ip, 1);
 			idj = gel(Ip, 2);
 			fj = gel(Ip, 4);
@@ -305,44 +298,16 @@ void *thread_root(void* context_data)
 			char* pjstr = GENtostr(pj);
 			char* idjstr = GENtostr(idj);
 			char* fjstr = GENtostr(fj);
-			string ideal = "[[" + string(pjstr) + ", " + string(idjstr) + "], "
+			string ideal = "[" + string(pjstr) + ", " + string(idjstr) + ", "
 				+ string(fjstr) + ", 0]";
 			free(fjstr); free(idjstr); free(pjstr);
 			auto lb = lower_bound(list->begin(), list->end(), make_pair(ideal, 0),
         		[](pair<string,int> a, pair<string,int> b) { return a.first < b.first; });
     		if (lb->first == ideal) {
+				t++;
 				int i0 = lb->second;
                 for (int i = 0; i < v; i++)
     				idealcols.push_back(i0);
-			}
-		}
-
-		// side 1
-		g4 = gadd(gadd(a, gmul(b, y4)), gmul(gadd(c, gmul(d, y4)), x4));
-		//I4 = idealmul(L4, idealhnf0(L4, gsubst(g4, gvar(g4), gel(L4, 2)), NULL), J4);
-		I4 = idealhnf(L4, g4);
-		I4M = idealfactor(L4, I4);
-		dims = matsize(I4M);
-		nv = itos(gel(dims,1));
-		for (int j = 0; j < nv; ++j) {
-			Ip = gcoeff(I4M, j+1, 1);
-			int v = itos(gcoeff(I4M, j+1, 2));
-			pj = gel(Ip, 1);
-			idj = gel(Ip, 2);
-			fj = gel(Ip, 4);
-			sj = gen_1;
-			char* pjstr = GENtostr(pj);
-			char* idjstr = GENtostr(idj);
-			char* fjstr = GENtostr(fj);
-			string ideal = "[[" + string(pjstr) + ", " + string(idjstr) + "], "
-				+ string(fjstr) + ", 1]";
-			free(fjstr); free(idjstr); free(pjstr);
-			auto lb = lower_bound(list->begin(), list->end(), make_pair(ideal, 0),
-        		[](pair<string,int> a, pair<string,int> b) { return a.first < b.first; });
-    		if (lb->first == ideal) {
-				int i0 = lb->second;
-                for (int i = 0; i < v; i++)
-				    idealcols.push_back(i0);
 			}
 		}
 
@@ -355,8 +320,60 @@ void *thread_root(void* context_data)
 		}
 		data->rnrels.push_back(rel);
 		
+		if (t != nv) {
+			cout << (*data->rels)[row] << endl;
+			cout << rel << endl;
+			assert(t == nv);
+		}
+
+		// apply Galois automorphism of L (quadratic over K) to get another relation
+		idealcols.clear();
+		idealcols.push_back(0);	// J ideal
+		I2 = rnfidealup(L, galoisapply(K, gel(galoisconj(K, NULL),2), i1));
+		I2M = rnfidealfactor(L, I2);
+		dims = matsize(I2M);
+		nv = itos(gel(dims,1));
+		t = 0;
+		for (int j = 0; j < nv; ++j) {
+			Ip = gcoeff(I2M, j+1, 1);
+			int v = itos(gcoeff(I2M, j+1, 2));
+			pj = gel(Ip, 1);
+			idj = gel(Ip, 2);
+			fj = gel(Ip, 4);
+			sj = gen_0;
+			char* pjstr = GENtostr(pj);
+			char* idjstr = GENtostr(idj);
+			char* fjstr = GENtostr(fj);
+			string ideal = "[" + string(pjstr) + ", " + string(idjstr) + ", "
+				+ string(fjstr) + ", 0]";
+			free(fjstr); free(idjstr); free(pjstr);
+			auto lb = lower_bound(list->begin(), list->end(), make_pair(ideal, 0),
+        		[](pair<string,int> a, pair<string,int> b) { return a.first < b.first; });
+    		if (lb->first == ideal) {
+				t++;
+				int i0 = lb->second;
+                for (int i = 0; i < v; i++)
+    				idealcols.push_back(i0);
+			}
+		}
+
+		// construct renumbered relation
+		sort(idealcols.begin(), idealcols.end());
+		rel = ABhex + ":";
+		for (int j = 0; j < idealcols.size(); j++) {
+			rel += long2hex(idealcols[j]);
+			if (j < idealcols.size()-1) rel += ",";
+		}
+		data->rnrels.push_back(rel);
+		
+		if (t != nv) {
+			cout << (*data->rels)[row] << endl;
+			cout << rel << endl;
+			assert(t == nv);
+		}
+
 		// advance to next relation for this thread
-		row++;
+		row += 1;
 	}
 	//avma = ltop;
 

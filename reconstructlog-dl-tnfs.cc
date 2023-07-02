@@ -33,7 +33,7 @@ typedef struct struct2 {
 	int nt;
 	struct pari_thread pth;
 	string ellstr;
-	vector<string>* relsdel;
+	vector<string>* rels;
 	vector<string>* fblogs;
 	vector<string>* smlogs;
 	int numrels;
@@ -57,10 +57,11 @@ string long2hex(long n);
 
 int main(int argc, char** argv)
 {
-	if (argc != 16) {
+	if (argc != 13) {
 		cout << "Usage:  ./reconstructlog-dl-tnfs polyfile isofile renumberfile knownlogs ";
-		cout << "ideals relsdel num_Sch_0 num_Sch_1 numthreads ell outlogs origrels "
-			 << "outmat outvec outideals" << endl << endl;
+		cout << "ideals purgedrels relsdel num_Sch_0 num_Sch_1 numthreads ell outlogs";
+		cout << endl << endl; // origrels "
+//			 << "outmat outvec outideals" << endl << endl;
 		return 0;
 	}
 
@@ -69,11 +70,12 @@ int main(int argc, char** argv)
 	string renumberfile = string(argv[3]);
 	string knownlogsfile = string(argv[4]);
 	string idealsfile = string(argv[5]);
-	string relsdelfile = string(argv[6]);
-	int nsm0 = atoi(argv[7]);
-	int nsm1 = atoi(argv[8]);
-	int nt = atoi(argv[9]);
-	string ellstr = argv[10];
+	string purgedrelsfile = string(argv[6]);
+	string relsdelfile = string(argv[7]);
+	int nsm0 = atoi(argv[8]);
+	int nsm1 = atoi(argv[9]);
+	int nt = atoi(argv[10]);
+	string ellstr = argv[11];
 	
 	string loadnfs3dstr = "\\r ~/nfs3d.gp";
 	string loadpolystr = "loadpolytnfs(\"" + polyfile + "\");";
@@ -213,14 +215,15 @@ int main(int argc, char** argv)
 		data[i].smlogs = &smlogs;
 	}
 
-	// read relsdel
-	vector<string> relsdel;
-	ifstream file2(relsdelfile);
-	getline(file2, line);	// first line contains number of relations
+	// read purgedrels
+	cout << " reading purged rels file..." << endl;
+	vector<string> rels;
+	ifstream file2(purgedrelsfile);
+	//getline(file2, line);	// first line contains number of relations
 	mark = 1024;
 	t = 0;
 	while (getline(file2, line)) {
-		relsdel.push_back(line);
+		rels.push_back(line);
 		t++;
 		if (t % mark == 0) {
 			cout << to_string(t) << " relations read..." << endl;
@@ -229,10 +232,31 @@ int main(int argc, char** argv)
 	}
 	cout << to_string(t) << " relations read." << endl << endl;
 	for (int i = 0; i < nt; i++) {
-		data[i].relsdel = &relsdel;
-		data[i].numrels = t - nsm0 - nsm1;
+		data[i].rels = &rels;
 	}
 	file2.close();
+
+	// read relsdel
+	cout << " reading relsdel file..." << endl;
+	//vector<string> relsdel;
+	ifstream file3(relsdelfile);
+	getline(file3, line);	// first line contains number of relations
+	mark = 1024;
+	t = 0;
+	while (getline(file3, line)) {
+		rels.push_back(line);
+		t++;
+		if (t % mark == 0) {
+			cout << to_string(t) << " relations read..." << endl;
+			mark *= 2;
+		}
+	}
+	cout << to_string(t) << " relations read." << endl << endl;
+	int numrels = rels.size();
+	for (int i = 0; i < nt; i++) {
+		data[i].numrels = numrels - nsm0 - nsm1;
+	}
+	file3.close();
 
 	GEN args = cgetg(13, t_VEC);
 	gel(args, 0) = f; 
@@ -304,7 +328,7 @@ int main(int argc, char** argv)
 
 	// write output file, ideals linked to known logs
 	FILE* out;
-	out = fopen(argv[11], "w+");
+	out = fopen(argv[12], "w+");
 	t = 0;
 	cout << endl << "Writing logs to output file " << argv[11] << "..." << endl;
 	for (int i = 0; i < numideals; i++) {
@@ -335,6 +359,7 @@ int main(int argc, char** argv)
 	cout << to_string(nsm0 + nsm1) << " Schirokauer map logs written." << endl;
 	fclose(out);
 
+/*
 	// write output ideals linked to known logs
 	FILE* outideals;
 	outideals = fopen(argv[15], "w+");
@@ -406,7 +431,7 @@ int main(int argc, char** argv)
 	fclose(outvec);
 
 	cout << endl << "Finished!" << endl;
-
+*/
 	// tidy up
 	for (int i = 0; i < nt; i++) pari_thread_free(&data[i].pth);
 	delete[] col2id;
@@ -425,7 +450,6 @@ void *thread_root(void* context_data)
 	// start pari thread
 	GEN args = pari_thread_start(&data->pth);
 
-	pari_sp ltop = avma;
 	long prec = 5;
 	GEN f = gel(args, 0); 
 	GEN g = gel(args, 1); 
@@ -445,7 +469,8 @@ void *thread_root(void* context_data)
 	int mark = 1024;
 	int row = data->startrow;
 	while (row < data->numrels) {
-		string rel = (*data->relsdel)[row];
+		pari_sp ltop = avma;
+		string rel = (*data->rels)[row];
 		if (rel[rel.length()-1] == ',') rel = rel.substr(0, rel.length()-1);
 		string ABhex = rel.substr(0, rel.find(":"));
 		string Ahex = ABhex.substr(0, ABhex.find(","));
@@ -543,8 +568,8 @@ void *thread_root(void* context_data)
 			cout << row << " relations processed..." << endl;
 			mark *= 2;
 		}
+		avma = ltop;
 	}
-	avma = ltop;
 
 	// finish
 	pari_thread_close();
