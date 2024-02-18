@@ -31,15 +31,15 @@ using std::stack;
 using std::abs;
 
 struct keyval {
-	int id;
+	uint32_t id;
 	uint8_t logp;
 };
 
 __int128 MASK64;
 
 int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
-		 keyval* M, int Mlen, int R, int bb);
-void histogram(keyval*M, uint8_t* H, int len);
+		 keyval* M, int mlen, int R, int bb);
+void histogram(keyval*M, uint8_t* H, int m, int hlen);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
 void csort(keyval* M, keyval* L, int* H, int len);
 inline int floordiv(int a, int b);
@@ -232,9 +232,15 @@ int main(int argc, char** argv)
 	int64_t hB = B/2;
 	int bb2 = bb*2;
 
-	int Mlen = (400000000);	// require positive z coordinate
-	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
-	uint8_t* H = new uint8_t[Mlen];	// histogram
+	int mlen = (400000000);	// require positive z coordinate
+	keyval* M = new keyval[mlen];	// lattice { id, logp } pairs
+	uint32_t R2 = 2*R;
+	uint64_t hlen = 1<<(bb*3);//(R2<<bb2)+(R2<<bb)+R2;
+	uint8_t* H = new uint8_t[hlen];	// histogram
+	cout << fixed << setprecision(1);
+	cout << "# Histogram will take " << hlen << " bytes (" << (double)hlen/(1l<<30) << "GB)."
+		<< endl;
+	cout << setprecision(5);
 	vector<int> rel;
 
 	int64_t q = qmin;
@@ -255,14 +261,14 @@ int main(int argc, char** argv)
 		cout << "..." << endl << flush;
 		start = clock();
 		int m = latsieve3d(fq, degf, q, 0, sievep0, k0, sieves0, sievenum_s0modp, M,
-			Mlen, R, bb);
+			mlen, R, bb);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 		cout << "# Size of lattice point list is " << m << "." << endl << flush;
 		cout << "# Constructing histogram..." << endl << flush;
 		start = clock();
 		//std::stable_sort(M, M + m, &lattice_sorter);
-		histogram(M, H, m);
+		histogram(M, H, m, hlen);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 		int R0 = 0;
@@ -279,7 +285,7 @@ int main(int argc, char** argv)
 		if (qside == 1) cout << " for special-q " << q;
 		cout << "..." << endl << flush;
 		start = clock();
-		m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen,
+		m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, mlen,
 			R, bb);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
@@ -287,7 +293,7 @@ int main(int argc, char** argv)
 		cout << "# Constructing histogram..." << endl << flush;
 		start = clock();
 		//std::stable_sort(M, M + m, &lattice_sorter);
-		histogram(M, H, m);
+		histogram(M, H, m, hlen);
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 		int R1 = 0;
@@ -311,36 +317,38 @@ int main(int argc, char** argv)
 		int64L2(L, 3);	// LLL reduce L, time log(q)^2
 		
 		// print list of potential relations
-		int R = 0;
+		int numR = 0;
 		for (int i = 0; i < rel.size()-1; i++)
 		{
 			if (rel[i] == rel[i+1] && rel[i] != 0) {
-				int x = rel[i] % B;
+				int x = rel[i] % B - hB;
 				int y = ((rel[i] >> bb) % B) - hB;
 				int z =  (rel[i] >> bb2) - hB;
 				if (x != 0 || y != 0 || z != 0) {
 					// compute [a,b,c]
-					//int a = L[0]*x+L[1]*y+L[2]*z;
-					//int b = L[3]*x+L[4]*y+L[5]*z;
-					//int c = L[6]*x+L[7]*y+L[8]*z;
-					//cout << rel[i] << ": " << a << "," << b << "," << c << endl;
-					R++;
+					/*if (numR < 10) {
+						int a = L[0]*x+L[1]*y+L[2]*z;
+						int b = L[3]*x+L[4]*y+L[5]*z;
+						int c = L[6]*x+L[7]*y+L[8]*z;
+						cout << rel[i] << ": " << a << "," << b << "," << c << endl;
+					}*/
+					numR++;
 				}
 			}
 		}
-		cout << "# " << R << " potential relations found." << endl << flush;
+		cout << "# " << numR << " potential relations found." << endl << flush;
 	   
 		// compute and factor resultants as much as possible, leave large gcd computation till later.
 		mpz_ui_pow_ui(lpb, 2, lpbits);
 		int BASE = 16;
 		stack<mpz_t*> QN; stack<int> Q; int algarr[3]; mpz_t* N;
 		start = clock();
-		R = 0;
+		numR = 0;
 		if (verbose) cout << "Starting cofactorizaion..." << endl << flush;
 		for (int i = 0; i < rel.size()-1; i++)
 		{
 			if (rel[i] == rel[i+1] && rel[i] != 0) {
-				int x = rel[i] % B;
+				int x = rel[i] % B - hB;
 				int y = ((rel[i] >> bb) % B) - hB;
 				int z =  (rel[i] >> bb2) - hB;
 				if (x != 0 || y != 0 || z != 0) {
@@ -565,14 +573,14 @@ int main(int argc, char** argv)
 							}
 						}
 
-						if (isrel) { cout << str << endl << flush; R++; }
+						if (isrel) { cout << str << endl << flush; numR++; }
 					}
 				}
 			}
 		}
 		timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 		cout << "# Finished! Cofactorization took " << timetaken << "s" << endl << flush;
-		cout << "# " << R << " actual relations found." << endl << flush;
+		cout << "# " << numR << " actual relations found." << endl << flush;
 		//cout << "lpb = " << mpz_get_str(NULL, 10, lpb) << endl << flush;
 	}
 
@@ -612,12 +620,12 @@ int main(int argc, char** argv)
 }
 
 
-void histogram(keyval*M, uint8_t* H, int len)
+void histogram(keyval*M, uint8_t* H, int m, int hlen)
 {
 	// clear H
-	memset(H, 0, len * sizeof(uint8_t));
+	memset(H, 0, hlen * sizeof(uint8_t));
 	// fill H
-	for (int i = 0; i < len; i++) {
+	for (int i = 0; i < m; i++) {
 		H[M[i].id] += M[i].logp;
 	}
 }
@@ -668,7 +676,7 @@ bool lattice_sorter(keyval const& kv1, keyval const& kv2)
 
 
 int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int* s, int* num_smodp,
-			 keyval* M, int Mlen, int R, int bb)
+			 keyval* M, int mlen, int R, int bb)
 {
 	int64_t L[9];
 	int64_t L2[9];
@@ -707,7 +715,7 @@ int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int*
 	qLinv[2] = L[5]*L[1]-L[2]*L[4];
 	qLinv[3] = L[5]*L[6]-L[3]*L[8];
 	qLinv[4] = L[8]*L[0]-L[2]*L[6];
-	qLinv[4] = L[2]*L[3]-L[0]*L[5];
+	qLinv[5] = L[2]*L[3]-L[0]*L[5];
 	qLinv[6] = L[3]*L[7]-L[4]*L[6];
 	qLinv[7] = L[1]*L[6]-L[0]*L[7];
 	qLinv[8] = L[0]*L[4]-L[1]*L[3];
@@ -724,7 +732,7 @@ int latsieve3d(int64_t* f, int degf, int64_t q, int l, int* allp, int nump, int*
 	int* wk = new int[4];
 	int* common_part = new int[4];
 
-	int ii = 40; int mm = 0;
+	int ii = 40; uint32_t mm = 0;
 	while (ii < nump) {
 		int64_t p = allp[ii];
 		if (p == q) { ii++; continue; }

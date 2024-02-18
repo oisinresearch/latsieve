@@ -132,7 +132,7 @@ void mpz_poly_Fq_factor_edf(int d, mpz_poly_bivariate f0, int64_t q, mpz_poly h,
 }
 
 // Euclidean division in F_q[x] where F_q = F_p[y]/<h>.
-// As described in Cohen 3.13 Division of Polynomials
+// As described in Cohen 3.1.3 Division of Polynomials
 void mpz_poly_Fq_divrem(mpz_poly_bivariate Q, mpz_poly_bivariate R,
 	mpz_poly_bivariate A, mpz_poly_bivariate B, int64_t q, mpz_poly h)
 {

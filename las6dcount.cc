@@ -1006,11 +1006,15 @@ int lass6d(int n, sievedata info, int side, int* allp, int nump,
 								c[j] += vk[i] * borig[j*d + i] + common_part[j];
 							}
 						}
-						if (c[0] < 0) { c[0] = -c[0]; c[1] = -c[1]; c[2] = -c[2]; c[3] = -c[3];
-							c[4] = -c[4]; c[5] = -c[5]; }
-						M[mm].id = id;
-						M[mm++].logp = logp;
-						nn++;
+						if (c[0] < 0) { c[0] = -c[0]; c[1] = -c[1]; c[2] = -c[2]; c[3] = -c[3]; c[4] = -c[4]; c[5] = -c[5]; }
+						if (abs(c[0])<hB && abs(c[1])<hB && abs(c[2])<hB && abs(c[3])<hB && abs(c[4])<hB && abs(c[5])<hB) { 
+							//cout << c[0] << "," << c[1] << "," << c[2] << "," << c[3] << "," << c[4] << "," << c[5] << endl;
+							uint32_t id = c[0]+hB + ((c[1]+hB)<<bb) + ((c[2]+hB)<<bb2)
+								+ ((c[3]+hB)<<bb3) + ((c[4]+hB)<<bb4) + ((c[5]+hB)<<bb5);
+							M[mm].id = id;
+							M[mm++].logp = logp;
+							nn++;
+						}
 					}
 					if (vk[k] > ck[k]) vk[k] = vk[k] - wk[k];
 					else vk[k] = vk[k] + wk[k];

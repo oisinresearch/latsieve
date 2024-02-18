@@ -263,7 +263,7 @@ void *thread_root(void* context_data)
 
 		vector<int> idealcols;
 		idealcols.clear();
-		idealcols.push_back(0);	// J ideal
+		//idealcols.push_back(0);	// J ideal
 
 		// side 0
 		g3 = gadd(a, gmul(b, x));
@@ -281,8 +281,8 @@ void *thread_root(void* context_data)
 			char* pjstr = GENtostr(pj);
 			char* idjstr = GENtostr(idj);
 			char* fjstr = GENtostr(fj);
-			string ideal = "[[" + string(pjstr) + ", " + string(idjstr) + "], "
-				+ string(fjstr) + ", 0]";
+			string ideal = "[[" + string(pjstr) + ", " + string(idjstr) + "],"
+				+ string(fjstr) + ",0]";
 			free(fjstr); free(idjstr); free(pjstr);
 			auto lb = lower_bound(list->begin(), list->end(), make_pair(ideal, 0),
         		[](pair<string,int> a, pair<string,int> b) { return a.first < b.first; });

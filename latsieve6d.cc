@@ -33,7 +33,7 @@ using std::stack;
 using std::abs;
 
 struct keyval {
-	int id;
+	uint32_t id;
 	uint8_t logp;
 };
 
@@ -61,7 +61,7 @@ int latsieve6d(int n, sievedata info, int side, int* allp, int nump,
 	keyval* M, int Mlen, int* B);
 int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 	mpz_poly_bivariate F0, mpz_poly_bivariate F1);
-void histogram(keyval*M, uint8_t* H, int len);
+void histogram(keyval*M, uint8_t* H, uint32_t mlen, uint32_t hlen);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
 void csort(keyval* M, keyval* L, int* H, int len);
 inline int64_t floordiv(int64_t a, int64_t b);
@@ -339,12 +339,14 @@ int main(int argc, char** argv)
 	int B4bits = B[3]; int B5bits = B[4]; int B6bits = B[5];
 	int B1 = 1<<B1bits; int B2 = 1<<B2bits; int B3 = 1<<B3bits;
 	int B4 = 1<<B4bits; int B5 = 1<<B5bits; int B6 = 1<<B6bits;
-	uint32_t Mlen = (B1*2*B2*2*B3*2*B4*2*B5*2*B6*2);	// DO NOT! require positive z coordinate
-	Mlen = (uint32_t)(2.3f * Mlen);	// upper bound on number of vectors in sieve box
+	//uint32_t Mlen = (B1*2*B2*2*B3*2*B4*2*B5*2*B6*2);	// DO NOT! require positive z coordinate
+	uint32_t Mlen = 500000000;	// DO NOT! require positive z coordinate
+	//Mlen = (uint32_t)(2.3f * Mlen);	// upper bound on number of vectors in sieve box
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
-	uint8_t* H = new uint8_t[Mlen];	// histogram
-	vector<int> rel;
+	uint32_t hlen = 1<<30;
+	uint8_t* H = new uint8_t[hlen];	// histogram
+	vector<uint32_t> rel;
 	// clear M
 	//cout << "Clearing memory..." << endl << flush;
 	//start = clock();
@@ -422,7 +424,7 @@ int main(int argc, char** argv)
 			cout << "# Constructing histogram..." << endl;
 			start = clock();
 			//std::stable_sort(M, M + m, &lattice_sorter);
-			histogram(M, H, m);
+			histogram(M, H, m, hlen);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			int R0 = 0;
@@ -449,7 +451,7 @@ int main(int argc, char** argv)
 			int64L2(L, 6);	// LLL reduce L, time log(q)^2
 			
 			rel.clear();
-			for (int i = 0; i < m; i++) {
+			for (uint32_t i = 0; i < m; i++) {
 				if (H[i] > th0) {
 					rel.push_back(i);
 					R0++;/*
@@ -489,11 +491,11 @@ int main(int argc, char** argv)
 			cout << "# Constructing histogram..." << endl << flush;
 			start = clock();
 			//std::stable_sort(M, M + m, &lattice_sorter);
-			histogram(M, H, m);
+			histogram(M, H, m, hlen);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			int R1 = 0;
-			for (int i = 0; i < m; i++) {
+			for (uint32_t i = 0; i < m; i++) {
 				if (H[i] > th1) {
 					rel.push_back(i);
 					R1++;/*
@@ -842,12 +844,12 @@ int main(int argc, char** argv)
 }
 
 
-void histogram(keyval*M, uint8_t* H, int len)
+void histogram(keyval*M, uint8_t* H, uint32_t mlen, uint32_t hlen)
 {
 	// clear H
-	memset(H, 0, len * sizeof(uint8_t));
+	memset(H, 0, hlen * sizeof(uint8_t));
 	// fill H
-	for (int i = 0; i < len; i++) {
+	for (int i = 0; i < mlen; i++) {
 		H[M[i].id] += M[i].logp;
 	}
 }
@@ -1090,7 +1092,7 @@ int latsieve6d(int n, sievedata info, int side, int* allp, int nump,
                                     // pin vector to start of row
                                     int u1B = u1 < 0 ? B1max : -B1; int u2B = u2 < 0 ? B2max : -B2;
                                     int u3B = u3 < 0 ? B3max : -B3; int u4B = u4 < 0 ? B4max : -B4;
-                                    int u5B = u3 < 0 ? B3max : -B5; int u6B = u4 < 0 ? B6max : -B6;
+                                    int u5B = u5 < 0 ? B3max : -B5; int u6B = u6 < 0 ? B6max : -B6;
                                     j1 = u1 == 0 ? -1 : (x - u1B) / u1;
                                     j2 = u2 == 0 ? -1 : (y - u2B) / u2;
                                     j3 = u3 == 0 ? -1 : (z - u3B) / u3;
@@ -1114,11 +1116,12 @@ int latsieve6d(int n, sievedata info, int side, int* allp, int nump,
                                         j6 = u6 == 0 ? -1 : (u6B - t) / u6;
                                         jmin = minnonneg6d(j1, j2, j3, j4, j5, j6);
                                         for (int j = 0; j <= jmin; j++) {
-                                            int id = (x + B1) + ((y + B2) << B1x2bits) + ((z + B3) << B1x2xB2x2bits)
-                                              + ((r + B4) << B1x2xB2x2xB3x2bits)
-											  + ((s + B5) << B1x2xB2x2xB3x2xB4x2bits)
-											  + ((t + B6) << B1x2xB2x2xB3x2xB4x2xB5x2bits);
+                                            uint32_t id = (x + B1) + (((uint32_t)(y + B2)) << B1x2bits) + (((uint32_t)(z + B3)) << B1x2xB2x2bits)
+                                              + (((uint32_t)(r + B4)) << B1x2xB2x2xB3x2bits)
+											  + (((uint32_t)(s + B5)) << B1x2xB2x2xB3x2xB4x2bits)
+											  + (((uint32_t)(t + B6)) << B1x2xB2x2xB3x2xB4x2xB5x2bits);
                                             M[mm++] = (keyval){ id, logp };
+											//if (mm % 10000000 == 0) cout << mm << endl;
                                             x += u1; y += u2; z += u3; r += u4; s += u5; t += u6;
                                         }
                                         // move by '1-transition' vector

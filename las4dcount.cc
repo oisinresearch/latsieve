@@ -51,7 +51,7 @@ struct sievedata {
 	int64_t r[8], R[8], m[4], a0[4], a1[4], b0[4], b1[4];
 };
 
-int lass6d(int n, sievedata info, int side, int* allp, int nump,
+int lass4d(int n, sievedata info, int side, int* allp, int nump,
 	keyval* M, int R, int bb);
 int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 	mpz_poly_bivariate F0, mpz_poly_bivariate F1);
@@ -64,7 +64,6 @@ inline int minnonneg4d(int u, int v, int w, int t);
 inline int minabs(int u, int v, int w);
 inline int maxabs(int u, int v, int w);
 inline int min(int u, int v, int w);
-inline int max(int u, int v);
 inline int max(int u, int v, int w);
 void GetlcmScalar(int B, mpz_t S, int* primes, int nump);
 inline __int128 make_int128(uint64_t lo, uint64_t hi);
@@ -82,34 +81,21 @@ inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, 
 				int B1, int B2, int B3, int* a, int* b);
 inline void getab4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3, int v4,
 				int x, int y, int z, int t, int B1, int B2, int B3, int B4, int* a, int* b);
-inline void getab5d(int u1, int u2, int u3, int u4, int u5, int v1, int v2, int v3, int v4,
-				int v5, int x, int y, int z, int s, int t, int B1, int B2, int B3, int B4,
-				int B5, int* a, int* b);
-inline void getab6d(int u1, int u2, int u3, int u4, int u5, int u6, int v1, int v2, int v3,
-				int v4,	int v5, int v6, int x, int y, int z, int r, int s, int t,
-				int B1, int B2, int B3, int B4, int B5, int B6, int* a, int* b);
 inline int nonzerolcm(int u1, int u2, int u3);
 inline int gcd(int a, int b);
 inline int64_t nonzerolcm4d(int u1, int u2, int u3, int u4);
 int lcm(int a, int b);
 inline int64_t nonzerolcm5d(int u1, int u2, int u3, int u4, int u5);
 inline int64_t nonzerolcm6d(int u1, int u2, int u3, int u4, int u5, int u6);
-inline bool threespaceintersectsbox6d(int64_t nx, int64_t ny, int64_t nz, int64_t nr, 
-	int64_t ns, int64_t nt, int x, int y, int z, int r, int s, int t, int B1, int B2,
-	int B3, int B4, int B5, int B6);
-inline bool fourspaceintersectsbox6d(int64_t nx, int64_t ny, int64_t nz, int64_t nr, 
-	int64_t ns, int64_t nt, int x, int y, int z, int r, int s, int t, int B1, int B2,
-	int B3, int B4, int B5, int B6);
-inline bool fivespaceintersectsbox6d(int64_t nx, int64_t ny, int64_t nz, int64_t nr,
-	int64_t ns, int64_t nt, int x, int y, int z, int r, int s, int t, int B1, int B2,
-	int B3, int B4, int B5, int B6);
+inline bool threespaceintersectsbox4d(int64_t nx, int64_t ny, int64_t nz, int64_t nt, 
+	int x, int y, int z, int t, int B1, int B2, int B3, int B4);
 inline int minnonneg6d(int u, int v, int w, int r, int s, int t);
-int64_t subdet(int64_t M[36], int d, int j);
-int64_t matdet(int64_t M[25], int d);
-inline void matmul6x6(int64_t C[36], int64_t A[36], int64_t B[36]);
-void matadj6x6(int64_t M[36], int64_t Madj[36]);
-void printmat6x6(int64_t M[36]);
-void printmat6x6(float M[36]);
+int64_t subdet(int64_t M[16], int d, int j);
+int64_t matdet(int64_t M[16], int d);
+inline void matmul4x4(int64_t C[16], int64_t A[16], int64_t B[16]);
+void matadj4x4(int64_t M[16], int64_t Madj[16]);
+void printmat4x4(int64_t M[16]);
+void printmat4x4(float M[16]);
 
 
 int main(int argc, char** argv)
@@ -122,7 +108,7 @@ int main(int argc, char** argv)
 	//cout << (uint64_t)(MASK64) << " " << (uint64_t)(MASK64 >> 64) << endl;
 
 	if (argc != 13) {
-		cout << endl << "Usage: ./lass6d inputpoly sieve_bound factorbasefile "
+		cout << endl << "Usage: ./lass4d inputpoly sieve_bound factorbasefile "
 			"qmin qmax th0 th1 lp_bound cofacscalar qside R bb" << endl << endl;
 		return 0;
 	}
@@ -357,21 +343,16 @@ int main(int argc, char** argv)
 	mpz_t res; mpz_init(res);
 	for (int i = 0; i <= degh; i++) mpz_poly_setcoeff(h0, i, hpoly[i]);
 
-	unordered_map<uint64_t, uint8_t> hashtable0;
-	unordered_map<uint64_t, uint8_t> hashtable1;
-
 	int64_t B = 1<<bb;
 	int64_t hB = B/2;
 	int bb2 = bb*2;
 	int bb3 = bb*3;
-	int bb4 = bb*4;
-	int bb5 = bb*5;
 
 	uint32_t Mlen = 400000000;
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
-	uint32_t R2 = R + 32;
-	uint64_t hlen = 1ull<<(bb*6);//(R2<<bb5)+(R2<<bb4)+(R2<<bb3)+(R2<<bb2)+(R2<<bb)+R2;
+	uint32_t R2 = R + 128;
+	uint64_t hlen = 1ull<<(bb*4);//(R2<<bb3)+(R2<<bb2)+(R2<<bb)+R2;
 	uint8_t* H = new uint8_t[hlen];	// histogram
 	cout << fixed << setprecision(1);
 	cout << "# Histogram will take " << hlen << " bytes (" << (double)hlen/(1l<<30) << "GB)."
@@ -415,17 +396,14 @@ int main(int argc, char** argv)
 			
 			// we only allow degree-1 special-q ideals for the moment
             // compute special-q lattice L 
-			int64_t L[36];
-			L[0]  = q; L[1]  = rn; L[2]  = 0;  L[3]  = Rn; L[4]  = 0;  L[5]  = 0;
-			L[6]  = 0; L[7]  = 1;  L[8]  = rn; L[9]  = 0;  L[10] = Rn; L[11] = 0;
-			L[12] = 0; L[13] = 0;  L[14] = 1;  L[15] = 0;  L[16] = 0;  L[17] = Rn;
-			L[18] = 0; L[19] = 0;  L[20] = 0;  L[21] = 1;  L[22] = 0;  L[23] = 0;
-			L[24] = 0; L[25] = 0;  L[26] = 0;  L[27] = 0;  L[28] = 1;  L[29] = 0;
-			L[30] = 0; L[31] = 0;  L[32] = 0;  L[33] = 0;  L[34] = 0;  L[35] = 1;
-			int64L2(L, 6);	// LLL reduce L, time log(q)^2
-			
+			int64_t L[16];
+			L[0]  = q; L[1]  = rn; L[2]  = Rn; L[3]  = 0;
+			L[4]  = 0; L[5]  = 1;  L[6]  = 0;  L[7]  = Rn;
+			L[8]  = 0; L[9]  = 0;  L[10] = 1;  L[11] = 0;
+			L[12] = 0; L[13] = 0;  L[14] = 0;  L[15] = 1;
+			int64L2(L, 4);	// LLL reduce L, time log(q)^2
 
-			m = lass6d(n, info, 0, allp, nump, M, R, bb);
+			m = lass4d(n, info, 0, allp, nump, M, R, bb);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Time taken: " << timetaken << "s" << endl;
 			cout << "# Size of lattice point list is " << m << "." << endl;
@@ -439,23 +417,18 @@ int main(int argc, char** argv)
 				if (H[id] > th0) {
 					rel.push_back(id);
 					R0++;/*
-					if (R0 < 10) {
-						int x = (id % B) - hB;
-						int y = ((id >> bb) % B) - hB;
-						int z = ((id >> bb2) % B) - hB;
-						int r = ((id >> bb3) % B) - hB;
-						int s = ((id >> bb4) % B) - hB;
-						int t = (id >> bb5) - hB;
-						if (x != 0 || y != 0 || z != 0 || r !=0 || s != 0 || t != 0) {
-							// compute [a,b,c]
-							int a = L[0]*x+L[1]*y+L[2]*z+L[3]*r+L[4]*s+L[5]*t;
-							int b = L[6]*x+L[7]*y+L[8]*z+L[9]*r+L[10]*s+L[11]*t;
-							int c = L[12]*x+L[13]*y+L[14]*z+L[15]*r+L[16]*s+L[17]*t;
-							int d = L[18]*x+L[19]*y+L[20]*z+L[21]*r+L[22]*s+L[23]*t;
-							int e = L[24]*x+L[25]*y+L[26]*z+L[27]*r+L[28]*s+L[29]*t;
-							int f = L[30]*x+L[31]*y+L[32]*z+L[33]*r+L[34]*s+L[35]*t;
-							cout << a << "," << b << "," << c << "," << d << "," << e << "," << f << endl;
-						}
+					int x = (id % B) - hB;
+					int y = ((id >> bb) % B) - hB;
+					int z = ((id >> bb2) % B) - hB;
+					int t = (id >> bb3) - hB;
+					if (x != 0 || y != 0 || z != 0 || t != 0) {
+						// compute [a,b,c]
+						int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
+						int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
+						int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
+						int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
+                        if (R0 <= 10)
+    						cout << id << "(" << (int)H[id] << "): " << a << "," << b << "," << c << "," << d << endl;
 					}*/
 				}
 			}
@@ -471,7 +444,7 @@ int main(int argc, char** argv)
 			cout << "..." << endl;
 			start = clock();
 			//m = latsieve3d(fq, degg, q, 0, sievep1, k1, sieves1, sievenum_s1modp, M, Mlen, B);
-			m = lass6d(n, info, 1, allp, nump, M, R, bb);
+			m = lass4d(n, info, 1, allp, nump, M, R, bb);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			cout << "# Size of lattice point list is " << m << "." << endl << flush;
@@ -484,24 +457,19 @@ int main(int argc, char** argv)
 				if (H[id] > th1) {
 					rel.push_back(id);
 					R1++;/*
-					if (R1 < 10) {
-						int x = (id % B) - hB;
-						int y = ((id >> bb) % B) - hB;
-						int z = ((id >> bb2) % B) - hB;
-						int r = ((id >> bb3) % B) - hB;
-						int s = ((id >> bb4) % B) - hB;
-						int t = (id >> bb5) - hB;
-						if (x != 0 || y != 0 || z != 0 || r !=0 || s != 0 || t != 0) {
-							// compute [a,b,c]
-							int a = L[0]*x+L[1]*y+L[2]*z+L[3]*r+L[4]*s+L[5]*t;
-							int b = L[6]*x+L[7]*y+L[8]*z+L[9]*r+L[10]*s+L[11]*t;
-							int c = L[12]*x+L[13]*y+L[14]*z+L[15]*r+L[16]*s+L[17]*t;
-							int d = L[18]*x+L[19]*y+L[20]*z+L[21]*r+L[22]*s+L[23]*t;
-							int e = L[24]*x+L[25]*y+L[26]*z+L[27]*r+L[28]*s+L[29]*t;
-							int f = L[30]*x+L[31]*y+L[32]*z+L[33]*r+L[34]*s+L[35]*t;
-							cout << a << "," << b << "," << c << "," << d << "," << e << "," << f << endl;
-						}
-					}*/
+					int x = (id % B) - hB;
+					int y = ((id >> bb) % B) - hB;
+					int z = ((id >> bb2) % B) - hB;
+					int t = (id >> bb3) - hB;
+					if (x != 0 || y != 0 || z != 0 || t != 0) {
+						// compute [a,b,c]
+						int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
+						int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
+						int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
+						int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
+                        if (R1 <= 10)
+    						cout << id << "(" << (int)H[id] << "): " << a << "," << b << "," << c << "," << d << endl;
+                    }*/
 				}
 			}
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
@@ -516,7 +484,21 @@ int main(int argc, char** argv)
 			{
 				if (rel[i] == rel[i+1] && rel[i] != 0) {
 					if (i != 0) {
-						numR++;
+						numR++;/*
+						uint32_t id = rel[i];
+						int x = (id % B) - hB;
+						int y = ((id >> bb) % B) - hB;
+						int z = ((id >> bb2) % B) - hB;
+						int t = (id >> bb3) - hB;
+						if (x != 0 || y != 0 || z != 0 || t != 0) {
+							// compute [a,b,c]
+							int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
+							int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
+							int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
+							int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
+							if (R <= 10)
+								cout << id << ": " << a << "," << b << "," << c << "," << d << endl;
+						}*/
 					}
 				}
 			}
@@ -536,17 +518,13 @@ int main(int argc, char** argv)
 					int x = (rel[i] % B) - hB;
 					int y = ((rel[i] >> bb) % B) - hB;
 					int z = ((rel[i] >> bb2) % B) - hB;
-					int r = ((rel[i] >> bb3) % B) - hB;
-					int s = ((rel[i] >> bb4) % B) - hB;
-					int t = (rel[i] >> bb5) - hB;
-					if (x != 0 || y != 0 || z != 0 || r !=0 || s != 0 || t != 0) {
+					int t = (rel[i] >> bb3) - hB;
+					if (x != 0 || y != 0 || z != 0 || t != 0) {
 						// compute [a,b,c]
-						int a = L[0]*x+L[1]*y+L[2]*z+L[3]*r+L[4]*s+L[5]*t;
-						int b = L[6]*x+L[7]*y+L[8]*z+L[9]*r+L[10]*s+L[11]*t;
-						int c = L[12]*x+L[13]*y+L[14]*z+L[15]*r+L[16]*s+L[17]*t;
-						int d = L[18]*x+L[19]*y+L[20]*z+L[21]*r+L[22]*s+L[23]*t;
-						int e = L[24]*x+L[25]*y+L[26]*z+L[27]*r+L[28]*s+L[29]*t;
-						int f = L[30]*x+L[31]*y+L[32]*z+L[33]*r+L[34]*s+L[35]*t;
+						int a = L[0]*x+L[1]*y+L[2]*z+L[3]*t;
+						int b = L[4]*x+L[5]*y+L[6]*z+L[7]*t;
+						int c = L[8]*x+L[9]*y+L[10]*z+L[11]*t;
+						int d = L[12]*x+L[13]*y+L[14]*z+L[15]*t;
 		
 						//int64_t D = b*(int64_t)b - 4*a*(int64_t)c;
 						//int64_t D = b*(int64_t)b*c*(int64_t)c - 4*b*(int64_t)b*b*d
@@ -557,20 +535,16 @@ int main(int argc, char** argv)
 						//}
 
 						int content = gcd(a, b); content = gcd(content, c);
-						content = gcd(content, d); content = gcd(content, e);
-						content = gcd(content, f);
+						content = gcd(content, d);
 						a = a/content; b = b/content; c = c/content; d = d/content;
-						e = e/content; f = f/content;
 
 						//cout << "[a, b, c] = [" << a << ", " << b << ", " << c << "]" << endl << flush;
 						
 						mpz_poly_setcoeff_si(Aq0, 0, a);
 						mpz_poly_setcoeff_si(Aq0, 1, b);
-						mpz_poly_setcoeff_si(Aq0, 2, c);
 						mpz_poly_bivariate_setcoeff(Aq, 0, Aq0);
-						mpz_poly_setcoeff_si(Aq0, 0, d);
-						mpz_poly_setcoeff_si(Aq0, 1, e);
-						mpz_poly_setcoeff_si(Aq0, 2, f);
+						mpz_poly_setcoeff_si(Aq0, 0, c);
+						mpz_poly_setcoeff_si(Aq0, 1, d);
 						mpz_poly_bivariate_setcoeff(Aq, 1, Aq0);
 						// reset Fqh_x, which might need to go from e.g. deg 8 to deg 4
 						//Fqh_x->deg = 0;
@@ -584,8 +558,7 @@ int main(int argc, char** argv)
 						//cout << mpz_get_str(NULL, 10, N0) << endl;
 						//cout << mpz_get_str(NULL, 10, N1) << endl;
 						string str = to_string(a) + "," + to_string(b) + "," + 
-							to_string(c) + "," + to_string(d) + "," + to_string(e) + "," +
-							to_string(f) + ":";
+							to_string(c) + "," + to_string(d) + ":";
 						
 						// trial division on side 0
 						int p = allp[0]; int k = 0; 
@@ -822,8 +795,6 @@ void histogram(keyval* M, uint8_t* H, uint32_t vlen, uint64_t hlen)
 	memset(H, 0, hlen * sizeof(uint8_t));
 	// fill H
 	for (int i = 0; i < vlen; i++) {
-		if (M[i].id < 0 || M[i].id > hlen)
-			cout << M[i].id << endl;
 		H[M[i].id] += M[i].logp;
 	}
 }
@@ -855,19 +826,17 @@ inline void mat4x4prod(int64_t* L1, int64_t* L2, int64_t* L3)
 }
 
 
-int lass6d(int n, sievedata info, int side, int* allp, int nump,
+int lass4d(int n, sievedata info, int side, int* allp, int nump,
 	keyval* M, int R, int bb)
 {
-	int64_t L[36];
-	int64_t L0[36];
-	int64_t L2[36];
-	int64_t L3[36];
+	int64_t L[16];
+	int64_t L0[16];
+	int64_t L2[16];
+	int64_t L3[16];
 
 	int64_t hB = 1<<(bb-1);
 	int bb2 = bb*2;
 	int bb3 = bb*3;
-	int bb4 = bb*4;
-	int bb5 = bb*5;
 
 	int64_t q = info.q; int64_t r0 = info.r[n]; int64_t R0 = info.R[n];
 	// print (q,r) ideal
@@ -892,31 +861,29 @@ int lass6d(int n, sievedata info, int side, int* allp, int nump,
 		if (k2 == info.k[side]) break;
 	}
 
-	L[0]  = q; L[1]  = r0; L[2]  = 0;  L[3]  = R0; L[4]  = 0;  L[5]  = 0;
-	L[6]  = 0; L[7]  = 1;  L[8]  = r0; L[9]  = 0;  L[10] = R0; L[11] = 0;
-	L[12] = 0; L[13] = 0;  L[14] = 1;  L[15] = 0;  L[16] = 0;  L[17] = R0;
-	L[18] = 0; L[19] = 0;  L[20] = 0;  L[21] = 1;  L[22] = 0;  L[23] = 0;
-	L[24] = 0; L[25] = 0;  L[26] = 0;  L[27] = 0;  L[28] = 1;  L[29] = 0;
-	L[30] = 0; L[31] = 0;  L[32] = 0;  L[33] = 0;  L[34] = 0;  L[35] = 1;
+	L[0]  = q; L[1]  = r0; L[2]  = R0; L[3]  = 0;
+	L[4]  = 0; L[5]  = 1;  L[6]  = 0;  L[7]  = R0;
+	L[8]  = 0; L[9]  = 0;  L[10] = 1;  L[11] = 0;
+	L[12] = 0; L[13] = 0;  L[14] = 0;  L[15] = 1;
 
-	for (int jj = 0; jj < 36; jj++) L0[jj] = L[jj];
-	int64L2(L, 6);	// LLL reduce L, time log(q)^2
+	for (int jj = 0; jj < 16; jj++) L0[jj] = L[jj];
+	int64L2(L, 4);	// LLL reduce L, time log(q)^2
 
 	// compute adjugate of L^-1
-	int64_t qLinv[36];
-	matadj6x6(L, qLinv);
+	int64_t qLinv[16];
+	matadj4x4(L, qLinv);
 
-	float* b = new float[36];
-	float* uu = new float[36]();
-	float* bnorm = new float[6];
-	float* sigma = new float[42];
-	float* rhok = new float[7];
-	int* rk = new int[7];
-	int* vk = new int[6];
-	int64_t* c = new int64_t[6];
-	float* ck = new float[6];
-	int* wk = new int[6];
-	int* common_part = new int[6];
+	float* b = new float[16];
+	float* uu = new float[16]();
+	float* bnorm = new float[4];
+	float* sigma = new float[20];
+	float* rhok = new float[5];
+	int* rk = new int[5];
+	int* vk = new int[4];
+	int64_t* c = new int64_t[4];
+	float* ck = new float[4];
+	int* wk = new int[4];
+	int* common_part = new int[4];
 
 	int mm = 0;
     int ii = 40;
@@ -931,19 +898,17 @@ int lass6d(int n, sievedata info, int side, int* allp, int nump,
         int64_t h0, h1;
         h0 = q*( (_r1 * qinvmodp[ii]) % p ) + p*( (r0 * pinvmodq[ii]) % q );
         h1 = q*( (_R1 * qinvmodp[ii]) % p ) + p*( (R0 * pinvmodq[ii]) % q );	
-        L2[0]  = p*q; L2[1]  = h0; L2[2]  = 0;  L2[3]  = h1; L2[4]  = 0;  L2[5]  = 0;
-        L2[6]  = 0;   L2[7]  = 1;  L2[8]  = h0; L2[9]  = 0;  L2[10] = h1; L2[11] = 0;
-        L2[12] = 0;   L2[13] = 0;  L2[14] = 1;  L2[15] = 0;  L2[16] = 0;  L2[17] = h1;
-        L2[18] = 0;   L2[19] = 0;  L2[20] = 0;  L2[21] = 1;  L2[22] = 0;  L2[23] = 0;
-        L2[24] = 0;   L2[25] = 0;  L2[26] = 0;  L2[27] = 0;  L2[28] = 1;  L2[29] = 0;
-        L2[30] = 0;   L2[31] = 0;  L2[32] = 0;  L2[33] = 0;  L2[34] = 0;  L2[35] = 1;
-        int64L2(L2, 6);	// LLL reduce L, time log(n)^2
-        matmul6x6(L3, qLinv, L2);	// L3 =  qLinv*L2
-        for (int jj = 0; jj < 36; jj++) L3[jj] /= q;
-       
-	   	// Gram-Schmidt orthogonalization
+		L2[0]  = p*q; L2[1]  = h0; L2[2]  = h1; L2[3]  = 0;
+		L2[4]  = 0;   L2[5]  = 1;  L2[6]  = 0;  L2[7]  = h1;
+		L2[8]  = 0;   L2[9]  = 0;  L2[10] = 1;  L2[11] = 0;
+		L2[12] = 0;   L2[13] = 0;  L2[14] = 0;  L2[15] = 1;
+		int64L2(L2, 4);	// LLL reduce L, time log(n)^2
+		mat4x4prod(qLinv, L2, L3);	// L3 =  qLinv*L2
+		for (int jj = 0; jj < 16; jj++) L3[jj] /= q;
+	   	
+		// Gram-Schmidt orthogonalization
 		int64_t* borig = L3;
-		int d = 6;
+		int d = 4;
 		for (int i = 0; i < d; i++) {
 			for (int k = 0; k < d; k++) {
 				uu[k*d + k] = 1;
@@ -997,6 +962,7 @@ int lass6d(int n, sievedata info, int side, int* allp, int nump,
 		// enumerate lattice vectors (x,y,z,r,s,t) in sphere with radius R
 		while (true) {
 			rhok[k] = rhok[k+1] + (vk[k] - ck[k]) * (vk[k] - ck[k]) * bnorm[k] * bnorm[k];
+			//cout << "rho[" << k << "] = " << rhok[k] << endl;
 			if (rhok[k] - 0.00005 <= R*R) {
 				if (k == 0) {
 					if (last_nonzero != 0 || nn == 0) {
@@ -1006,14 +972,19 @@ int lass6d(int n, sievedata info, int side, int* allp, int nump,
 								c[j] += vk[i] * borig[j*d + i] + common_part[j];
 							}
 						}
-						if (c[0] < 0) { c[0] = -c[0]; c[1] = -c[1]; c[2] = -c[2]; c[3] = -c[3];
-							c[4] = -c[4]; c[5] = -c[5]; }
-						M[mm].id = id;
-						M[mm++].logp = logp;
-						nn++;
+						if (c[0] < 0) { c[0] = -c[0]; c[1] = -c[1]; c[2] = -c[2]; c[3] = -c[3]; }
+						//cout << c[0] << "," << c[1] << "," << c[2] << "," << c[3] << endl;
+						if (abs(c[0])<hB && abs(c[1])<hB && abs(c[2])<hB && abs(c[3]) < hB) {
+							uint32_t id = c[0]+hB + ((c[1]+hB)<<bb) + ((c[2]+hB)<<bb2)
+								+ ((c[3]+hB)<<bb3);
+							M[mm].id = id;
+							M[mm++].logp = logp;
+							nn++;
+						}
 					}
 					if (vk[k] > ck[k]) vk[k] = vk[k] - wk[k];
 					else vk[k] = vk[k] + wk[k];
+					//cout << "84:\tv[" << k << "] = " << vk[k] << endl;
 					wk[k]++;
 				}
 				else {
@@ -1025,6 +996,8 @@ int lass6d(int n, sievedata info, int side, int* allp, int nump,
 					ck[k] = -sigma[(k + 1)*d + k];
 					int vk_old = vk[k];
 					vk[k] = floor(ck[k] + 0.5); wk[k] = 1;
+					//cout << "94:\tv[" << k << "] = " << vk[k] << ", c[" << k << "] = "
+					//	<< ck[k] <<endl;
 					if (k >= t && k < d) {
 						for (int j = 0; j < d; j++) {
 							common_part[j] -= vk_old * borig[j*d + k];
@@ -1041,6 +1014,7 @@ int lass6d(int n, sievedata info, int side, int* allp, int nump,
 					last_nonzero = k;
 					int vk_old = vk[k];
 					vk[k]++;
+					//cout << "105:\tv[" << k << "] = " << vk[k] << endl;
 					if (k >= t && k < d) {
 						for (int j = 0; j < d; j++) {
 							common_part[j] -= vk_old * borig[j*d + k];
@@ -1052,6 +1026,7 @@ int lass6d(int n, sievedata info, int side, int* allp, int nump,
 					if (vk[k] > ck[k]) {
 						int vk_old = vk[k];
 						vk[k] = vk[k] - wk[k];
+					//cout << "109:\tv[" << k << "] = " << vk[k] << endl;
 						if (k >= t && k < d) {
 							for (int j = 0; j < d; j++) {
 								common_part[j] -= vk_old * borig[j*d + k];
@@ -1062,6 +1037,7 @@ int lass6d(int n, sievedata info, int side, int* allp, int nump,
 					else {
 						int vk_old = vk[k];
 						vk[k] = vk[k] + wk[k];
+					//cout << "112:\tv[" << k << "] = " << vk[k] << endl;
 						if (k >= t && k < d) {
 							for (int j = 0; j < d; j++) {
 								common_part[j] -= vk_old * borig[j*d + k];
@@ -1095,86 +1071,85 @@ int lass6d(int n, sievedata info, int side, int* allp, int nump,
 	return mm;
 }
 
-
-void printmat6x6(int64_t M[36])
+void printmat4x4(int64_t M[16])
 {
 	cout << "[";
-	for (int i = 0; i < 6; i++) {
-		for (int j = 0; j < 6; j++) {
-			cout << M[6*i+j];
-			if (j < 5) cout << ",";
-			else if (i < 5) cout << ";\\\n";
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			cout << M[4*i+j];
+			if (j < 3) cout << ",";
+			else if (i < 3) cout << ";\\\n";
 			else cout << "]" << endl;
 		}
 	}
 }
 
-void printmat6x6(float M[36])
+void printmat4x4(float M[16])
 {
 	cout << "[";
-	for (int i = 0; i < 6; i++) {
-		for (int j = 0; j < 6; j++) {
-			cout << M[6*i+j];
-			if (j < 5) cout << ",";
-			else if (i < 5) cout << ";\\\n";
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			cout << M[4*i+j];
+			if (j < 3) cout << ",";
+			else if (i < 3) cout << ";\\\n";
 			else cout << "]" << endl;
 		}
 	}
 }
 
-inline void matmul6x6(int64_t C[36], int64_t A[36], int64_t B[36])
+inline void matmul4x4(int64_t C[16], int64_t A[16], int64_t B[16])
 {
-    for (int i = 0; i < 6; i++) {
-        for (int j = 0; j < 6; j++) {
-            C[6*i + j] = 0;
-            for (int k = 0; k < 6; k++) {
-                C[6*i + j] += A[6*i + k] * B[6*k + j];
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            C[4*i + j] = 0;
+            for (int k = 0; k < 4; k++) {
+                C[4*i + j] += A[4*i + k] * B[4*k + j];
             }
         }
     }
 }
 
-void matadj6x6(int64_t M[36], int64_t Madj[36])
+void matadj4x4(int64_t M[16], int64_t Madj[16])
 {
     int i = 0;
-    int64_t C[36] = {0};
-    C[0] = 1; C[7] = 1; C[14] = 1; C[21] = 1; C[28] = 1; C[35] = 1;
+    int64_t C[16] = {0};
+    C[0] = 1; C[5] = 1; C[10] = 1; C[15] = 1;
     int64_t a0 = 1;
-    int64_t MC[36] = {0};
+    int64_t MC[16] = {0};
     int64_t ai;
     while (true) {
         i++;
-        matmul6x6(MC, M, C);
-        if (i == 6) {
-            ai = -(MC[0] + MC[7] + MC[14] + MC[21] + MC[28] + MC[35])/6;
-            for (int k = 0; k < 36; k++) Madj[k] = -C[k];
+        matmul4x4(MC, M, C);
+        if (i == 4) {
+            ai = -(MC[0] + MC[5] + MC[10] + MC[15])/4;
+            for (int k = 0; k < 16; k++) Madj[k] = -C[k];
             break;
         }
-        for (int k = 0; k < 36; k++) C[k] = MC[k];
-        ai = -(C[0] + C[7] + C[14] + C[21] + C[28] + C[35])/i;
-        C[0] += ai; C[7] += ai; C[14] += ai; C[21] += ai; C[28] += ai; C[35] += ai;
+        for (int k = 0; k < 16; k++) C[k] = MC[k];
+        ai = -(C[0] + C[5] + C[10] + C[15])/i;
+        C[0] += ai; C[5] += ai; C[10] += ai; C[15] += ai;
     }
 }
 
-int64_t subdet(int64_t M[36], int d, int j)
+int64_t subdet(int64_t M[16], int d, int j)
 {
-	int64_t subM[36] = {0};
+	int64_t subM[16] = {0};
 	int sub_i = 0, sub_j = 0;
 	for (int i = 1; i < d; i++) {
 		for (int k = 0; k < d; k++) {
 			if (k != j) {
-				subM[6*sub_i + sub_j] = M[6*i + k];
+				subM[4*sub_i + sub_j] = M[4*i + k];
 				sub_j++;
 			}
 		}
 		sub_i++;
 		sub_j = 0;
 	}
-	return (matdet(subM, 5));
+	return (matdet(subM, 3));
 }
 
-// Compute the determinant of a square matrix M of dimension at most 6
-int64_t matdet(int64_t M[36], int d)
+// Compute the determinant of a square matrix M of dimension at most 4
+int64_t matdet(int64_t M[16], int d)
 {
     int64_t det = 0;
 
@@ -1182,22 +1157,22 @@ int64_t matdet(int64_t M[36], int d)
     while (true) {
         k++;
         if (k==d) {
-            det = s*M[7*d - 7];
+            det = s*M[5*d - 5];
             break;
         }
-        int64_t p = M[7*k - 7];
+        int64_t p = M[5*k - 5];
         if (p == 0) {
             det = 0;
             for (int i = k+1; i <= d; i++) {
-                det = M[6*(i-1) + k - 1];
+                det = M[4*(i-1) + k - 1];
                 if (det != 0) {
                     for (int j = k; j <= d; j++) {
-                        int64_t t = M[6*(i-1) + j - 1];
-                        M[6*(i-1) + j - 1] = M[6*(k-1) + j - 1];
-                        M[6*(k-1) + j - 1] = t;
+                        int64_t t = M[4*(i-1) + j - 1];
+                        M[4*(i-1) + j - 1] = M[4*(k-1) + j - 1];
+                        M[4*(k-1) + j - 1] = t;
                     }
                     s = -s;
-                    p = M[7*k - 7];
+                    p = M[5*k - 5];
                     break;
                 }
             }
@@ -1205,8 +1180,8 @@ int64_t matdet(int64_t M[36], int d)
         }
         for (int i = k+1; i <= d; i++) {
             for (int j = k+1; j <= d; j++) {
-                int64_t t = p*M[6*(i-1) + j - 1] - M[6*(i-1) + k - 1]*M[6*(k-1) + j - 1];
-                M[6*(i-1) + j - 1] = t/c;
+                int64_t t = p*M[4*(i-1) + j - 1] - M[4*(i-1) + k - 1]*M[4*(k-1) + j - 1];
+                M[4*(i-1) + j - 1] = t/c;
             }
         }
         c = p;
@@ -1319,109 +1294,6 @@ inline void getab4d(int u1, int u2, int u3, int u4, int v1, int v2, int v3, int 
 }
 
 
-// Integer programming to get (a,b) such that
-// (x,y,z,s,t) + a*(u1,u2,u3,u4,u5) + b*(v1,v2,3v,v4,v5)
-// within [-B,B[x[-B,B[x[-B,B[x[-B,B[x[-B,B[
-inline void getab5d(int u1, int u2, int u3, int u4, int u5, int v1, int v2, int v3, int v4,
-				int v5, int x, int y, int z, int s, int t, int B1, int B2, int B3, int B4,
-				int B5, int* a, int* b)
-{
-	int U[10] = { u1, u2, u3, u4, u5, -u1, -u2, -u3, -u4, -u5 };
-	int V[10] = { v1, v2, v3, v4, v5, -v1, -v2, -v3, -v4, -v5 };
-	int C[10] = { B1-x-1, B2-y-1, B3-z-1, B4-s-1, B5-t-1, B1+x, B2+y, B3+z, B4+s, B5+t };
-	*a = B1; *b = B1;
-
-	int64_t L = abs(nonzerolcm5d(u1, u2, u3, u4, u5));
-
-	for (int i = 0; i < 10; i++) {
-		int s = abs(U[i]);
-		if (s != 0) {
-			V[i] *= L / s;
-			C[i] *= L / s;
-		}
-	}
-	
-	for (int i = 0; i < 10; i++) {
-		if (U[i] == 0) {
-			if (V[i] > 0) {
-				int bnew = floordiv(C[i], V[i]);
-				if (bnew < *b) *b = bnew;
-			}
-		}
-		else if (U[i] < 0) {
-			for (int j = 0; j < 10; j++) {
-				if (U[j] > 0 && abs(i-j) != 5) {
-					int D = V[i] + V[j];
-					if (D > 0) {
-						int bnew = floordiv(C[i] + C[j], D);
-						if (bnew < *b) *b = bnew;
-					}
-				}
-			}
-		}
-	}
-
-	for (int i = 0; i < 10; i++) {
-		if (U[i] > 0) {
-			int anew = floordiv(C[i] - V[i] * (*b), L);
-			if (anew < *a) *a = anew;
-		}
-	}
-}
-
-
-// Integer programming to get (a,b) such that
-// (x,y,z,r,s,t) + a*(u1,u2,u3,u4,u5,u6) + b*(v1,v2,3v,v4,v5,v6)
-// within [-B,B[x[-B,B[x[-B,B[x[-B,B[x[-B,B[x[-B,B[
-inline void getab6d(int u1, int u2, int u3, int u4, int u5, int u6, int v1, int v2, int v3,
-				int v4,	int v5, int v6, int x, int y, int z, int r, int s, int t,
-				int B1, int B2, int B3, int B4, int B5, int B6, int* a, int* b)
-{
-	int U[12] = { u1, u2, u3, u4, u5, u6, -u1, -u2, -u3, -u4, -u5, -u6 };
-	int V[12] = { v1, v2, v3, v4, v5, v6, -v1, -v2, -v3, -v4, -v5, -v6 };
-	int C[12] = { B1-x-1, B2-y-1, B3-z-1, B4-r-1, B5-s-1, B6-t-1,
-					B1+x, B2+y, B3+z, B4+4, B5+s, B6+t };
-	*a = B1; *b = B1;
-
-	int64_t L = abs(nonzerolcm6d(u1, u2, u3, u4, u5, u6));
-
-	for (int i = 0; i < 12; i++) {
-		int s = abs(U[i]);
-		if (s != 0) {
-			V[i] *= L / s;
-			C[i] *= L / s;
-		}
-	}
-	
-	for (int i = 0; i < 12; i++) {
-		if (U[i] == 0) {
-			if (V[i] > 0) {
-				int bnew = floordiv(C[i], V[i]);
-				if (bnew < *b) *b = bnew;
-			}
-		}
-		else if (U[i] < 0) {
-			for (int j = 0; j < 12; j++) {
-				if (U[j] > 0 && abs(i-j) != 6) {
-					int D = V[i] + V[j];
-					if (D > 0) {
-						int bnew = floordiv(C[i] + C[j], D);
-						if (bnew < *b) *b = bnew;
-					}
-				}
-			}
-		}
-	}
-
-	for (int i = 0; i < 12; i++) {
-		if (U[i] > 0) {
-			int anew = floordiv(C[i] - V[i] * (*b), L);
-			if (anew < *a) *a = anew;
-		}
-	}
-}
-
-
 inline int nonzerolcm(int u1, int u2, int u3)
 {
 	if (u1 == 0) u1 = 1;
@@ -1470,47 +1342,35 @@ inline int64_t nonzerolcm5d(int u1, int u2, int u3, int u4, int u5) {
     return abs(temp);
 }
 
-// Function to compute the least common multiple of six integers
-inline int64_t nonzerolcm6d(int u1, int u2, int u3, int u4, int u5, int u6) {
-    int64_t temp = lcm(u1, u2);
-    temp = lcm(temp, u3);
-    temp = lcm(temp, u4);
-    temp = lcm(temp, u5);
-    temp = lcm(temp, u6);
-    return abs(temp);
-}
 
-// determine if 3-space with normal (nx, ny, nz, nr, ns, nt) containing point
-// (x,y,z,r,s,t) intersects box [-B,B[x[-B,B[x[-B,B[x[-B,B[x[-B,B[x[-B,B[
-inline bool threespaceintersectsbox6d(int64_t nx, int64_t ny, int64_t nz, int64_t nr, 
-	int64_t ns, int64_t nt, int x, int y, int z, int r, int s, int t, int B1, int B2,
-	int B3, int B4, int B5, int B6)
+// determine if 3-space with normal (nx, ny, nz, nt) containing point (x,y,z,t) intersects
+// box [-B,B[x[-B,B[x[-B,B[x[-B,B[
+inline bool threespaceintersectsbox4d(int64_t nx, int64_t ny, int64_t nz, int64_t nt, 
+	int x, int y, int z, int t, int B1, int B2, int B3, int B4)
 {
-	int64_t d = nx*x + ny*y + nz*z + nr*r + ns*s + nt*t;
+	int64_t d = nx*x + ny*y + nz*z + nt*t;
 
 	int64_t nxB0 = -nx*B1; int64_t nxB1 = nx*(B1-1);
 	int64_t nyB0 = -ny*B2; int64_t nyB1 = ny*(B2-1);
 	int64_t nzB0 = -nz*B3; int64_t nzB1 = nz*(B3-1);
-	int64_t nrB0 = -nr*B4; int64_t nrB1 = nr*(B4-1);
-	int64_t nsB0 = -ns*B5; int64_t nsB1 = ns*(B5-1);
-	int64_t ntB0 = -nt*B6; int64_t ntB1 = nt*(B6-1);
+	int64_t ntB0 = -nt*B4; int64_t ntB1 = nt*(B4-1);
 
-	int s0 = ( nxB0 + nyB0 + nzB0 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	int s1 = ( nxB1 + nyB0 + nzB0 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	int s2 = ( nxB0 + nyB1 + nzB0 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	int s3 = ( nxB1 + nyB1 + nzB0 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	int s4 = ( nxB0 + nyB0 + nzB1 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	int s5 = ( nxB1 + nyB0 + nzB1 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	int s6 = ( nxB0 + nyB1 + nzB1 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	int s7 = ( nxB1 + nyB1 + nzB1 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	int s8 = ( nxB0 + nyB0 + nzB0 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	int s9 = ( nxB1 + nyB0 + nzB0 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	int sa = ( nxB0 + nyB1 + nzB0 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	int sb = ( nxB1 + nyB1 + nzB0 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	int sc = ( nxB0 + nyB0 + nzB1 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	int sd = ( nxB1 + nyB0 + nzB1 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	int se = ( nxB0 + nyB1 + nzB1 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	int sf = ( nxB1 + nyB1 + nzB1 + nrB1 + nsB0 + ntB0 - d ) > 0;
+	int s0 = ( nxB0 + nyB0 + nzB0 + ntB0 - d ) > 0;
+	int s1 = ( nxB1 + nyB0 + nzB0 + ntB0 - d ) > 0;
+	int s2 = ( nxB0 + nyB1 + nzB0 + ntB0 - d ) > 0;
+	int s3 = ( nxB1 + nyB1 + nzB0 + ntB0 - d ) > 0;
+	int s4 = ( nxB0 + nyB0 + nzB1 + ntB0 - d ) > 0;
+	int s5 = ( nxB1 + nyB0 + nzB1 + ntB0 - d ) > 0;
+	int s6 = ( nxB0 + nyB1 + nzB1 + ntB0 - d ) > 0;
+	int s7 = ( nxB1 + nyB1 + nzB1 + ntB0 - d ) > 0;
+	int s8 = ( nxB0 + nyB0 + nzB0 + ntB1 - d ) > 0;
+	int s9 = ( nxB1 + nyB0 + nzB0 + ntB1 - d ) > 0;
+	int sa = ( nxB0 + nyB1 + nzB0 + ntB1 - d ) > 0;
+	int sb = ( nxB1 + nyB1 + nzB0 + ntB1 - d ) > 0;
+	int sc = ( nxB0 + nyB0 + nzB1 + ntB1 - d ) > 0;
+	int sd = ( nxB1 + nyB0 + nzB1 + ntB1 - d ) > 0;
+	int se = ( nxB0 + nyB1 + nzB1 + ntB1 - d ) > 0;
+	int sf = ( nxB1 + nyB1 + nzB1 + ntB1 - d ) > 0;
 
 	int mask = s0 + (s1<<1) + (s2<<2) + (s3<<3) + (s4<<4) + (s5<<5) + (s6<<6) + (s7<<7) +
 	           (s8<<8) + (s9<<9) + (sa<<10) + (sb<<11) +
@@ -1518,191 +1378,6 @@ inline bool threespaceintersectsbox6d(int64_t nx, int64_t ny, int64_t nz, int64_
 
 	return ( (mask != 0) && (mask != 65535) );
 }
-
-
-// determine if 4-space with normal (nx, ny, nz, ns, nt) containing point (x,y,z,s,t)
-// intersects box [-B,B[x[-B,B[x[-B,B[x[-B,B[x[-B,B[
-inline bool fourspaceintersectsbox6d(int64_t nx, int64_t ny, int64_t nz, int64_t nr, 
-	int64_t ns, int64_t nt, int x, int y, int z, int r, int s, int t, int B1, int B2,
-	int B3, int B4, int B5, int B6)
-{
-	int64_t d = nx*x + ny*y + nz*z + nr*r + ns*s + nt*t;
-
-	long nxB0 = -nx*B1; long nxB1 = nx*(B1-1);
-	long nyB0 = -ny*B2; long nyB1 = ny*(B2-1);
-	long nzB0 = -nz*B3; long nzB1 = nz*(B3-1);
-	long nrB0 = -nr*B4; long nrB1 = nr*(B4-1);
-	long nsB0 = -ns*B5; long nsB1 = ns*(B5-1);
-	long ntB0 = -nt*B6; long ntB1 = nt*(B6-1);
-	
-	long s00 = ( nxB0 + nyB0 + nzB0 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	long s01 = ( nxB1 + nyB0 + nzB0 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	long s02 = ( nxB0 + nyB1 + nzB0 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	long s03 = ( nxB1 + nyB1 + nzB0 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	long s04 = ( nxB0 + nyB0 + nzB1 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	long s05 = ( nxB1 + nyB0 + nzB1 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	long s06 = ( nxB0 + nyB1 + nzB1 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	long s07 = ( nxB1 + nyB1 + nzB1 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	long s08 = ( nxB0 + nyB0 + nzB0 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	long s09 = ( nxB1 + nyB0 + nzB0 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	long s0a = ( nxB0 + nyB1 + nzB0 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	long s0b = ( nxB1 + nyB1 + nzB0 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	long s0c = ( nxB0 + nyB0 + nzB1 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	long s0d = ( nxB1 + nyB0 + nzB1 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	long s0e = ( nxB0 + nyB1 + nzB1 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	long s0f = ( nxB1 + nyB1 + nzB1 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	long s10 = ( nxB0 + nyB0 + nzB0 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	long s11 = ( nxB1 + nyB0 + nzB0 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	long s12 = ( nxB0 + nyB1 + nzB0 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	long s13 = ( nxB1 + nyB1 + nzB0 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	long s14 = ( nxB0 + nyB0 + nzB1 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	long s15 = ( nxB1 + nyB0 + nzB1 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	long s16 = ( nxB0 + nyB1 + nzB1 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	long s17 = ( nxB1 + nyB1 + nzB1 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	long s18 = ( nxB0 + nyB0 + nzB0 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	long s19 = ( nxB1 + nyB0 + nzB0 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	long s1a = ( nxB0 + nyB1 + nzB0 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	long s1b = ( nxB1 + nyB1 + nzB0 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	long s1c = ( nxB0 + nyB0 + nzB1 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	long s1d = ( nxB1 + nyB0 + nzB1 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	long s1e = ( nxB0 + nyB1 + nzB1 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	long s1f = ( nxB1 + nyB1 + nzB1 + nrB1 + nsB1 + ntB0 - d ) > 0;
-
-	long mask = (s00)     + (s01<<1)  + (s02<<2)  + (s03<<3)  + (s04<<4)  + (s05<<5)  +
-	            (s06<<6)  + (s07<<7)  + (s08<<8)  + (s09<<9)  + (s0a<<10) + (s0b<<11) +
-				(s0c<<12) + (s0d<<13) + (s0e<<14) + (s0f<<15) +
-			    (s10<<16) + (s11<<17) + (s12<<18) + (s13<<19) + (s14<<20) + (s15<<21) +
-			    (s16<<22) + (s17<<23) + (s18<<24) + (s19<<25) + (s1a<<26) + (s1b<<27) +
-			    (s1c<<28) + (s1d<<29) + (s1e<<30) + (s1f<<31);
-
-	return ( (mask != 0) && (mask != 4294967295L) );
-}
-
-
-// determine if 5-space with normal (nx, ny, nz, nr, ns, nt) containing point (x,y,z,r,s,t)
-// intersects box [-B,B[x[-B,B[x[-B,B[x[-B,B[x[-B,B[x[-B,B[
-inline bool fivespaceintersectsbox6d(int64_t nx, int64_t ny, int64_t nz, int64_t nr,
-	int64_t ns, int64_t nt, int x, int y, int z, int r, int s, int t, int B1, int B2,
-	int B3, int B4, int B5, int B6)
-{
-	int64_t d = nx*x + ny*y + nz*z + nr*r + ns*s + nt*t;
-
-	int64_t nxB0 = -nx*B1; int64_t nxB1 = nx*(B1-1);
-	int64_t nyB0 = -ny*B2; int64_t nyB1 = ny*(B2-1);
-	int64_t nzB0 = -nz*B3; int64_t nzB1 = nz*(B3-1);
-	int64_t nrB0 = -nr*B4; int64_t nrB1 = nr*(B4-1);
-	int64_t nsB0 = -ns*B5; int64_t nsB1 = ns*(B5-1);
-	int64_t ntB0 = -nt*B6; int64_t ntB1 = nt*(B6-1);
-
-	uint64_t s00 = ( nxB0 + nyB0 + nzB0 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s01 = ( nxB1 + nyB0 + nzB0 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s02 = ( nxB0 + nyB1 + nzB0 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s03 = ( nxB1 + nyB1 + nzB0 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s04 = ( nxB0 + nyB0 + nzB1 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s05 = ( nxB1 + nyB0 + nzB1 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s06 = ( nxB0 + nyB1 + nzB1 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s07 = ( nxB1 + nyB1 + nzB1 + nrB0 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s08 = ( nxB0 + nyB0 + nzB0 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s09 = ( nxB1 + nyB0 + nzB0 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s0a = ( nxB0 + nyB1 + nzB0 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s0b = ( nxB1 + nyB1 + nzB0 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s0c = ( nxB0 + nyB0 + nzB1 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s0d = ( nxB1 + nyB0 + nzB1 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s0e = ( nxB0 + nyB1 + nzB1 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s0f = ( nxB1 + nyB1 + nzB1 + nrB1 + nsB0 + ntB0 - d ) > 0;
-	uint64_t s10 = ( nxB0 + nyB0 + nzB0 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s11 = ( nxB1 + nyB0 + nzB0 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s12 = ( nxB0 + nyB1 + nzB0 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s13 = ( nxB1 + nyB1 + nzB0 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s14 = ( nxB0 + nyB0 + nzB1 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s15 = ( nxB1 + nyB0 + nzB1 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s16 = ( nxB0 + nyB1 + nzB1 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s17 = ( nxB1 + nyB1 + nzB1 + nrB0 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s18 = ( nxB0 + nyB0 + nzB0 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s19 = ( nxB1 + nyB0 + nzB0 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s1a = ( nxB0 + nyB1 + nzB0 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s1b = ( nxB1 + nyB1 + nzB0 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s1c = ( nxB0 + nyB0 + nzB1 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s1d = ( nxB1 + nyB0 + nzB1 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s1e = ( nxB0 + nyB1 + nzB1 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s1f = ( nxB1 + nyB1 + nzB1 + nrB1 + nsB1 + ntB0 - d ) > 0;
-	uint64_t s20 = ( nxB0 + nyB0 + nzB0 + nrB0 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s21 = ( nxB1 + nyB0 + nzB0 + nrB0 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s22 = ( nxB0 + nyB1 + nzB0 + nrB0 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s23 = ( nxB1 + nyB1 + nzB0 + nrB0 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s24 = ( nxB0 + nyB0 + nzB1 + nrB0 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s25 = ( nxB1 + nyB0 + nzB1 + nrB0 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s26 = ( nxB0 + nyB1 + nzB1 + nrB0 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s27 = ( nxB1 + nyB1 + nzB1 + nrB0 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s28 = ( nxB0 + nyB0 + nzB0 + nrB1 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s29 = ( nxB1 + nyB0 + nzB0 + nrB1 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s2a = ( nxB0 + nyB1 + nzB0 + nrB1 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s2b = ( nxB1 + nyB1 + nzB0 + nrB1 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s2c = ( nxB0 + nyB0 + nzB1 + nrB1 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s2d = ( nxB1 + nyB0 + nzB1 + nrB1 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s2e = ( nxB0 + nyB1 + nzB1 + nrB1 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s2f = ( nxB1 + nyB1 + nzB1 + nrB1 + nsB0 + ntB1 - d ) > 0;
-	uint64_t s30 = ( nxB0 + nyB0 + nzB0 + nrB0 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s31 = ( nxB1 + nyB0 + nzB0 + nrB0 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s32 = ( nxB0 + nyB1 + nzB0 + nrB0 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s33 = ( nxB1 + nyB1 + nzB0 + nrB0 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s34 = ( nxB0 + nyB0 + nzB1 + nrB0 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s35 = ( nxB1 + nyB0 + nzB1 + nrB0 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s36 = ( nxB0 + nyB1 + nzB1 + nrB0 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s37 = ( nxB1 + nyB1 + nzB1 + nrB0 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s38 = ( nxB0 + nyB0 + nzB0 + nrB1 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s39 = ( nxB1 + nyB0 + nzB0 + nrB1 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s3a = ( nxB0 + nyB1 + nzB0 + nrB1 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s3b = ( nxB1 + nyB1 + nzB0 + nrB1 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s3c = ( nxB0 + nyB0 + nzB1 + nrB1 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s3d = ( nxB1 + nyB0 + nzB1 + nrB1 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s3e = ( nxB0 + nyB1 + nzB1 + nrB1 + nsB1 + ntB1 - d ) > 0;
-	uint64_t s3f = ( nxB1 + nyB1 + nzB1 + nrB1 + nsB1 + ntB1 - d ) > 0;
-
-	uint64_t mask = (s00)     + (s01<<1)  + (s02<<2)  + (s03<<3)  + (s04<<4)  + (s05<<5)  +
-	                (s06<<6)  + (s07<<7)  + (s08<<8)  + (s09<<9)  + (s0a<<10) + (s0b<<11) +
-				    (s0c<<12) + (s0d<<13) + (s0e<<14) + (s0f<<15) +
-			        (s10<<16) + (s11<<17) + (s12<<18) + (s13<<19) + (s14<<20) + (s15<<21) +
-			        (s16<<22) + (s17<<23) + (s18<<24) + (s19<<25) + (s1a<<26) + (s1b<<27) +
-			        (s1c<<28) + (s1d<<29) + (s1e<<30) + (s1f<<31) +
-					(s20<<32) + (s21<<33) + (s22<<34) + (s23<<35) + (s24<<36) + (s25<<37) +
-	                (s26<<38) + (s27<<39) + (s28<<40) + (s29<<41) + (s2a<<42) + (s2b<<43) +
-				    (s2c<<44) + (s2d<<45) + (s2e<<46) + (s2f<<47) +
-			        (s30<<48) + (s31<<49) + (s32<<50) + (s33<<51) + (s34<<52) + (s35<<53) +
-			        (s36<<54) + (s37<<55) + (s38<<56) + (s39<<57) + (s3a<<58) + (s3b<<59) +
-			        (s3c<<60) + (s3d<<61) + (s3e<<62) + (s3f<<63);
-
-    int m = 2;
-	if (x < -m*B1 || x > m*B1 || y < -m*B2 || y > m*B2 || z < -m*B3 || z > m*B3 ||
-		r < -m*B4 || r > m*B4 || s < -m*B5 || s > m*B5 || t < -m*B6 || t > m*B6)
-		mask = 0;
-
-	return ( (mask != 0) && (mask != 18446744073709551615UL) );
-}
-
-/*
-inline void getab(int u1, int u2, int u3, int v1, int v2, int v3, int x, int y, int z, int B, int* a, int* b)
-{
-	int n1 = u3 * (u3 < 0 ? -B-x :  B-x) - u1 * (u1 < 0 ?   -z :  B-z);
-	int n2 = u1 * (u1 < 0 ? -B-y :  B-y) - u2 * (u2 < 0 ? -B-x :  B-x);
-	int n3 = u2 * (u2 < 0 ?   -z :  B-z) - u3 * (u3 < 0 ? -B-y :  B-y);
-	int m1 = u3 * (u3 < 0 ?  B-x : -B-x) - u1 * (u1 < 0 ?  B-z :   -z);
-	int m2 = u1 * (u1 < 0 ?  B-y : -B-y) - u2 * (u2 < 0 ?  B-x : -B-x);
-	int m3 = u2 * (u2 < 0 ?  B-z :   -z) - u3 * (u3 < 0 ?  B-y : -B-y);
-	int d1 = u3*v1 - u1*v3;
-	int d2 = u1*v2 - u2*v1;
-	int d3 = u2*v3 - u3*v2;
-	int b1 = d1 == 0 ? B : d1 < 0 ? n1/d1 : m1/d1;
-	int b2 = d2 == 0 ? B : d2 < 0 ? n2/d2 : m2/d2;
-	int b3 = d3 == 0 ? B : d3 < 0 ? n3/d3 : m3/d3;
-	*b = minabs(b1, b2, b3);
-	int a1 = u1 == 0 ? B : u1 < 0 ? ( -B - x - v1 * (*b) ) / u1 : ( B - x - v1 * (*b) ) / u1;
-	int a2 = u2 == 0 ? B : u2 < 0 ? ( -B - y - v2 * (*b) ) / u2 : ( B - y - v2 * (*b) ) / u2;
-	int a3 = u3 == 0 ? B : u3 < 0 ? (  0 - z - v3 * (*b) ) / u3 : ( B - z - v3 * (*b) ) / u3;
-	*a = minabs(a1, a2, a3);
-}
-*/
-
 
 // determine if plane with normal (nx, ny, nz) containing point (x,y,z) intersects box [0,B[x[-B,B[x[-B,B[
 inline bool planeintersectsbox(int nx, int ny, int nz, int x, int y, int z, int B1, int B2, int B3)
@@ -1758,19 +1433,6 @@ inline int minnonneg4d(int u, int v, int w, int t)
 }
 
 
-inline int minnonneg6d(int u, int v, int w, int r, int s, int t)
-{
-	int m = u;
-	if (m < 0) m = v; if (m < 0) m = w; if (m < 0) m = r; if (m < 0) m = s; if (m < 0) m = t;
-	if (v >= 0 && v < m) m = v;
-	if (w >= 0 && w < m) m = w;
-	if (r >= 0 && r < m) m = r;
-	if (s >= 0 && s < m) m = s;
-	if (t >= 0 && t < m) m = t;
-	return m;
-}
-
-
 inline int maxabs(int u, int v, int w)
 {
 	int m = u;
@@ -1785,14 +1447,6 @@ inline int min(int u, int v, int w)
 	int m = u;
 	if (v < m) m = v;
 	if (w < m) m = w;
-	return m;
-}
-
-
-inline int max(int u, int v)
-{
-	int m = u;
-	if (v > m) m = v;
 	return m;
 }
 

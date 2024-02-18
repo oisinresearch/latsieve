@@ -292,13 +292,13 @@ int main(int argc, char** argv)
 					int64_t x = rel[i] % B1;
 					int64_t y = ((rel[i] >> B1bits) % B2x2) - B2;
 					if (x != 0 || y != 0) {
-						if (R < 7) {
+						/*if (R < 7) {
 							// compute [a,b]
 							int64_t a = L[0]*x+L[1]*y;
 							int64_t b = L[2]*x+L[3]*y;
 							cout << "#debug: " << rel[i] << ": " << a << "," << b << ", x=" << x
 								<< ",y=" << y << endl;
-						}
+						}*/
 						R++;
 					}
 				}
@@ -367,7 +367,7 @@ int main(int argc, char** argv)
 						bool isrel = true;
 						bool cofactor = true;
 						if (mpz_cmp_ui(N0, 1) == 0) { cofactor = false; }
-						if (cofactor == false) continue;
+						//if (cofactor == false) continue;
 						str += (cofactor && p < q ? "," : "");
 						// cofactorization on side 0
 						int n = 0; while (!Q.empty()) Q.pop(); while (!QN.empty()) QN.pop();

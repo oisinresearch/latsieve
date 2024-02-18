@@ -55,7 +55,7 @@ int lass4d(int n, sievedata info, int side, int* allp, int nump,
 	keyval* M, int R, int bb);
 int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 	mpz_poly_bivariate F0, mpz_poly_bivariate F1);
-void histogram(keyval* M, uint8_t* H, uint32_t vlen, uint32_t hlen);
+void histogram(keyval* M, uint8_t* H, uint32_t vlen, uint64_t hlen);
 inline int64_t floordiv(int64_t a, int64_t b);
 inline int64_t modinv(int64_t x, int64_t m);
 inline __int128 gcd128(__int128 a, __int128 b);
@@ -352,7 +352,7 @@ int main(int argc, char** argv)
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
 	uint32_t R2 = R + 128;
-	uint64_t hlen = (R2<<bb3)+(R2<<bb2)+(R2<<bb)+R2;
+	uint64_t hlen = 1ull<<(bb*4);//(R2<<bb3)+(R2<<bb2)+(R2<<bb)+R2;
 	uint8_t* H = new uint8_t[hlen];	// histogram
 	cout << fixed << setprecision(1);
 	cout << "# Histogram will take " << hlen << " bytes (" << (double)hlen/(1l<<30) << "GB)."
@@ -413,7 +413,7 @@ int main(int argc, char** argv)
 			histogram(M, H, m, hlen);
 			int R0 = 0;
 			rel.clear();
-			for (uint32_t id = 0; id < hlen; id++) {
+			for (uint64_t id = 0; id < hlen; id++) {
 				if (H[id] > th0) {
 					rel.push_back(id);
 					R0++;/*
@@ -453,7 +453,7 @@ int main(int argc, char** argv)
 			//std::stable_sort(M, M + m, &lattice_sorter);
 			histogram(M, H, m, hlen);
 			int R1 = 0;
-			for (uint32_t id = 0; id < hlen; id++) {
+			for (uint64_t id = 0; id < hlen; id++) {
 				if (H[id] > th1) {
 					rel.push_back(id);
 					R1++;/*
@@ -479,12 +479,12 @@ int main(int argc, char** argv)
 			sort(rel.begin(), rel.end());
 			
 			// print list of potential relations
-			int R = 0;
+			int numR = 0;
 			for (int i = 0; i < rel.size()-1; i++)
 			{
 				if (rel[i] == rel[i+1] && rel[i] != 0) {
 					if (i != 0) {
-						R++;/*
+						numR++;/*
 						uint32_t id = rel[i];
 						int x = (id % B) - hB;
 						int y = ((id >> bb) % B) - hB;
@@ -502,7 +502,7 @@ int main(int argc, char** argv)
 					}
 				}
 			}
-			cout << "# " << R << " potential relations found." << endl << flush;
+			cout << "# " << numR << " potential relations found." << endl << flush;
 		   
 			// compute and factor resultants as much as possible, leave large gcd computation till later.
 			mpz_set_ui(lpb, lpb0);
@@ -510,7 +510,7 @@ int main(int argc, char** argv)
 			int BASE = 16;
 			stack<mpz_t*> QN; stack<int> Q; int algarr[3]; mpz_t* N;
 			start = clock();
-			R = 0;
+			numR = 0;
 			if (verbose) cout << "Starting cofactorization..." << endl << flush;
 			for (int i = 0; i < rel.size()-1; i++)
 			{
@@ -738,14 +738,14 @@ int main(int argc, char** argv)
 								}
 							}
 
-							if (isrel) { cout << str << endl << flush; R++; }
+							if (isrel) { cout << str << endl << flush; numR++; }
 						}
 					}
 				}
 			}
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Cofactorization took " << timetaken << "s" << endl << flush;
-			cout << "# " << R << " actual relations found." << endl << flush;
+			cout << "# " << numR << " actual relations found." << endl << flush;
 			//cout << "lpb = " << mpz_get_str(NULL, 10, lpb) << endl << flush;
 		}
 	}
@@ -789,7 +789,7 @@ int main(int argc, char** argv)
 }
 
 
-void histogram(keyval* M, uint8_t* H, uint32_t vlen, uint32_t hlen)
+void histogram(keyval* M, uint8_t* H, uint32_t vlen, uint64_t hlen)
 {
 	// clear H
 	memset(H, 0, hlen * sizeof(uint8_t));

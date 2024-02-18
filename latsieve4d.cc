@@ -1229,8 +1229,8 @@ int latsieve4d(int n, sievedata info, int side, int* allp, int nump,
 									j4 = u4 == 0 ? -1 : (u4B - t) / u4;
 									jmin = minnonneg4d(j1, j2, j3, j4);
 									for (int j = 0; j <= jmin; j++) {
-										int id = (x + B1) + ((y + B2) << B1x2bits) + ((z + B3) << B1x2xB2x2bits)
-										  + ((t + B4) << B1x2xB2x2xB3x2bits);
+										int id = (x + B1) + ((y + B2) << B1x2bits) + ((z + B3) <<
+											B1x2xB2x2bits) + ((t + B4) << B1x2xB2x2xB3x2bits);
 										M[mm++] = (keyval){ id, logp };
 										x += u1; y += u2; z += u3; t += u4;
 									}

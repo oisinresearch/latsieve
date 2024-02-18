@@ -85,6 +85,7 @@ int main (int argc, char** argv)
 			mark *= 2;
 		}
 	}
+	cout << num << " relations read." << endl;
 	cout << "all relations read.  Sorting ideals..." << flush;
 	sort(allideals.begin(), allideals.end());
 	cout << "done." << endl;
@@ -97,6 +98,12 @@ int main (int argc, char** argv)
 		list1[allideals[i]]++;
 	}
 	cout << "done." << endl;
+	
+	int numideals = 0;
+	for (int i = 0; i < maxideal+1; i++) {
+		if (list1[i] > 0) numideals++;
+	}
+	cout << "There are " << numideals << " unique ideals in total." << endl;
 	
 	bool maybeskip = true;
 
@@ -162,6 +169,7 @@ int main (int argc, char** argv)
 			mark *= 2;
 		}
 	}
+	cout << num << " relations processed." << endl;
 	fclose(out);
 	fclose(excess);
 
