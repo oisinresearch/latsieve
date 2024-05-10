@@ -55,7 +55,8 @@ int latsieve4d(int n, sievedata info, int side, int* allp, int nump,
 	keyval* M, int* B);
 int populate_q(sievedata* info, int side, mpz_poly h0, mpz_poly f0, mpz_poly f1,
 	mpz_poly_bivariate F0, mpz_poly_bivariate F1);
-void histogram(keyval*M, uint8_t* H, int len);
+//void histogram(keyval*M, uint8_t* H, int len);
+void histogram(keyval* M, uint8_t* H, uint32_t vlen, uint64_t hlen);
 bool lattice_sorter(keyval const& kv1, keyval const& kv2);
 void csort(keyval* M, keyval* L, int* H, int len);
 inline int64_t floordiv(int64_t a, int64_t b);
@@ -320,7 +321,12 @@ int main(int argc, char** argv)
 	Mlen = (uint32_t)(2.3f * Mlen);	// upper bound on number of vectors in sieve box
 	keyval* M = new keyval[Mlen];	// lattice { id, logp } pairs
 	//keyval* L = new keyval[Mlen];	// copy of M
-	uint8_t* H = new uint8_t[Mlen];	// histogram
+	uint64_t hlen = B1*2*B2*2*B3*2*B4*2;
+	uint8_t* H = new uint8_t[hlen];	// histogram
+	cout << fixed << setprecision(1);
+	cout << "# Histogram will take " << hlen << " bytes (" << (double)hlen/(1l<<30) << "GB)."
+		<< endl;
+	cout << setprecision(5);
 	vector<int> rel;
 	// clear M
 	//cout << "Clearing memory..." << endl << flush;
@@ -399,7 +405,7 @@ int main(int argc, char** argv)
 			cout << "# Constructing histogram..." << endl;
 			start = clock();
 			//std::stable_sort(M, M + m, &lattice_sorter);
-			histogram(M, H, m);
+			histogram(M, H, m, hlen);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			int R0 = 0;
@@ -421,7 +427,7 @@ int main(int argc, char** argv)
 			int64L2(L, 4);	// LLL reduce L, time log(q)^2
 			
 			rel.clear();
-			for (int i = 0; i < m; i++) {
+			for (int i = 0; i < hlen; i++) {
 				if (H[i] > th0) {
 					rel.push_back(i);
 					R0++;/*
@@ -457,11 +463,11 @@ int main(int argc, char** argv)
 			cout << "# Constructing histogram..." << endl << flush;
 			start = clock();
 			//std::stable_sort(M, M + m, &lattice_sorter);
-			histogram(M, H, m);
+			histogram(M, H, m, hlen);
 			timetaken = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 			cout << "# Finished! Time taken: " << timetaken << "s" << endl << flush;
 			int R1 = 0;
-			for (int i = 0; i < m; i++) {
+			for (int i = 0; i < hlen; i++) {
 				if (H[i] > th1) {
 					rel.push_back(i);
 					R1++;/*
@@ -793,12 +799,12 @@ int main(int argc, char** argv)
 }
 
 
-void histogram(keyval*M, uint8_t* H, int len)
+void histogram(keyval* M, uint8_t* H, uint32_t vlen, uint64_t hlen)
 {
 	// clear H
-	memset(H, 0, len * sizeof(uint8_t));
+	memset(H, 0, hlen * sizeof(uint8_t));
 	// fill H
-	for (int i = 0; i < len; i++) {
+	for (int i = 0; i < vlen; i++) {
 		H[M[i].id] += M[i].logp;
 	}
 }
