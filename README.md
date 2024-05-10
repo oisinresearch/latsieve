@@ -23,6 +23,6 @@ for the moment, this is the raw original.
 
 ### License
 &copy; 2024, Oisin Robinson.
-This work is published under the GNU General Pupblic License (GPL) v3.0.
-SEE the LICENSE file for complete statement.
+This work is published under the GNU General Public License (GPL) v3.0.
+See the LICENSE file for complete statement.
 
